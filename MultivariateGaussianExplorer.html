@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Multivariate Gaussian Explorer</title>
+<meta name="description" content="An interactive guide to the multivariate Gaussian: its equation, its properties, and what conditioning and marginalizing actually do to it." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+
+<style>
+  :root{
+    --bg:#10171F;
+    --bg-panel:#161F28;
+    --bg-canvas:#131B23;
+    --line:#28323D;
+    --text:#ECEEF1;
+    --text-dim:#8B94A3;
+    --teal:#4FA8A0;
+    --gold:#E3A857;
+    --serif:'Fraunces', Georgia, serif;
+    --sans:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono:'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:var(--sans); line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:0 24px;}
+  a{color:var(--gold);}
+
+  header.hero{padding:96px 0 56px;}
+  h1{
+    font-family:var(--serif); font-weight:500; font-size:clamp(2rem,4.4vw,3.05rem);
+    line-height:1.1; letter-spacing:-0.01em; max-width:17ch; margin:0 0 22px;
+  }
+  .lede{font-size:1.15rem; color:var(--text-dim); max-width:62ch; margin:0;}
+
+  .section{padding:60px 0; border-top:1px solid var(--line);}
+  h2{font-family:var(--serif); font-weight:500; font-size:1.8rem; margin:0 0 18px;}
+  .section-intro{color:var(--text-dim); max-width:72ch; margin:-4px 0 32px; font-size:1.02rem;}
+
+  .eq-block{
+    background:var(--bg-panel); border:1px solid var(--line); padding:34px 24px;
+    overflow-x:auto; text-align:center; margin-bottom:28px;
+  }
+  .eq-block.small{padding:22px 18px; margin-bottom:16px; text-align:left;}
+
+  dl.legend{display:grid; grid-template-columns:1fr 1fr; gap:0 32px; margin:0;}
+  dl.legend > div{
+    border-top:1px solid var(--line); padding:14px 0;
+    display:grid; grid-template-columns:auto 1fr; gap:16px; align-items:baseline;
+  }
+  dl.legend dt{font-family:var(--serif); font-style:italic; white-space:nowrap; margin:0;}
+  dl.legend dd{margin:0; color:var(--text-dim); font-size:0.95rem;}
+  @media (max-width:700px){ dl.legend{grid-template-columns:1fr;} }
+
+  /* explorer */
+  .explorer-grid{display:grid; grid-template-columns:280px 1fr; gap:36px; align-items:start;}
+  @media (max-width:900px){ .explorer-grid{grid-template-columns:1fr;} }
+
+  .controls{display:flex; flex-direction:column; gap:22px;}
+  .control-group h3{
+    font-family:var(--serif); font-style:italic; font-weight:400; font-size:0.95rem;
+    color:var(--text-dim); margin:0 0 10px;
+  }
+  .control-group label{display:block; margin-bottom:14px;}
+  .control-group label:last-child{margin-bottom:0;}
+  .label-row{display:flex; justify-content:space-between; font-size:0.88rem; margin-bottom:5px;}
+  .readout{font-family:var(--mono); color:var(--gold); font-size:0.85rem;}
+
+  input[type=range]{
+    -webkit-appearance:none; appearance:none; width:100%; height:4px;
+    background:var(--line); border-radius:2px; outline:none; display:block;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%;
+    background:var(--gold); border:2px solid var(--bg); cursor:pointer; margin-top:-5px;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%; background:var(--gold); border:2px solid var(--bg); cursor:pointer;
+  }
+  input[type=range]::-moz-range-track{height:4px; background:var(--line); border-radius:2px;}
+  input[type=range]:focus-visible,
+  button:focus-visible,
+  input[type=checkbox]:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
+  .presets{display:flex; flex-wrap:wrap; gap:8px;}
+  .presets button{
+    background:transparent; border:1px solid var(--line); color:var(--text);
+    font-family:var(--sans); font-size:0.8rem; padding:7px 12px; cursor:pointer;
+    transition:border-color .15s, color .15s;
+  }
+  .presets button:hover{border-color:var(--gold); color:var(--gold);}
+
+  .checkbox-row{display:flex; align-items:center; gap:8px; font-size:0.9rem; margin-bottom:12px;}
+  .checkbox-row input{accent-color:var(--gold); width:15px; height:15px;}
+  .x0-row label{margin-bottom:5px;}
+
+  .readout-block{border-top:1px solid var(--line); padding-top:16px;}
+  .readout-block h3{
+    font-family:var(--serif); font-style:italic; font-weight:400; font-size:0.95rem;
+    color:var(--text-dim); margin:0 0 10px;
+  }
+  .matrix{
+    display:grid; grid-template-columns:1fr 1fr; gap:5px 22px; font-family:var(--mono);
+    font-size:0.9rem; padding:6px 16px; border-left:2px solid var(--line);
+    border-right:2px solid var(--line); width:max-content; margin:4px 0 12px;
+  }
+  .stat-line{font-size:0.88rem; color:var(--text-dim); margin:5px 0;}
+  .stat-line strong{color:var(--gold); font-family:var(--mono); font-weight:500;}
+  .takeaway{color:var(--text); margin-top:10px;}
+
+  .plot-area{display:flex; gap:20px; overflow-x:auto; padding-bottom:6px;}
+  .plot-core{
+    display:grid; grid-template-columns:70px 460px; grid-template-rows:70px 460px;
+    gap:6px; flex-shrink:0;
+  }
+  .strip-wrap{position:relative; flex-shrink:0;}
+  .strip-wrap canvas, .main-wrap canvas{display:block; background:var(--bg-canvas);}
+  .strip-label{
+    position:absolute; top:6px; left:6px; font-family:var(--mono); font-size:0.65rem;
+    color:var(--text-dim); pointer-events:none; letter-spacing:0.01em;
+  }
+  .strip-wrap.left .strip-label,
+  .strip-wrap.cond .strip-label{writing-mode:vertical-rl;}
+  .strip-wrap.cond{margin-top:76px;}
+
+  .explorer-footnotes{margin-top:16px; font-size:0.85rem; color:var(--text-dim); max-width:74ch;}
+  .domain-caption{font-family:var(--mono); margin-top:4px; font-size:0.8rem;}
+
+  body.conditioning-off .x0-row{display:none;}
+  body.conditioning-off #condPanel{display:none;}
+  body.conditioning-off #condMathBlock{display:none;}
+
+  /* properties */
+  .prop-list{display:grid; grid-template-columns:1fr 1fr; gap:0 40px;}
+  .prop{border-top:1px solid var(--line); padding:20px 0;}
+  .prop h3{font-family:var(--serif); font-weight:500; font-size:1.05rem; margin:0 0 6px;}
+  .prop p{margin:0; color:var(--text-dim); font-size:0.95rem;}
+  @media (max-width:800px){ .prop-list{grid-template-columns:1fr;} }
+
+  /* deep dive */
+  .compare-grid{display:grid; grid-template-columns:1fr 1fr; gap:36px; margin-top:8px;}
+  .compare-col h3{font-family:var(--serif); font-weight:500; font-size:1.15rem; margin:0 0 14px;}
+  .compare-col p{color:var(--text-dim); font-size:0.95rem;}
+  .closing-note{margin-top:36px; color:var(--text-dim); font-size:0.98rem; max-width:76ch;}
+  @media (max-width:800px){ .compare-grid{grid-template-columns:1fr;} }
+
+  footer{padding:44px 0 64px; border-top:1px solid var(--line); color:var(--text-dim); font-size:0.9rem;}
+
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important;} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="hero">
+    <h1>One equation, every shape of joint uncertainty</h1>
+    <p class="lede">The multivariate Gaussian is the rare distribution where slicing it, averaging over part of it, or adding it to another copy of itself never produces anything but more Gaussians. Adjust the controls below and watch why that holds.</p>
+  </header>
+
+  <section class="section" id="equation">
+    <h2>The density function</h2>
+    <div class="eq-block">
+      $$ \mathcal{N}(\mathbf{y}\mid\boldsymbol\mu,\boldsymbol\Sigma) \;=\; \frac{1}{(2\pi)^{D/2}\,|\boldsymbol\Sigma|^{1/2}} \, \exp\!\left(-\frac{1}{2}(\mathbf{y}-\boldsymbol\mu)^{\!\top}\boldsymbol\Sigma^{-1}(\mathbf{y}-\boldsymbol\mu)\right) $$
+    </div>
+    <dl class="legend">
+      <div><dt>$D$</dt><dd>the dimension — how many correlated variables sit in the vector $\mathbf{y}$.</dd></div>
+      <div><dt>$\boldsymbol\mu$</dt><dd>the mean vector, one entry per dimension — where the distribution is centered.</dd></div>
+      <div><dt>$\boldsymbol\Sigma$</dt><dd>the covariance matrix — variances on the diagonal, covariances off it.</dd></div>
+      <div><dt>$|\boldsymbol\Sigma|$</dt><dd>the determinant of $\boldsymbol\Sigma$ — the "volume" the distribution occupies, and exactly what the normalizer needs to keep the density integrating to 1.</dd></div>
+      <div><dt>$\boldsymbol\Sigma^{-1}$</dt><dd>the precision matrix — its off-diagonal entries reveal which variables stay dependent once every other variable is already known.</dd></div>
+      <div><dt>$(\mathbf{y}-\boldsymbol\mu)^{\top}\boldsymbol\Sigma^{-1}(\mathbf{y}-\boldsymbol\mu)$</dt><dd>the squared Mahalanobis distance — a z-score that accounts for correlation. Every point at the same value sits on the same elliptical shell.</dd></div>
+    </dl>
+  </section>
+
+  <section class="section" id="explorer">
+    <h2>Play with a 2-D Gaussian</h2>
+    <p class="section-intro">Two correlated variables, $X$ and $Y$, are the smallest case where everything above is already interesting. The heat map is the joint density, the two strips are its marginals, and the panel on the right is what you know about $Y$ once you've learned $X$.</p>
+
+    <div class="explorer-grid">
+      <div class="controls">
+        <div class="control-group">
+          <h3>X</h3>
+          <label>
+            <div class="label-row"><span>mean $\mu_X$</span><span class="readout" data-out="mux"></span></div>
+            <input type="range" id="mux" min="-3" max="3" step="0.1" value="0.6">
+          </label>
+          <label>
+            <div class="label-row"><span>std. dev. $\sigma_X$</span><span class="readout" data-out="sx"></span></div>
+            <input type="range" id="sx" min="0.3" max="2.5" step="0.05" value="1.3">
+          </label>
+        </div>
+
+        <div class="control-group">
+          <h3>Y</h3>
+          <label>
+            <div class="label-row"><span>mean $\mu_Y$</span><span class="readout" data-out="muy"></span></div>
+            <input type="range" id="muy" min="-3" max="3" step="0.1" value="-0.3">
+          </label>
+          <label>
+            <div class="label-row"><span>std. dev. $\sigma_Y$</span><span class="readout" data-out="sy"></span></div>
+            <input type="range" id="sy" min="0.3" max="2.5" step="0.05" value="0.8">
+          </label>
+        </div>
+
+        <div class="control-group">
+          <h3>Correlation</h3>
+          <label>
+            <div class="label-row"><span>$\rho$</span><span class="readout" data-out="rho"></span></div>
+            <input type="range" id="rho" min="-0.95" max="0.95" step="0.01" value="0.6">
+          </label>
+        </div>
+
+        <div class="presets">
+          <button type="button" data-preset="independent">Independent</button>
+          <button type="button" data-preset="positive">Strong positive</button>
+          <button type="button" data-preset="negative">Strong negative</button>
+          <button type="button" data-preset="reset">Reset</button>
+        </div>
+
+        <div class="control-group condition-toggle">
+          <label class="checkbox-row">
+            <input type="checkbox" id="condToggle" checked>
+            <span>condition on $X=x_0$</span>
+          </label>
+          <div class="x0-row">
+            <label>
+              <div class="label-row"><span>$x_0$</span><span class="readout" data-out="x0"></span></div>
+              <input type="range" id="x0" min="-3" max="3" step="0.1" value="0.6">
+            </label>
+          </div>
+        </div>
+
+        <div class="readout-block">
+          <h3>Covariance matrix $\boldsymbol\Sigma$</h3>
+          <div class="matrix" id="sigmaMatrix"></div>
+          <p class="stat-line">$|\boldsymbol\Sigma| = $ <strong id="detOut"></strong></p>
+        </div>
+
+        <div class="readout-block" id="condMathBlock">
+          <h3>Conditional $p(Y\mid X{=}x_0)$</h3>
+          <p class="stat-line" id="condMeanLine"></p>
+          <p class="stat-line" id="condVarLine"></p>
+          <p class="stat-line takeaway" id="condTakeaway"></p>
+        </div>
+      </div>
+
+      <div>
+        <div class="plot-area">
+          <div class="plot-core">
+            <div></div>
+            <div class="strip-wrap top">
+              <span class="strip-label">marginal p(X)</span>
+              <canvas id="topStrip" width="460" height="70"></canvas>
+            </div>
+            <div class="strip-wrap left">
+              <span class="strip-label">marginal p(Y)</span>
+              <canvas id="leftStrip" width="70" height="460"></canvas>
+            </div>
+            <div class="main-wrap">
+              <canvas id="mainPlot" width="460" height="460"></canvas>
+            </div>
+          </div>
+          <div class="strip-wrap cond" id="condPanel">
+            <span class="strip-label">p(Y | X=x0)</span>
+            <canvas id="condStrip" width="130" height="460"></canvas>
+          </div>
+        </div>
+        <div class="explorer-footnotes">
+          <p>Lighter regions of the heat map are higher joint density. The three outlines are the 50%, 90%, and 99% probability contours. The dashed cross marks the axes $X{=}0$ and $Y{=}0$, so you can see the whole shape move as you change the means.</p>
+          <p class="domain-caption" id="domainCaption"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="properties">
+    <h2>Properties worth knowing cold</h2>
+    <div class="prop-list">
+      <div class="prop">
+        <h3>Closed under marginalization</h3>
+        <p>Integrate any subset of variables out and what's left is still Gaussian, with mean and covariance read directly off the original $\mu$ and $\Sigma$ — no integral to actually solve.</p>
+      </div>
+      <div class="prop">
+        <h3>Closed under conditioning</h3>
+        <p>Fix any subset of variables to observed values and the distribution over the rest is Gaussian again, with a shifted mean and a covariance that can only shrink.</p>
+      </div>
+      <div class="prop">
+        <h3>Closed under affine transformation</h3>
+        <p>If $\mathbf{y}$ is Gaussian, so is $A\mathbf{y}+b$ for any matrix $A$ and vector $b$. Linear combinations and projections of a Gaussian stay Gaussian.</p>
+      </div>
+      <div class="prop">
+        <h3>Uncorrelated means independent</h3>
+        <p>For jointly Gaussian variables, zero covariance implies independence — a shortcut that fails for almost every other family of distributions.</p>
+      </div>
+      <div class="prop">
+        <h3>Fully described by two moments</h3>
+        <p>The mean vector and covariance matrix are the whole story. No skew, no kurtosis, no extra shape parameters to fit.</p>
+      </div>
+      <div class="prop">
+        <h3>Elliptical contours</h3>
+        <p>Every level set of the density is an ellipsoid centered at $\mu$, with axes along the eigenvectors of $\Sigma$ and lengths set by the square roots of its eigenvalues.</p>
+      </div>
+      <div class="prop">
+        <h3>Maximum entropy for its moments</h3>
+        <p>Among every distribution with a given mean and covariance, the Gaussian is the one that assumes the least beyond those two facts.</p>
+      </div>
+      <div class="prop">
+        <h3>Sums stay Gaussian</h3>
+        <p>Add two independent Gaussian vectors, or take any linear combination of jointly Gaussian variables, and the result is Gaussian, with variances and covariances simply adding.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="deepdive">
+    <h2>Conditioning vs. marginalizing</h2>
+    <p class="section-intro">Split $\mathbf{y}$ into two blocks, $\mathbf{y}_a$ and $\mathbf{y}_b$, and partition $\mu$ and $\Sigma$ to match: $\boldsymbol\mu=(\boldsymbol\mu_a,\boldsymbol\mu_b)$ and $\boldsymbol\Sigma=\begin{pmatrix}\boldsymbol\Sigma_{aa} & \boldsymbol\Sigma_{ab}\\ \boldsymbol\Sigma_{ba} & \boldsymbol\Sigma_{bb}\end{pmatrix}$. Marginalizing asks what $y_a$ looks like on its own, averaged over every possible $y_b$. Conditioning asks what $y_a$ looks like once $y_b$ is pinned to one observed value. Different questions, both with Gaussian answers.</p>
+
+    <div class="compare-grid">
+      <div class="compare-col">
+        <h3>Marginalizing out $y_b$</h3>
+        <div class="eq-block small">$$ p(\mathbf{y}_a) = \mathcal{N}(\mathbf{y}_a \mid \boldsymbol\mu_a,\; \boldsymbol\Sigma_{aa}) $$</div>
+        <p>To marginalize, delete the rows and columns belonging to the other variables. That's it — no computation beyond bookkeeping, because the sub-vector and sub-matrix you keep already are the marginal's mean and covariance.</p>
+      </div>
+      <div class="compare-col">
+        <h3>Conditioning on $y_b$</h3>
+        <div class="eq-block small">$$ p(\mathbf{y}_a \mid \mathbf{y}_b) = \mathcal{N}\!\big(\mathbf{y}_a \mid \boldsymbol\mu_a+\boldsymbol\Sigma_{ab}\boldsymbol\Sigma_{bb}^{-1}(\mathbf{y}_b-\boldsymbol\mu_b),\;\; \boldsymbol\Sigma_{aa}-\boldsymbol\Sigma_{ab}\boldsymbol\Sigma_{bb}^{-1}\boldsymbol\Sigma_{ba}\big) $$</div>
+        <p>The mean shifts away from $\mu_a$ in proportion to how far $y_b$ landed from its own mean, scaled by how strongly the blocks covary. The covariance term, $\boldsymbol\Sigma_{ab}\boldsymbol\Sigma_{bb}^{-1}\boldsymbol\Sigma_{ba}$, is always positive semi-definite, which is why observing $y_b$ never increases uncertainty about $y_a$ — it can only hold it steady or shrink it.</p>
+      </div>
+    </div>
+
+    <p class="closing-note">One more piece worth keeping: the inverse of $\boldsymbol\Sigma$, the precision matrix $\boldsymbol\Lambda=\boldsymbol\Sigma^{-1}$, has the same block structure. Its $\boldsymbol\Lambda_{aa}$ block turns out to be exactly the inverse of the conditional covariance above — the identity that makes Gaussian graphical models work. A zero entry in $\boldsymbol\Lambda$ means those two variables are independent once everything else is known, which is a stronger statement than an entry of $\boldsymbol\Sigma$ being zero, which only rules out marginal correlation.</p>
+  </section>
+
+  <footer>
+    <p>This page is one self-contained HTML file — no build step, no dependencies beyond two font files and KaTeX loaded from a CDN — so it's ready to drop straight into a GitHub Pages repository.</p>
+  </footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+  if (window.renderMathInElement) {
+    renderMathInElement(document.body, {
+      delimiters: [
+        {left: "$$", right: "$$", display: true},
+        {left: "$", right: "$", display: false}
+      ],
+      throwOnError: false
+    });
+  }
+</script>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- constants ----
+  var M = 460;   // main canvas size (px)
+  var S = 70;    // marginal strip thickness (px)
+  var C = 130;   // conditional panel width (px)
+  var TEAL = [79,168,160];
+  var GOLD = [227,168,87];
+
+  // confidence-region radii: P(Mahalanobis^2 <= c) = 1 - exp(-c/2) for 2 dof,
+  // so c = -2*ln(1-p) and the ellipse semi-axis scale factor is r = sqrt(c).
+  var R50 = Math.sqrt(-2*Math.log(1-0.50));
+  var R90 = Math.sqrt(-2*Math.log(1-0.90));
+  var R99 = Math.sqrt(-2*Math.log(1-0.99));
+
+  // ---- DOM refs ----
+  var el = {};
+  ["mux","sx","muy","sy","rho","x0","condToggle"].forEach(function(id){
+    el[id] = document.getElementById(id);
+  });
+  var outs = {};
+  ["mux","sx","muy","sy","rho","x0"].forEach(function(id){
+    outs[id] = document.querySelector('[data-out="'+id+'"]');
+  });
+
+  var mainCanvas = document.getElementById("mainPlot");
+  var topCanvas  = document.getElementById("topStrip");
+  var leftCanvas = document.getElementById("leftStrip");
+  var condCanvas = document.getElementById("condStrip");
+  var mainCtx = mainCanvas.getContext("2d");
+  var topCtx  = topCanvas.getContext("2d");
+  var leftCtx = leftCanvas.getContext("2d");
+  var condCtx = condCanvas.getContext("2d");
+
+  var sigmaMatrixEl = document.getElementById("sigmaMatrix");
+  var detOutEl = document.getElementById("detOut");
+  var condMeanLineEl = document.getElementById("condMeanLine");
+  var condVarLineEl = document.getElementById("condVarLine");
+  var condTakeawayEl = document.getElementById("condTakeaway");
+  var domainCaptionEl = document.getElementById("domainCaption");
+
+  // ---- math helpers ----
+  function gaussian1d(x, mu, variance){
+    return Math.exp(-0.5*(x-mu)*(x-mu)/variance) / Math.sqrt(2*Math.PI*variance);
+  }
+
+  function density2d(x, y, s){
+    var dx = x - s.mux, dy = y - s.muy;
+    var zx = dx / s.sx, zy = dy / s.sy;
+    var omr2 = 1 - s.rho*s.rho;
+    var m2 = (zx*zx - 2*s.rho*zx*zy + zy*zy) / omr2;
+    var norm = 1 / (2*Math.PI*s.sx*s.sy*Math.sqrt(omr2));
+    return norm * Math.exp(-0.5*m2);
+  }
+
+  function stats(s){
+    var a = s.sx*s.sx, d = s.sy*s.sy, b = s.rho*s.sx*s.sy;
+    var det = a*d - b*b;
+    var tr = a + d, diff = (a - d)/2;
+    var rt = Math.sqrt(diff*diff + b*b);
+    var lambda1 = tr/2 + rt, lambda2 = tr/2 - rt;
+    var theta = 0.5 * Math.atan2(2*b, a - d);
+    return {a:a, d:d, b:b, det:det, lambda1:lambda1, lambda2:lambda2, theta:theta};
+  }
+
+  function getBounds(s, st){
+    var maxSD = Math.sqrt(Math.max(st.lambda1, st.lambda2, 1e-6));
+    var half = Math.max(3.6*maxSD, 3.0);
+    return {xMin:s.mux-half, xMax:s.mux+half, yMin:s.muy-half, yMax:s.muy+half};
+  }
+
+  function toPx(x, y, b){
+    var px = (x - b.xMin) / (b.xMax - b.xMin) * M;
+    var py = M - (y - b.yMin) / (b.yMax - b.yMin) * M;
+    return [px, py];
+  }
+
+  function yToPx(y, b){
+    return M - (y - b.yMin) / (b.yMax - b.yMin) * M;
+  }
+
+  function colorForT(t){
+    t = Math.min(1, Math.max(0, t));
+    var r = TEAL[0] + (GOLD[0]-TEAL[0])*t;
+    var g = TEAL[1] + (GOLD[1]-TEAL[1])*t;
+    var b = TEAL[2] + (GOLD[2]-TEAL[2])*t;
+    var a = Math.pow(t, 0.55);
+    return [r,g,b,a];
+  }
+
+  // ---- state ----
+  function getState(){
+    return {
+      mux: parseFloat(el.mux.value),
+      sx:  parseFloat(el.sx.value),
+      muy: parseFloat(el.muy.value),
+      sy:  parseFloat(el.sy.value),
+      rho: parseFloat(el.rho.value),
+      x0:  parseFloat(el.x0.value),
+      condOn: el.condToggle.checked
+    };
+  }
+
+  // ---- drawing: main plot ----
+  function drawHeatmap(ctx, s, b){
+    var N = 110;
+    var off = document.createElement("canvas");
+    off.width = N; off.height = N;
+    var octx = off.getContext("2d");
+    var img = octx.createImageData(N, N);
+    var fmax = density2d(s.mux, s.muy, s);
+    for (var j=0; j<N; j++){
+      var yw = b.yMax - (j+0.5)/N*(b.yMax-b.yMin);
+      for (var i=0; i<N; i++){
+        var xw = b.xMin + (i+0.5)/N*(b.xMax-b.xMin);
+        var t = density2d(xw, yw, s) / fmax;
+        var c = colorForT(t);
+        var idx = (j*N+i)*4;
+        img.data[idx]   = c[0];
+        img.data[idx+1] = c[1];
+        img.data[idx+2] = c[2];
+        img.data[idx+3] = c[3]*255;
+      }
+    }
+    octx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(off, 0, 0, N, N, 0, 0, M, M);
+  }
+
+  function drawAxes(ctx, b){
+    ctx.save();
+    ctx.strokeStyle = "rgba(237,239,242,0.25)";
+    ctx.setLineDash([4,4]);
+    ctx.lineWidth = 1;
+    if (b.xMin < 0 && b.xMax > 0){
+      var px0 = (0 - b.xMin)/(b.xMax-b.xMin)*M;
+      ctx.beginPath(); ctx.moveTo(px0,0); ctx.lineTo(px0,M); ctx.stroke();
+    }
+    if (b.yMin < 0 && b.yMax > 0){
+      var py0 = yToPx(0, b);
+      ctx.beginPath(); ctx.moveTo(0,py0); ctx.lineTo(M,py0); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawEllipse(ctx, s, st, b, r, color, width){
+    var cx = s.mux, cy = s.muy;
+    var cos = Math.cos(st.theta), sin = Math.sin(st.theta);
+    var a1 = r*Math.sqrt(Math.max(st.lambda1,0));
+    var a2 = r*Math.sqrt(Math.max(st.lambda2,0));
+    ctx.beginPath();
+    var steps = 72;
+    for (var k=0; k<=steps; k++){
+      var t = k/steps*2*Math.PI;
+      var ex = a1*Math.cos(t), ey = a2*Math.sin(t);
+      var wx = cx + ex*cos - ey*sin;
+      var wy = cy + ex*sin + ey*cos;
+      var p = toPx(wx, wy, b);
+      if (k===0) ctx.moveTo(p[0],p[1]); else ctx.lineTo(p[0],p[1]);
+    }
+    ctx.closePath();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.stroke();
+  }
+
+  function drawMean(ctx, s, b){
+    var p = toPx(s.mux, s.muy, b);
+    ctx.save();
+    ctx.fillStyle = "#10171F";
+    ctx.strokeStyle = "#EDEFF2";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(p[0],p[1],4,0,2*Math.PI); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawSlice(ctx, s, b){
+    var px = (s.x0 - b.xMin)/(b.xMax-b.xMin)*M;
+    ctx.save();
+    ctx.strokeStyle = "#E3A857";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(px,0); ctx.lineTo(px,M); ctx.stroke();
+    ctx.restore();
+  }
+
+  function renderMain(s, st, b){
+    mainCtx.fillStyle = "#131B23";
+    mainCtx.fillRect(0,0,M,M);
+    drawHeatmap(mainCtx, s, b);
+    drawAxes(mainCtx, b);
+    drawEllipse(mainCtx, s, st, b, R50, "rgba(237,239,242,0.85)", 1.25);
+    drawEllipse(mainCtx, s, st, b, R90, "rgba(237,239,242,0.55)", 1);
+    drawEllipse(mainCtx, s, st, b, R99, "rgba(237,239,242,0.32)", 1);
+    drawMean(mainCtx, s, b);
+    if (s.condOn) drawSlice(mainCtx, s, b);
+  }
+
+  // ---- drawing: marginal / conditional strips ----
+  function renderTopStrip(s, b){
+    topCtx.fillStyle = "#131B23";
+    topCtx.fillRect(0,0,M,S);
+    var variance = s.sx*s.sx;
+    var fmax = gaussian1d(s.mux, s.mux, variance);
+    var pts = [];
+    for (var i=0; i<=M; i++){
+      var xw = b.xMin + i/M*(b.xMax-b.xMin);
+      var norm = gaussian1d(xw, s.mux, variance) / fmax;
+      pts.push([i, S - norm*(S-10)]);
+    }
+    topCtx.beginPath();
+    topCtx.moveTo(0,S);
+    pts.forEach(function(p){ topCtx.lineTo(p[0],p[1]); });
+    topCtx.lineTo(M,S);
+    topCtx.closePath();
+    topCtx.fillStyle = "rgba(79,168,160,0.35)";
+    topCtx.fill();
+    topCtx.beginPath();
+    pts.forEach(function(p,k){ if (k===0) topCtx.moveTo(p[0],p[1]); else topCtx.lineTo(p[0],p[1]); });
+    topCtx.strokeStyle = "#4FA8A0";
+    topCtx.lineWidth = 1.5;
+    topCtx.stroke();
+    topCtx.strokeStyle = "rgba(237,239,242,0.3)";
+    topCtx.lineWidth = 1;
+    topCtx.beginPath(); topCtx.moveTo(0,S-0.5); topCtx.lineTo(M,S-0.5); topCtx.stroke();
+  }
+
+  function renderLeftStrip(s, b){
+    leftCtx.fillStyle = "#131B23";
+    leftCtx.fillRect(0,0,S,M);
+    var variance = s.sy*s.sy;
+    var fmax = gaussian1d(s.muy, s.muy, variance);
+    var pts = [];
+    for (var j=0; j<=M; j++){
+      var yw = b.yMax - j/M*(b.yMax-b.yMin);
+      var norm = gaussian1d(yw, s.muy, variance) / fmax;
+      pts.push([S - norm*(S-10), j]);
+    }
+    leftCtx.beginPath();
+    leftCtx.moveTo(S,0);
+    pts.forEach(function(p){ leftCtx.lineTo(p[0],p[1]); });
+    leftCtx.lineTo(S,M);
+    leftCtx.closePath();
+    leftCtx.fillStyle = "rgba(79,168,160,0.35)";
+    leftCtx.fill();
+    leftCtx.beginPath();
+    pts.forEach(function(p,k){ if (k===0) leftCtx.moveTo(p[0],p[1]); else leftCtx.lineTo(p[0],p[1]); });
+    leftCtx.strokeStyle = "#4FA8A0";
+    leftCtx.lineWidth = 1.5;
+    leftCtx.stroke();
+    leftCtx.strokeStyle = "rgba(237,239,242,0.3)";
+    leftCtx.lineWidth = 1;
+    leftCtx.beginPath(); leftCtx.moveTo(S-0.5,0); leftCtx.lineTo(S-0.5,M); leftCtx.stroke();
+  }
+
+  function renderCondStrip(s, b, condMean, condVar){
+    condCtx.fillStyle = "#131B23";
+    condCtx.fillRect(0,0,C,M);
+    var fmax = gaussian1d(condMean, condMean, condVar);
+    var pts = [];
+    for (var j=0; j<=M; j++){
+      var yw = b.yMax - j/M*(b.yMax-b.yMin);
+      var norm = gaussian1d(yw, condMean, condVar) / fmax;
+      pts.push([norm*(C-10), j]);
+    }
+    condCtx.beginPath();
+    condCtx.moveTo(0,0);
+    pts.forEach(function(p){ condCtx.lineTo(p[0],p[1]); });
+    condCtx.lineTo(0,M);
+    condCtx.closePath();
+    condCtx.fillStyle = "rgba(227,168,87,0.35)";
+    condCtx.fill();
+    condCtx.beginPath();
+    pts.forEach(function(p,k){ if (k===0) condCtx.moveTo(p[0],p[1]); else condCtx.lineTo(p[0],p[1]); });
+    condCtx.strokeStyle = "#E3A857";
+    condCtx.lineWidth = 1.5;
+    condCtx.stroke();
+    condCtx.strokeStyle = "rgba(237,239,242,0.3)";
+    condCtx.lineWidth = 1;
+    condCtx.beginPath(); condCtx.moveTo(0.5,0); condCtx.lineTo(0.5,M); condCtx.stroke();
+
+    var py = yToPx(condMean, b);
+    condCtx.save();
+    condCtx.strokeStyle = "rgba(237,239,242,0.5)";
+    condCtx.setLineDash([3,3]);
+    condCtx.lineWidth = 1;
+    condCtx.beginPath(); condCtx.moveTo(0,py); condCtx.lineTo(C,py); condCtx.stroke();
+    condCtx.restore();
+  }
+
+  // ---- readouts ----
+  function updateReadouts(s, st, b){
+    outs.mux.textContent = s.mux.toFixed(2);
+    outs.sx.textContent  = s.sx.toFixed(2);
+    outs.muy.textContent = s.muy.toFixed(2);
+    outs.sy.textContent  = s.sy.toFixed(2);
+    outs.rho.textContent = s.rho.toFixed(2);
+    outs.x0.textContent  = s.x0.toFixed(2);
+
+    sigmaMatrixEl.innerHTML =
+      "<span>" + st.a.toFixed(2) + "</span><span>" + st.b.toFixed(2) + "</span>" +
+      "<span>" + st.b.toFixed(2) + "</span><span>" + st.d.toFixed(2) + "</span>";
+    detOutEl.textContent = st.det.toFixed(3);
+
+    if (s.condOn){
+      var condMean = s.muy + s.rho*(s.sy/s.sx)*(s.x0 - s.mux);
+      var condVar = s.sy*s.sy*(1 - s.rho*s.rho);
+      var pctDrop = (1 - condVar/(s.sy*s.sy))*100;
+      condMeanLineEl.innerHTML =
+        "&mu; = " + s.muy.toFixed(2) + " + " + s.rho.toFixed(2) + "&times;(" +
+        s.sy.toFixed(2) + "/" + s.sx.toFixed(2) + ")&times;(" + s.x0.toFixed(2) + " &minus; " +
+        s.mux.toFixed(2) + ") = <strong>" + condMean.toFixed(2) + "</strong>";
+      condVarLineEl.innerHTML =
+        "&sigma;&sup2; = " + s.sy.toFixed(2) + "&sup2; &times; (1 &minus; " + s.rho.toFixed(2) +
+        "&sup2;) = <strong>" + condVar.toFixed(2) + "</strong>";
+      condTakeawayEl.textContent =
+        "Learning X = " + s.x0.toFixed(2) + " cut the variance of Y by " + pctDrop.toFixed(0) + "%.";
+      return {condMean: condMean, condVar: condVar};
+    }
+    return null;
+  }
+
+  // ---- orchestration ----
+  function render(){
+    var s = getState();
+    var st = stats(s);
+    var b = getBounds(s, st);
+
+    var x0min = s.mux - 3.4*s.sx, x0max = s.mux + 3.4*s.sx;
+    el.x0.min = x0min.toFixed(2);
+    el.x0.max = x0max.toFixed(2);
+    if (parseFloat(el.x0.value) < x0min) el.x0.value = x0min.toFixed(2);
+    if (parseFloat(el.x0.value) > x0max) el.x0.value = x0max.toFixed(2);
+    s.x0 = parseFloat(el.x0.value);
+
+    document.body.classList.toggle("conditioning-off", !s.condOn);
+
+    renderMain(s, st, b);
+    renderTopStrip(s, b);
+    renderLeftStrip(s, b);
+
+    var cond = updateReadouts(s, st, b);
+    if (s.condOn && cond){
+      renderCondStrip(s, b, cond.condMean, cond.condVar);
+    }
+
+    domainCaptionEl.textContent =
+      "shown range \u2014 X: [" + b.xMin.toFixed(1) + ", " + b.xMax.toFixed(1) + "]   Y: [" +
+      b.yMin.toFixed(1) + ", " + b.yMax.toFixed(1) + "]";
+  }
+
+  // ---- wiring ----
+  ["mux","sx","muy","sy","rho","x0"].forEach(function(id){
+    el[id].addEventListener("input", render);
+  });
+  el.condToggle.addEventListener("change", render);
+
+  var presets = {
+    independent: function(){ el.rho.value = "0"; },
+    positive:    function(){ el.rho.value = "0.85"; },
+    negative:    function(){ el.rho.value = "-0.85"; },
+    reset:       function(){
+      el.mux.value="0.6"; el.sx.value="1.3"; el.muy.value="-0.3";
+      el.sy.value="0.8"; el.rho.value="0.6";
+    }
+  };
+  Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"), function(btn){
+    btn.addEventListener("click", function(){
+      var fn = presets[btn.getAttribute("data-preset")];
+      if (fn) fn();
+      render();
+    });
+  });
+
+  render();
+})();
+</script>
+
+</body>
+</html>
