@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Probability Fundamentals Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============ DESIGN TOKENS ============ */
+:root{
+  --bg:#EEF2E8;
+  --surface:#FFFFFF;
+  --surface-alt:#F6F8F1;
+  --ink:#20241B;
+  --ink-muted:#5C6350;
+  --border:#D7DEC9;
+  --border-strong:#B7C1A4;
+  --acc1:#B4741C;      /* mixtures: amber */
+  --acc1-soft:#F2E0BC;
+  --acc2:#1B6E62;       /* bias-variance: teal */
+  --acc2-soft:#CFE8E1;
+  --acc3:#56458C;       /* pgm: plum */
+  --acc3-soft:#E0D9F2;
+  --danger:#B23A3A;
+  --cat0:#B4741C; --cat1:#B23A48; --cat2:#3B6FA0;
+  --font-display:'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body:'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:'IBM Plex Mono', SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15170F; --surface:#1D2116; --surface-alt:#232819;
+    --ink:#EAE8DC; --ink-muted:#A6AC97;
+    --border:#31362A; --border-strong:#454C39;
+    --acc1:#E3A54B; --acc1-soft:#3A2E17;
+    --acc2:#4FC2AE; --acc2-soft:#173430;
+    --acc3:#A48EDD; --acc3-soft:#2C2542;
+    --danger:#E08080;
+    --cat0:#E3A54B; --cat1:#E08080; --cat2:#6FA8DC;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15170F; --surface:#1D2116; --surface-alt:#232819;
+  --ink:#EAE8DC; --ink-muted:#A6AC97;
+  --border:#31362A; --border-strong:#454C39;
+  --acc1:#E3A54B; --acc1-soft:#3A2E17;
+  --acc2:#4FC2AE; --acc2-soft:#173430;
+  --acc3:#A48EDD; --acc3-soft:#2C2542;
+  --danger:#E08080;
+  --cat0:#E3A54B; --cat1:#E08080; --cat2:#6FA8DC;
+}
+
+*{box-sizing:border-box;}
+html{scroll-behavior:auto;}
+@media (prefers-reduced-motion:no-preference){ html{scroll-behavior:smooth;} }
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--font-body); font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+img,canvas,svg{max-width:100%;}
+h1,h2,h3{font-family:var(--font-display); font-weight:600; margin:0 0 .5rem; line-height:1.15;}
+a{color:inherit;}
+:focus-visible{outline:2px solid var(--ink); outline-offset:2px;}
+@media (prefers-reduced-motion:reduce){ *{transition:none !important; animation:none !important;} }
+
+.wrap{max-width:1180px; margin:0 auto; padding:0 1.5rem;}
+
+/* ============ HEADER / NAV ============ */
+.site-header{
+  position:sticky; top:0; z-index:50; background:var(--bg);
+  border-bottom:1px solid var(--border);
+}
+.site-header .wrap{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:1.5rem; padding-top:.9rem; padding-bottom:.9rem; flex-wrap:wrap;
+}
+.brand{font-family:var(--font-display); font-weight:700; font-size:1.05rem; letter-spacing:.01em;}
+.nav-tabs{display:flex; gap:1.4rem; list-style:none; margin:0; padding:0; flex-wrap:wrap;}
+.nav-tabs a{
+  display:flex; align-items:center; gap:.45rem; text-decoration:none;
+  font-size:.9rem; color:var(--ink-muted); padding:.25rem 0; border-bottom:2px solid transparent;
+}
+.nav-tabs a .dot{width:8px; height:8px; border-radius:50%; display:inline-block; flex:none;}
+.nav-tabs a[data-topic="mix"] .dot{background:var(--acc1);}
+.nav-tabs a[data-topic="bv"] .dot{background:var(--acc2);}
+.nav-tabs a[data-topic="pgm"] .dot{background:var(--acc3);}
+.nav-tabs a.active{color:var(--ink); border-bottom-color:currentColor;}
+
+.intro{padding:2.4rem 0 .5rem;}
+.intro p{max-width:60ch; color:var(--ink-muted); font-size:1.05rem; margin:0;}
+
+/* ============ SECTIONS ============ */
+.topic{padding:3.2rem 0; border-bottom:1px solid var(--border); scroll-margin-top:64px;}
+.topic:last-of-type{border-bottom:none; padding-bottom:5rem;}
+.topic h2{display:flex; align-items:center; gap:.6rem; font-size:clamp(1.5rem,3vw,2rem);}
+.topic h2 .dot{width:12px; height:12px; border-radius:50%; flex:none;}
+#mixtures h2 .dot{background:var(--acc1);}
+#biasvariance h2 .dot{background:var(--acc2);}
+#pgm h2 .dot{background:var(--acc3);}
+.topic .subtitle{color:var(--ink-muted); font-size:1rem; margin:0 0 2rem; max-width:62ch;}
+
+.topic-grid{display:grid; grid-template-columns:minmax(260px,360px) 1fr; gap:2.6rem; align-items:start;}
+@media (max-width:900px){ .topic-grid{grid-template-columns:1fr;} }
+
+.key-points p{margin:0 0 1rem;}
+.key-points ul{margin:0 0 1.1rem 1.15rem; padding:0;}
+.key-points li{margin-bottom:.55rem;}
+.key-points .eq{
+  font-family:var(--font-mono); font-size:.84rem; display:block;
+  background:var(--surface-alt); border:1px solid var(--border); border-radius:4px;
+  padding:.65rem .8rem; margin:1rem 0; overflow-x:auto; color:var(--ink);
+}
+.key-points strong{font-weight:600;}
+
+.widget-stack{display:flex; flex-direction:column; gap:1.6rem;}
+
+/* ============ PANELS ============ */
+.panel{
+  background:var(--surface); border:1px solid var(--border); border-radius:8px;
+  padding:1.4rem 1.4rem 1.6rem;
+}
+.panel-title{
+  font-family:var(--font-body); font-weight:600; font-size:.95rem;
+  margin:0 0 1rem; color:var(--ink);
+}
+.plot-panel{
+  background-color:var(--surface-alt);
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size:22px 22px;
+  border:1px solid var(--border); border-radius:8px; padding:1rem;
+}
+.plot-panel canvas{display:block; width:100%; background:var(--surface); border-radius:4px;}
+
+.controls-row{display:flex; flex-wrap:wrap; gap:1.4rem 2rem; margin-top:1.1rem;}
+.control{flex:1 1 160px; min-width:150px;}
+.control-label{display:flex; justify-content:space-between; font-size:.78rem; color:var(--ink-muted); margin-bottom:.3rem;}
+.control-label .val{font-family:var(--font-mono); color:var(--ink); font-size:.78rem;}
+input[type=range]{
+  -webkit-appearance:none; appearance:none; width:100%; height:4px;
+  background:var(--border-strong); border-radius:2px; outline:none; cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:15px; height:15px; border-radius:50%;
+  background:var(--accent, var(--ink)); cursor:pointer; border:2px solid var(--surface);
+  box-shadow:0 0 0 1px var(--accent, var(--ink));
+}
+input[type=range]::-moz-range-thumb{
+  width:15px; height:15px; border-radius:50%; background:var(--accent, var(--ink));
+  cursor:pointer; border:2px solid var(--surface); box-shadow:0 0 0 1px var(--accent, var(--ink));
+}
+#mixtures input[type=range]{--accent:var(--acc1);}
+#biasvariance input[type=range]{--accent:var(--acc2);}
+#pgm input[type=range]{--accent:var(--acc3);}
+
+.btn{
+  font-family:var(--font-body); font-weight:500; font-size:.85rem;
+  padding:.5rem 1rem; border-radius:5px; border:1px solid var(--accent, var(--ink));
+  background:transparent; color:var(--accent, var(--ink)); cursor:pointer;
+}
+.btn:hover{background:var(--accent, var(--ink)); color:var(--surface);}
+#mixtures .btn{--accent:var(--acc1);}
+#biasvariance .btn{--accent:var(--acc2);}
+#pgm .btn{--accent:var(--acc3);}
+
+.legend{display:flex; flex-wrap:wrap; gap:1rem; font-size:.78rem; color:var(--ink-muted); margin-top:.8rem;}
+.legend span{display:inline-flex; align-items:center; gap:.35rem;}
+.legend i{width:10px; height:10px; border-radius:50%; display:inline-block;}
+
+/* ============ MIXTURE COMPONENT SLIDER GROUPS ============ */
+.comp-group{border-left:3px solid; padding-left:.9rem; margin-bottom:1.1rem;}
+.comp-group h4{margin:0 0 .5rem; font-size:.82rem; font-weight:600; font-family:var(--font-mono);}
+.comp-group.c0{border-color:var(--cat0);} .comp-group.c0 h4{color:var(--cat0);}
+.comp-group.c1{border-color:var(--cat1);} .comp-group.c1 h4{color:var(--cat1);}
+.comp-group.c2{border-color:var(--cat2);} .comp-group.c2 h4{color:var(--cat2);}
+.comp-group input[type=range]::-webkit-slider-thumb{background:currentColor; box-shadow:0 0 0 1px currentColor;}
+.comp-group input[type=range]::-moz-range-thumb{background:currentColor; box-shadow:0 0 0 1px currentColor;}
+.comp-group.c0{color:var(--cat0);} .comp-group.c1{color:var(--cat1);} .comp-group.c2{color:var(--cat2);}
+
+/* ============ BMM GRID ============ */
+.bmm-layout{display:flex; flex-wrap:wrap; gap:1.6rem;}
+.bmm-proto{flex:1 1 150px;}
+.bmm-proto h4{font-size:.82rem; font-family:var(--font-mono); margin:0 0 .5rem;}
+.pixel-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:3px; width:100%; max-width:150px; aspect-ratio:1; margin-bottom:.6rem;}
+.pixel{border:1px solid var(--border-strong); border-radius:2px; cursor:pointer; aspect-ratio:1;}
+.pixel:hover{outline:2px solid var(--ink-muted);}
+.weight-readout{font-family:var(--font-mono); font-size:.76rem; color:var(--ink-muted);}
+.gallery{display:flex; flex-wrap:wrap; gap:.6rem; margin-top:1rem;}
+.gallery-item{width:42px;}
+.gallery-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; border:2px solid; border-radius:2px; overflow:hidden;}
+.gallery-cell{aspect-ratio:1;}
+
+/* ============ BV READOUT ============ */
+.bv-cols{display:grid; grid-template-columns:1fr; gap:1.4rem;}
+@media (min-width:640px){ .bv-cols{grid-template-columns:1fr 1fr;} }
+.stat-row{display:flex; gap:1.2rem; margin-top:.9rem; flex-wrap:wrap;}
+.stat{background:var(--surface-alt); border:1px solid var(--border); border-radius:6px; padding:.6rem .9rem; flex:1 1 120px;}
+.stat .label{font-size:.72rem; color:var(--ink-muted); text-transform:none;}
+.stat .value{font-family:var(--font-mono); font-size:1.25rem; margin-top:.15rem;}
+.regime-note{font-size:.85rem; color:var(--ink-muted); margin-top:.7rem; min-height:1.3em;}
+
+/* ============ PGM DIAGRAMS ============ */
+.triple-wrap{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:1.2rem;}
+.triple-card{background:var(--surface-alt); border:1px solid var(--border); border-radius:8px; padding:1rem; text-align:center;}
+.triple-card h4{margin:0 0 .6rem; font-size:.82rem; font-weight:600;}
+.triple-card svg{width:100%; height:auto; cursor:default;}
+.pgm-node circle{fill:var(--surface); stroke:var(--ink); stroke-width:1.6;}
+.pgm-node.observed circle{fill:var(--ink);}
+.pgm-node.observed text{fill:var(--surface);}
+.pgm-node text{fill:var(--ink); font-family:var(--font-mono); font-size:11px; text-anchor:middle; dominant-baseline:central;}
+.pgm-node.clickable{cursor:pointer;}
+.pgm-edge{stroke:var(--ink-muted); stroke-width:1.6; marker-end:url(#arrowhead);}
+.pgm-path{fill:none; stroke:var(--border-strong); stroke-width:2; stroke-dasharray:4 4;}
+.pgm-path.active{stroke:var(--acc3); stroke-dasharray:none; stroke-width:2.4;}
+.triple-status{font-family:var(--font-mono); font-size:.82rem; margin-top:.7rem;}
+.triple-status .yes{color:var(--acc2);}
+.triple-status .no{color:var(--danger);}
+.triple-hint{font-size:.74rem; color:var(--ink-muted); margin-top:.35rem; min-height:2.4em;}
+
+.mb-wrap{display:grid; grid-template-columns:1fr; gap:1.4rem;}
+@media (min-width:680px){ .mb-wrap{grid-template-columns:280px 1fr;} }
+.mb-svg-box{background:var(--surface-alt); border:1px solid var(--border); border-radius:8px; padding:1rem;}
+.mb-svg-box svg{width:100%; height:auto;}
+.mb-node circle{fill:var(--surface); stroke:var(--border-strong); stroke-width:1.6; cursor:pointer;}
+.mb-node text{fill:var(--ink-muted); font-family:var(--font-mono); font-size:12px; text-anchor:middle; dominant-baseline:central; cursor:pointer;}
+.mb-node .mb-label{fill:var(--ink-muted); font-size:10px; font-weight:400;}
+.mb-node.selected circle{fill:var(--acc3); stroke:var(--acc3);}
+.mb-node.selected .mb-letter{fill:var(--surface);}
+.mb-node.selected .mb-label{fill:var(--acc3); font-weight:600;}
+.mb-node.blanket circle{fill:var(--acc3-soft); stroke:var(--acc3);}
+.mb-node.blanket .mb-letter{fill:var(--ink);}
+.mb-node.blanket .mb-label{fill:var(--ink);}
+.mb-edge{stroke:var(--border-strong); stroke-width:1.6; marker-end:url(#arrowhead2);}
+.mb-edge.highlight{stroke:var(--acc3); stroke-width:2.2;}
+.mb-desc{font-size:.9rem;}
+.mb-desc .name{font-weight:600; color:var(--acc3);}
+.mb-legend{display:flex; gap:1rem; flex-wrap:wrap; font-size:.76rem; color:var(--ink-muted); margin-top:.8rem;}
+.mb-legend i{width:10px; height:10px; display:inline-block; border-radius:50%; margin-right:.3rem; vertical-align:-1px;}
+
+.plate-box{margin-top:2.2rem; padding-top:1.8rem; border-top:1px dashed var(--border-strong);}
+.plate-box .plate-flex{display:flex; gap:1.6rem; flex-wrap:wrap; align-items:center;}
+.plate-box svg{flex:0 0 260px; max-width:100%;}
+.plate-box p{flex:1 1 260px; color:var(--ink-muted); font-size:.92rem; margin:0;}
+
+footer{padding:2.4rem 0; color:var(--ink-muted); font-size:.82rem;}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand">Probability Fundamentals Playground</div>
+    <ul class="nav-tabs">
+      <li><a href="#mixtures" data-topic="mix"><span class="dot"></span>Mixture models</a></li>
+      <li><a href="#biasvariance" data-topic="bv"><span class="dot"></span>Bias&ndash;variance</a></li>
+      <li><a href="#pgm" data-topic="pgm"><span class="dot"></span>PGMs</a></li>
+    </ul>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="intro">
+    <p>Move the sliders, click the nodes, draw a sample. Every plot below is live and responds to your input &mdash; it's built to make the definitions from lecture tangible.</p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MIXTURE MODELS                                                -->
+  <!-- ============================================================ -->
+  <section class="topic" id="mixtures">
+    <div class="topic-head">
+      <h2><span class="dot"></span>Gaussian &amp; Bernoulli mixture models</h2>
+      <p class="subtitle">A mixture model says every point was generated by secretly picking one of K sources, then sampling from that source. Try it below.</p>
+    </div>
+
+    <div class="topic-grid">
+      <div class="key-points">
+        <p>Formally, each point $x_i$ has a hidden (latent) label $z_i \in \{1,\dots,K\}$ that you never observe. First $z_i$ is drawn from the mixing weights $\pi$, then $x_i$ is drawn from component $z_i$'s distribution:</p>
+        <span class="eq">p(x) = &Sigma;<sub>k</sub> &pi;<sub>k</sub> &middot; p(x | &theta;<sub>k</sub>),&nbsp;&nbsp; &Sigma;<sub>k</sub> &pi;<sub>k</sub> = 1</span>
+        <ul>
+          <li><strong>Gaussian mixture (GMM):</strong> each component is a Gaussian $\mathcal{N}(\mu_k, \sigma_k^2)$ &mdash; natural for continuous data.</li>
+          <li><strong>Bernoulli mixture (BMM):</strong> each component is a set of independent coin flips, one per dimension &mdash; natural for binary data (binarized pixels, yes/no features).</li>
+          <li>Because $z_i$ is unobserved, plain maximum likelihood is intractable in closed form, so we fit with <strong>Expectation&ndash;Maximization (EM)</strong>: the E&#8209;step computes soft responsibilities $p(z_i=k\mid x_i)$ for every point under the current parameters; the M&#8209;step refits $\pi,\mu,\sigma$ (or $\pi,\mu_{kd}$ for Bernoulli) as weighted averages using those responsibilities.</li>
+          <li>EM only climbs to a <strong>local</strong> optimum &mdash; the likelihood surface is non-convex, so initialization and restarts matter.</li>
+          <li>Unlike k-means, membership is <strong>soft</strong>: a point gets a probability of belonging to each cluster, not a hard label.</li>
+        </ul>
+      </div>
+
+      <div class="widget-stack">
+        <!-- GMM widget -->
+        <div class="panel">
+          <p class="panel-title">Gaussian mixture &mdash; build a 3-component density</p>
+          <div class="plot-panel">
+            <canvas id="gmmCanvas" height="260" aria-label="Gaussian mixture density plot"></canvas>
+          </div>
+          <div class="comp-group c0">
+            <h4>Component A</h4>
+            <div class="controls-row">
+              <div class="control"><div class="control-label"><span>weight &pi;</span><span class="val" id="gw0v">0.35</span></div><input type="range" id="gw0" min="0.05" max="1" step="0.01" value="0.55"></div>
+              <div class="control"><div class="control-label"><span>mean &mu;</span><span class="val" id="gm0v">-3.5</span></div><input type="range" id="gm0" min="-9" max="9" step="0.1" value="-3.5"></div>
+              <div class="control"><div class="control-label"><span>std &sigma;</span><span class="val" id="gs0v">1.0</span></div><input type="range" id="gs0" min="0.3" max="3" step="0.05" value="1.0"></div>
+            </div>
+          </div>
+          <div class="comp-group c1">
+            <h4>Component B</h4>
+            <div class="controls-row">
+              <div class="control"><div class="control-label"><span>weight &pi;</span><span class="val" id="gw1v">0.35</span></div><input type="range" id="gw1" min="0.05" max="1" step="0.01" value="0.75"></div>
+              <div class="control"><div class="control-label"><span>mean &mu;</span><span class="val" id="gm1v">0.5</span></div><input type="range" id="gm1" min="-9" max="9" step="0.1" value="0.5"></div>
+              <div class="control"><div class="control-label"><span>std &sigma;</span><span class="val" id="gs1v">1.2</span></div><input type="range" id="gs1" min="0.3" max="3" step="0.05" value="1.2"></div>
+            </div>
+          </div>
+          <div class="comp-group c2">
+            <h4>Component C</h4>
+            <div class="controls-row">
+              <div class="control"><div class="control-label"><span>weight &pi;</span><span class="val" id="gw2v">0.30</span></div><input type="range" id="gw2" min="0.05" max="1" step="0.01" value="0.45"></div>
+              <div class="control"><div class="control-label"><span>mean &mu;</span><span class="val" id="gm2v">4.5</span></div><input type="range" id="gm2" min="-9" max="9" step="0.1" value="4.5"></div>
+              <div class="control"><div class="control-label"><span>std &sigma;</span><span class="val" id="gs2v">0.8</span></div><input type="range" id="gs2" min="0.3" max="3" step="0.05" value="0.8"></div>
+            </div>
+          </div>
+          <button class="btn" id="gmmSampleBtn" type="button">Draw 60 samples from this mixture</button>
+          <p class="triple-hint">Sampling first rolls the latent $z$ against your (normalized) weights, then draws $x$ from that component &mdash; dot color shows which component actually generated each point.</p>
+        </div>
+
+        <!-- BMM widget -->
+        <div class="panel">
+          <p class="panel-title">Bernoulli mixture &mdash; edit 3 prototypes over a 3&times;3 binary grid</p>
+          <div class="bmm-layout" id="bmmProtos"></div>
+          <p class="triple-hint">Click any cell to cycle its probability of being &ldquo;on&rdquo; (light&nbsp;&rarr;&nbsp;dark). Each swatch is $\mu_{kd}$ for that component.</p>
+          <div class="controls-row" id="bmmWeights"></div>
+          <button class="btn" id="bmmSampleBtn" type="button">Draw a sample</button>
+          <div class="gallery" id="bmmGallery"></div>
+          <p class="triple-hint" id="bmmGalleryHint">Samples you draw appear here, bordered by the component that generated them &mdash; notice how one prototype can still produce quite different-looking binary instances.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- BIAS-VARIANCE                                                 -->
+  <!-- ============================================================ -->
+  <section class="topic" id="biasvariance">
+    <div class="topic-head">
+      <h2><span class="dot"></span>Bias&ndash;variance tradeoff for classification</h2>
+      <p class="subtitle">Same toy dataset, one knob &mdash; the number of neighbors k in k-NN &mdash; controlling model complexity.</p>
+    </div>
+
+    <div class="topic-grid">
+      <div class="key-points">
+        <p>Error splits (roughly) into two sources:</p>
+        <ul>
+          <li><strong>Bias:</strong> systematic error from a model too rigid to represent the true pattern (underfitting).</li>
+          <li><strong>Variance:</strong> error from being too sensitive to the particular training sample you happened to draw (overfitting).</li>
+        </ul>
+        <p>Small $k$ &rarr; low bias, high variance, jagged boundary that memorizes noise. Large $k$ &rarr; high bias, low variance, an over-smoothed boundary. The same logic applies to tree depth, polynomial degree, or regularization strength in any classifier.</p>
+        <p>Classification has a twist regression doesn't: only <strong>which side of the boundary</strong> a point lands on matters. Variance far from the boundary is harmless; variance right at the boundary flips predictions. So classifiers often tolerate messier internal estimates than regressors do, as long as the boundary stays roughly right.</p>
+        <p>Bagging (random forests) averages many high-variance models to cancel variance. Boosting chains many high-bias weak learners to drive down bias.</p>
+      </div>
+
+      <div class="widget-stack">
+        <div class="panel">
+          <div class="control">
+            <div class="control-label"><span>k (number of neighbors)</span><span class="val" id="knnKVal">7</span></div>
+            <input type="range" id="knnK" min="1" max="59" step="2" value="7">
+          </div>
+          <p class="regime-note" id="knnRegime"></p>
+          <div class="bv-cols">
+            <div class="plot-panel">
+              <canvas id="boundaryCanvas" height="260" aria-label="Decision boundary plot"></canvas>
+              <div class="legend">
+                <span><i style="background:var(--cat0)"></i>class A</span>
+                <span><i style="background:var(--cat2)"></i>class B</span>
+                <span><i style="background:transparent;border:2px solid var(--danger)"></i>misclassified test point</span>
+              </div>
+            </div>
+            <div class="plot-panel">
+              <canvas id="errorCurveCanvas" height="260" aria-label="Train and test error vs k"></canvas>
+              <div class="legend">
+                <span><i style="background:var(--ink-muted)"></i>train error</span>
+                <span><i style="background:var(--acc2)"></i>test error</span>
+              </div>
+            </div>
+          </div>
+          <div class="stat-row">
+            <div class="stat"><div class="label">Train error</div><div class="value" id="trainErrVal">&ndash;</div></div>
+            <div class="stat"><div class="label">Test error</div><div class="value" id="testErrVal">&ndash;</div></div>
+            <div class="stat"><div class="label">Best k on this test set</div><div class="value" id="bestKVal">&ndash;</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- PGM                                                           -->
+  <!-- ============================================================ -->
+  <section class="topic" id="pgm">
+    <div class="topic-head">
+      <h2><span class="dot"></span>Probabilistic graphical models</h2>
+      <p class="subtitle">A graph that factors a big joint distribution into small local pieces.</p>
+    </div>
+
+    <div class="topic-grid">
+      <div class="key-points">
+        <p><strong>Directed (Bayesian networks):</strong></p>
+        <span class="eq">p(x<sub>1</sub>,&hellip;,x<sub>n</sub>) = &Pi;<sub>i</sub> p(x<sub>i</sub> | parents(x<sub>i</sub>))</span>
+        <p><strong>Undirected (Markov random fields):</strong></p>
+        <span class="eq">p(x) = (1/Z) &Pi;<sub>c</sub> &psi;<sub>c</sub>(x<sub>c</sub>)</span>
+        <p>Reading independence off a directed graph uses <strong>d-separation</strong>. Click node B below in each structure.</p>
+        <p>A node's <strong>Markov blanket</strong> &mdash; its parents, children, and children's other parents &mdash; is the smallest set that makes it independent of everything else. It's exactly what you need to resample a node in Gibbs sampling.</p>
+      </div>
+
+      <div class="widget-stack">
+        <div class="panel">
+          <p class="panel-title">Click node B to observe / un-observe it</p>
+          <div class="triple-wrap">
+            <div class="triple-card">
+              <h4>Chain &nbsp;A &rarr; B &rarr; C</h4>
+              <svg id="svgChain" viewBox="0 0 220 165"></svg>
+              <div class="triple-status" id="statusChain"></div>
+              <p class="triple-hint" id="hintChain"></p>
+            </div>
+            <div class="triple-card">
+              <h4>Fork &nbsp;A &larr; B &rarr; C</h4>
+              <svg id="svgFork" viewBox="0 0 220 165"></svg>
+              <div class="triple-status" id="statusFork"></div>
+              <p class="triple-hint" id="hintFork"></p>
+            </div>
+            <div class="triple-card">
+              <h4>Collider &nbsp;A &rarr; B &larr; C</h4>
+              <svg id="svgCollider" viewBox="0 0 220 165"></svg>
+              <div class="triple-status" id="statusCollider"></div>
+              <p class="triple-hint" id="hintCollider"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-title">Markov blanket &mdash; click any node</p>
+          <div class="mb-wrap">
+            <div class="mb-svg-box">
+              <svg id="svgSprinkler" viewBox="0 0 300 265"></svg>
+            </div>
+            <div>
+              <p class="mb-desc" id="mbDesc"></p>
+              <div class="mb-legend">
+                <span><i style="background:var(--acc3)"></i>selected node</span>
+                <span><i style="background:var(--acc3-soft);border:1px solid var(--acc3)"></i>its Markov blanket</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="plate-box">
+          <div class="plate-flex">
+            <svg viewBox="0 0 260 205" id="svgPlate"></svg>
+            <p>A mixture model is itself a tiny PGM: for each of $N$ points, $z_i$ is drawn from global weights $\pi$, then $x_i$ from component $\theta_{z_i}$ &mdash; the rectangle (a &ldquo;plate&rdquo;) means &ldquo;repeat this $N$ times, independently.&rdquo;</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">Built as a study companion &mdash; every number on this page is computed in your browser, nothing is sent anywhere.</div>
+</footer>
+
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function fmtPct(x){ return (x*100).toFixed(1) + '%'; }
+
+function mulberry32(a){
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function randNormal(rng){
+  let u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function debounce(fn, ms){
+  let t;
+  return function(){ clearTimeout(t); t = setTimeout(fn, ms); };
+}
+
+/* Sets up a canvas for crisp drawing at the container's current width.
+   Returns {ctx, w, h} in CSS pixels (logical size), already scaled for DPR. */
+function prepCanvas(canvas, cssHeight){
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = canvas.parentElement.clientWidth - 32; /* minus panel padding */
+  const w = Math.max(220, cssWidth);
+  const h = cssHeight;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+
+/* ============================================================
+   GAUSSIAN MIXTURE WIDGET
+   ============================================================ */
+const gmm = {
+  canvas: document.getElementById('gmmCanvas'),
+  comps: [
+    { id:0, wEl:document.getElementById('gw0'), muEl:document.getElementById('gm0'), sEl:document.getElementById('gs0'),
+      wVal:document.getElementById('gw0v'), muVal:document.getElementById('gm0v'), sVal:document.getElementById('gs0v') },
+    { id:1, wEl:document.getElementById('gw1'), muEl:document.getElementById('gm1'), sEl:document.getElementById('gs1'),
+      wVal:document.getElementById('gw1v'), muVal:document.getElementById('gm1v'), sVal:document.getElementById('gs1v') },
+    { id:2, wEl:document.getElementById('gw2'), muEl:document.getElementById('gm2'), sEl:document.getElementById('gs2'),
+      wVal:document.getElementById('gw2v'), muVal:document.getElementById('gm2v'), sVal:document.getElementById('gs2v') }
+  ],
+  samples: [],
+  rng: mulberry32(7)
+};
+const CAT_COLORS = ['--cat0','--cat1','--cat2'];
+
+function normalPdf(x, mu, sigma){
+  const z = (x - mu) / sigma;
+  return Math.exp(-0.5 * z * z) / (sigma * Math.sqrt(2 * Math.PI));
+}
+function gmmWeights(){
+  const raw = gmm.comps.map(c => parseFloat(c.wEl.value));
+  const sum = raw.reduce((a,b)=>a+b,0);
+  return raw.map(w => w / sum);
+}
+function gmmDensity(x){
+  const w = gmmWeights();
+  let total = 0;
+  gmm.comps.forEach((c,i) => { total += w[i] * normalPdf(x, parseFloat(c.muEl.value), parseFloat(c.sEl.value)); });
+  return total;
+}
+function drawGMM(){
+  const { ctx, w:W, h:H } = prepCanvas(gmm.canvas, 260);
+  const marginL = 34, marginB = 40, marginT = 14, marginR = 14;
+  const plotW = W - marginL - marginR, plotH = H - marginT - marginB - (gmm.samples.length ? 26 : 0);
+  const xMin = -12, xMax = 12;
+
+  const weights = gmmWeights();
+  const N = 240;
+  let maxY = 1e-6;
+  const xs = [], compYs = [[],[],[]], mixYs = [];
+  for (let i = 0; i <= N; i++){
+    const x = xMin + (xMax - xMin) * i / N;
+    xs.push(x);
+    let mixY = 0;
+    gmm.comps.forEach((c, ci) => {
+      const y = weights[ci] * normalPdf(x, parseFloat(c.muEl.value), parseFloat(c.sEl.value));
+      compYs[ci].push(y);
+      mixY += y;
+    });
+    mixYs.push(mixY);
+    if (mixY > maxY) maxY = mixY;
+  }
+  maxY *= 1.15;
+
+  const toPx = x => marginL + (x - xMin) / (xMax - xMin) * plotW;
+  const toPy = y => marginT + (1 - y / maxY) * plotH;
+
+  /* axes */
+  ctx.strokeStyle = cssVar('--border-strong');
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(marginL, marginT); ctx.lineTo(marginL, marginT + plotH); ctx.lineTo(marginL + plotW, marginT + plotH);
+  ctx.stroke();
+  ctx.fillStyle = cssVar('--ink-muted');
+  ctx.font = '11px ' + cssVar('--font-mono');
+  ctx.textAlign = 'center';
+  for (let xt = -10; xt <= 10; xt += 5){
+    const px = toPx(xt);
+    ctx.beginPath(); ctx.moveTo(px, marginT + plotH); ctx.lineTo(px, marginT + plotH + 4); ctx.stroke();
+    ctx.fillText(String(xt), px, marginT + plotH + 16);
+  }
+
+  /* component curves */
+  gmm.comps.forEach((c, ci) => {
+    ctx.strokeStyle = cssVar(CAT_COLORS[ci]);
+    ctx.globalAlpha = 0.75;
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    xs.forEach((x,i) => { const px = toPx(x), py = toPy(compYs[ci][i]); i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py); });
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+
+  /* mixture curve */
+  ctx.strokeStyle = cssVar('--ink');
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  xs.forEach((x,i) => { const px = toPx(x), py = toPy(mixYs[i]); i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py); });
+  ctx.stroke();
+
+  /* sample strip */
+  if (gmm.samples.length){
+    const stripY = marginT + plotH + 26;
+    gmm.samples.forEach(s => {
+      const px = toPx(s.x);
+      ctx.fillStyle = cssVar(CAT_COLORS[s.k]);
+      ctx.beginPath();
+      ctx.arc(px, stripY + s.jitter, 3, 0, Math.PI*2);
+      ctx.fill();
+    });
+  }
+}
+function gmmSyncLabels(){
+  const w = gmmWeights();
+  gmm.comps.forEach((c,i) => {
+    c.wVal.textContent = w[i].toFixed(2);
+    c.muVal.textContent = parseFloat(c.muEl.value).toFixed(1);
+    c.sVal.textContent = parseFloat(c.sEl.value).toFixed(2);
+  });
+}
+function gmmOnSlider(){
+  gmm.samples = [];
+  gmmSyncLabels();
+  drawGMM();
+}
+gmm.comps.forEach(c => { [c.wEl,c.muEl,c.sEl].forEach(el => el.addEventListener('input', gmmOnSlider)); });
+document.getElementById('gmmSampleBtn').addEventListener('click', () => {
+  const w = gmmWeights();
+  const samples = [];
+  for (let i = 0; i < 60; i++){
+    const r = gmm.rng();
+    let cum = 0, k = w.length - 1;
+    for (let j = 0; j < w.length; j++){ cum += w[j]; if (r <= cum){ k = j; break; } }
+    const c = gmm.comps[k];
+    const x = parseFloat(c.muEl.value) + randNormal(gmm.rng) * parseFloat(c.sEl.value);
+    samples.push({ x, k, jitter: (gmm.rng()-0.5) * 14 });
+  }
+  gmm.samples = samples;
+  drawGMM();
+});
+
+/* ============================================================
+   BERNOULLI MIXTURE WIDGET
+   ============================================================ */
+const GRID_N = 9;
+const LEVELS = [0.1, 0.3, 0.5, 0.7, 0.9];
+const bmm = {
+  weightEls: [],
+  mu: [
+    [0.85,0.15,0.85, 0.15,0.85,0.15, 0.85,0.15,0.85], /* X pattern */
+    [0.9,0.9,0.9, 0.1,0.1,0.1, 0.9,0.9,0.9],           /* H-bar pattern */
+    [0.1,0.9,0.1, 0.9,0.1,0.9, 0.1,0.9,0.1]            /* dotted pattern */
+  ],
+  gallery: [],
+  rng: mulberry32(99)
+};
+function nearestLevelIndex(v){
+  let bi = 0, bd = Infinity;
+  LEVELS.forEach((lv,i) => { const d = Math.abs(lv-v); if (d < bd){ bd = d; bi = i; } });
+  return bi;
+}
+function buildBmmDOM(){
+  const proto = document.getElementById('bmmProtos');
+  proto.innerHTML = '';
+  for (let k = 0; k < 3; k++){
+    const wrap = document.createElement('div');
+    wrap.className = 'bmm-proto';
+    const h4 = document.createElement('h4');
+    h4.style.color = cssVar(CAT_COLORS[k]);
+    h4.textContent = 'Component ' + String.fromCharCode(65+k);
+    wrap.appendChild(h4);
+    const grid = document.createElement('div');
+    grid.className = 'pixel-grid';
+    for (let d = 0; d < GRID_N; d++){
+      const cell = document.createElement('div');
+      cell.className = 'pixel';
+      cell.setAttribute('role','button');
+      cell.setAttribute('aria-label', 'toggle pixel probability');
+      cell.dataset.k = k; cell.dataset.d = d;
+      cell.addEventListener('click', () => {
+        const idx = nearestLevelIndex(bmm.mu[k][d]);
+        bmm.mu[k][d] = LEVELS[(idx+1) % LEVELS.length];
+        paintPrototypes();
+      });
+      grid.appendChild(cell);
+    }
+    wrap.appendChild(grid);
+    proto.appendChild(wrap);
+  }
+  paintPrototypes();
+
+  const wwrap = document.getElementById('bmmWeights');
+  wwrap.innerHTML = '';
+  bmm.weightEls = [];
+  const initW = [0.4, 0.35, 0.35];
+  for (let k = 0; k < 3; k++){
+    const control = document.createElement('div');
+    control.className = 'control';
+    const label = document.createElement('div');
+    label.className = 'control-label';
+    label.innerHTML = '<span style="color:'+cssVar(CAT_COLORS[k])+'">weight &pi; &mdash; comp ' + String.fromCharCode(65+k) + '</span><span class="val" id="bw'+k+'v"></span>';
+    const input = document.createElement('input');
+    input.type = 'range'; input.min = '0.05'; input.max = '1'; input.step = '0.01'; input.value = String(initW[k]);
+    input.addEventListener('input', syncBmmWeightLabels);
+    control.appendChild(label); control.appendChild(input);
+    wwrap.appendChild(control);
+    bmm.weightEls.push(input);
+  }
+  syncBmmWeightLabels();
+}
+function paintPrototypes(){
+  document.querySelectorAll('.pixel').forEach(cell => {
+    const k = +cell.dataset.k, d = +cell.dataset.d;
+    const p = bmm.mu[k][d];
+    const rgb = hexToRgb(cssVar(CAT_COLORS[k]).trim());
+    cell.style.background = 'rgba(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ',' + p.toFixed(2) + ')';
+  });
+}
+function hexToRgb(hex){
+  hex = hex.replace('#','');
+  if (hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
+  const num = parseInt(hex,16);
+  return { r:(num>>16)&255, g:(num>>8)&255, b:num&255 };
+}
+function bmmNormWeights(){
+  const raw = bmm.weightEls.map(el => parseFloat(el.value));
+  const sum = raw.reduce((a,b)=>a+b,0);
+  return raw.map(w => w/sum);
+}
+function syncBmmWeightLabels(){
+  const w = bmmNormWeights();
+  w.forEach((wv,k) => { document.getElementById('bw'+k+'v').textContent = wv.toFixed(2); });
+}
+function renderGallery(){
+  const g = document.getElementById('bmmGallery');
+  g.innerHTML = '';
+  bmm.gallery.forEach(item => {
+    const box = document.createElement('div');
+    box.className = 'gallery-item';
+    const grid = document.createElement('div');
+    grid.className = 'gallery-grid';
+    grid.style.borderColor = cssVar(CAT_COLORS[item.k]);
+    item.bits.forEach(b => {
+      const c = document.createElement('div');
+      c.className = 'gallery-cell';
+      c.style.background = b ? cssVar('--ink') : cssVar('--surface');
+      grid.appendChild(c);
+    });
+    box.appendChild(grid);
+    g.appendChild(box);
+  });
+}
+document.getElementById('bmmSampleBtn').addEventListener('click', () => {
+  const w = bmmNormWeights();
+  const r = bmm.rng();
+  let cum = 0, k = w.length - 1;
+  for (let j = 0; j < w.length; j++){ cum += w[j]; if (r <= cum){ k = j; break; } }
+  const bits = bmm.mu[k].map(p => (bmm.rng() < p ? 1 : 0));
+  bmm.gallery.unshift({ k, bits });
+  if (bmm.gallery.length > 10) bmm.gallery.pop();
+  renderGallery();
+});
+buildBmmDOM();
+
+/* ============================================================
+   BIAS-VARIANCE WIDGET  (k-NN on a fixed two-moons dataset)
+   ============================================================ */
+function generateMoons(n, noise, rng){
+  const pts = [];
+  const nPerClass = n / 2;
+  for (let i = 0; i < nPerClass; i++){
+    const t = Math.PI * (i / nPerClass);
+    pts.push({ x: Math.cos(t) + randNormal(rng)*noise, y: Math.sin(t) + randNormal(rng)*noise, label: 0 });
+  }
+  for (let i = 0; i < nPerClass; i++){
+    const t = Math.PI * (i / nPerClass);
+    pts.push({ x: 1 - Math.cos(t) + randNormal(rng)*noise, y: 1 - Math.sin(t) - 0.5 + randNormal(rng)*noise, label: 1 });
+  }
+  return pts;
+}
+const bvRng = mulberry32(42);
+const bvAll = generateMoons(120, 0.25, bvRng);
+/* Fisher-Yates using the SAME rng stream, continuing right after generation (matches tested config) */
+for (let i = bvAll.length - 1; i > 0; i--){
+  const j = Math.floor(bvRng() * (i + 1));
+  const tmp = bvAll[i]; bvAll[i] = bvAll[j]; bvAll[j] = tmp;
+}
+const bvTrain = bvAll.slice(0, 60);
+const bvTest = bvAll.slice(60);
+
+function knnPredict(train, q, k){
+  const dists = train.map(p => ({ d: (p.x-q.x)*(p.x-q.x) + (p.y-q.y)*(p.y-q.y), label: p.label }));
+  dists.sort((a,b) => a.d - b.d);
+  let vote0 = 0, vote1 = 0;
+  for (let i = 0; i < k; i++){ dists[i].label === 0 ? vote0++ : vote1++; }
+  return vote0 >= vote1 ? 0 : 1;
+}
+function computeError(train, evalSet, k){
+  let err = 0;
+  evalSet.forEach(p => { if (knnPredict(train, p, k) !== p.label) err++; });
+  return err / evalSet.length;
+}
+const errorCurve = { ks: [], train: [], test: [] };
+for (let k = 1; k <= 59; k += 2){
+  errorCurve.ks.push(k);
+  errorCurve.train.push(computeError(bvTrain, bvTrain, k));
+  errorCurve.test.push(computeError(bvTrain, bvTest, k));
+}
+let bestKIdx = 0;
+errorCurve.test.forEach((e,i) => { if (e < errorCurve.test[bestKIdx]) bestKIdx = i; });
+document.getElementById('bestKVal').textContent = errorCurve.ks[bestKIdx];
+
+const boundaryCanvas = document.getElementById('boundaryCanvas');
+const errorCurveCanvas = document.getElementById('errorCurveCanvas');
+const knnSlider = document.getElementById('knnK');
+
+function dataBounds(){
+  const xs = bvAll.map(p=>p.x), ys = bvAll.map(p=>p.y);
+  const pad = 0.6;
+  return { xMin:Math.min(...xs)-pad, xMax:Math.max(...xs)+pad, yMin:Math.min(...ys)-pad, yMax:Math.max(...ys)+pad };
+}
+function drawBoundary(k){
+  const { ctx, w:W, h:H } = prepCanvas(boundaryCanvas, 260);
+  const b = dataBounds();
+  const res = 60;
+  const classColors = [cssVar('--cat0'), cssVar('--cat2')];
+  const classFill = [hexToRgb(classColors[0]), hexToRgb(classColors[1])];
+
+  const cellW = W / res, cellH = H / res;
+  for (let iy = 0; iy < res; iy++){
+    for (let ix = 0; ix < res; ix++){
+      const x = b.xMin + (ix+0.5)/res * (b.xMax-b.xMin);
+      const y = b.yMax - (iy+0.5)/res * (b.yMax-b.yMin);
+      const pred = knnPredict(bvTrain, {x,y}, k);
+      const c = classFill[pred];
+      ctx.fillStyle = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',0.16)';
+      ctx.fillRect(ix*cellW, iy*cellH, cellW+1, cellH+1);
+    }
+  }
+  const toPx = x => (x - b.xMin) / (b.xMax - b.xMin) * W;
+  const toPy = y => (1 - (y - b.yMin) / (b.yMax - b.yMin)) * H;
+
+  ctx.lineWidth = 1.3;
+  bvTrain.forEach(p => {
+    ctx.fillStyle = classColors[p.label];
+    ctx.beginPath(); ctx.arc(toPx(p.x), toPy(p.y), 4, 0, Math.PI*2); ctx.fill();
+  });
+  bvTest.forEach(p => {
+    const pred = knnPredict(bvTrain, p, k);
+    ctx.fillStyle = classColors[p.label];
+    ctx.strokeStyle = cssVar('--surface');
+    ctx.beginPath();
+    const px = toPx(p.x), py = toPy(p.y), s = 5;
+    ctx.moveTo(px, py-s); ctx.lineTo(px+s, py); ctx.lineTo(px, py+s); ctx.lineTo(px-s, py);
+    ctx.closePath(); ctx.fill(); ctx.lineWidth = 1; ctx.stroke();
+    if (pred !== p.label){
+      ctx.strokeStyle = cssVar('--danger');
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI*2); ctx.stroke();
+    }
+  });
+}
+function drawErrorCurve(k){
+  const { ctx, w:W, h:H } = prepCanvas(errorCurveCanvas, 260);
+  const marginL = 36, marginB = 30, marginT = 14, marginR = 14;
+  const plotW = W - marginL - marginR, plotH = H - marginT - marginB;
+  const maxErr = Math.max(...errorCurve.train, ...errorCurve.test) * 1.2 || 0.5;
+  const kMin = errorCurve.ks[0], kMax = errorCurve.ks[errorCurve.ks.length-1];
+  const toPx = kk => marginL + (kk - kMin) / (kMax - kMin) * plotW;
+  const toPy = e => marginT + (1 - e / maxErr) * plotH;
+
+  ctx.strokeStyle = cssVar('--border-strong'); ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(marginL, marginT); ctx.lineTo(marginL, marginT+plotH); ctx.lineTo(marginL+plotW, marginT+plotH);
+  ctx.stroke();
+  ctx.fillStyle = cssVar('--ink-muted'); ctx.font = '11px ' + cssVar('--font-mono'); ctx.textAlign = 'center';
+  [1, 15, 30, 45, 59].forEach(kk => {
+    const px = toPx(kk);
+    ctx.beginPath(); ctx.moveTo(px, marginT+plotH); ctx.lineTo(px, marginT+plotH+4); ctx.stroke();
+    ctx.fillText(String(kk), px, marginT+plotH+16);
+  });
+
+  function line(arr, color){
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+    errorCurve.ks.forEach((kk,i) => { const px=toPx(kk), py=toPy(arr[i]); i===0?ctx.moveTo(px,py):ctx.lineTo(px,py); });
+    ctx.stroke();
+  }
+  line(errorCurve.train, cssVar('--ink-muted'));
+  line(errorCurve.test, cssVar('--acc2'));
+
+  /* best-k marker */
+  const bx = toPx(errorCurve.ks[bestKIdx]);
+  ctx.fillStyle = cssVar('--acc2');
+  ctx.beginPath(); ctx.arc(bx, toPy(errorCurve.test[bestKIdx]), 3.5, 0, Math.PI*2); ctx.fill();
+
+  /* current-k vertical line */
+  const cx = toPx(k);
+  ctx.strokeStyle = cssVar('--ink'); ctx.lineWidth = 1.2; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(cx, marginT); ctx.lineTo(cx, marginT+plotH); ctx.stroke();
+  ctx.setLineDash([]);
+}
+function regimeNote(k){
+  const bk = errorCurve.ks[bestKIdx];
+  if (k <= bk - 6) return 'Low k: the boundary hugs individual points \u2014 low bias, high variance (overfitting).';
+  if (k >= bk + 10) return 'High k: the boundary is heavily smoothed toward the majority class \u2014 high bias, low variance (underfitting).';
+  return 'Near the sweet spot for this dataset: bias and variance are roughly balanced.';
+}
+function updateBV(){
+  const k = parseInt(knnSlider.value, 10);
+  document.getElementById('knnKVal').textContent = k;
+  drawBoundary(k);
+  drawErrorCurve(k);
+  document.getElementById('trainErrVal').textContent = fmtPct(computeError(bvTrain, bvTrain, k));
+  document.getElementById('testErrVal').textContent = fmtPct(computeError(bvTrain, bvTest, k));
+  document.getElementById('knnRegime').textContent = regimeNote(k);
+}
+knnSlider.addEventListener('input', updateBV);
+
+/* ============================================================
+   PGM: D-SEPARATION TRIPLES
+   ============================================================ */
+const SVGNS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs){
+  const el = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+function ensureArrowDefs(svg, id){
+  const defs = svgEl('defs', {});
+  const marker = svgEl('marker', { id:id, viewBox:'0 0 10 10', refX:'9', refY:'5', markerWidth:'7', markerHeight:'7', orient:'auto-start-reverse' });
+  const path = svgEl('path', { d:'M0,0 L10,5 L0,10 z' });
+  path.style.fill = 'var(--ink-muted)';
+  marker.appendChild(path); defs.appendChild(marker); svg.appendChild(defs);
+}
+
+const TRIPLES = {
+  chain: {
+    svgId:'svgChain', statusId:'statusChain', hintId:'hintChain', type:'chain',
+    nodes:{ A:{x:35,y:60}, B:{x:110,y:60}, C:{x:185,y:60} },
+    edges:[['A','B'],['B','C']],
+    pathD:'M 35 79 Q 110 108 185 79'
+  },
+  fork: {
+    svgId:'svgFork', statusId:'statusFork', hintId:'hintFork', type:'fork',
+    nodes:{ B:{x:110,y:32}, A:{x:35,y:120}, C:{x:185,y:120} },
+    edges:[['B','A'],['B','C']],
+    pathD:'M 35 139 Q 110 158 185 139'
+  },
+  collider: {
+    svgId:'svgCollider', statusId:'statusCollider', hintId:'hintCollider', type:'collider',
+    nodes:{ B:{x:110,y:133}, A:{x:35,y:45}, C:{x:185,y:45} },
+    edges:[['A','B'],['C','B']],
+    pathD:'M 35 26 Q 110 6 185 26'
+  }
+};
+const tripleState = { chain:false, fork:false, collider:false }; /* is B observed */
+
+function buildTriple(key){
+  const cfg = TRIPLES[key];
+  const svg = document.getElementById(cfg.svgId);
+  svg.innerHTML = '';
+  /* the arrowhead marker id is document-wide (SVG url(#id) refs resolve globally),
+     so it only needs to be defined once, inside the first diagram */
+  if (key === 'chain') ensureArrowDefs(svg, 'arrowhead');
+
+  /* path indicator (drawn first, underneath) */
+  const pathEl = svgEl('path', { d: cfg.pathD, class:'pgm-path' });
+  pathEl.setAttribute('id', cfg.svgId + '_path');
+  svg.appendChild(pathEl);
+
+  /* edges */
+  cfg.edges.forEach(([from,to]) => {
+    const p1 = cfg.nodes[from], p2 = cfg.nodes[to];
+    const dx = p2.x-p1.x, dy = p2.y-p1.y, len = Math.sqrt(dx*dx+dy*dy);
+    const r = 17;
+    const x1 = p1.x + dx/len*r, y1 = p1.y + dy/len*r;
+    const x2 = p2.x - dx/len*(r+7), y2 = p2.y - dy/len*(r+7);
+    const line = svgEl('line', { x1, y1, x2, y2, class:'pgm-edge' });
+    svg.appendChild(line);
+  });
+
+  /* nodes */
+  Object.keys(cfg.nodes).forEach(name => {
+    const p = cfg.nodes[name];
+    const g = svgEl('g', { class:'pgm-node' + (name==='B' ? ' clickable' : '') });
+    g.appendChild(svgEl('circle', { cx:p.x, cy:p.y, r:17 }));
+    const t = svgEl('text', { x:p.x, y:p.y+1 });
+    t.textContent = name;
+    g.appendChild(t);
+    if (name === 'B'){
+      g.setAttribute('tabindex','0');
+      g.setAttribute('role','button');
+      g.setAttribute('aria-label','toggle whether B is observed');
+      g.addEventListener('click', () => { tripleState[key] = !tripleState[key]; updateTriple(key); });
+      g.addEventListener('keydown', (e) => { if (e.key==='Enter'||e.key===' '){ e.preventDefault(); tripleState[key] = !tripleState[key]; updateTriple(key); } });
+    }
+    g.dataset.name = name;
+    svg.appendChild(g);
+  });
+
+  updateTriple(key);
+}
+function updateTriple(key){
+  const cfg = TRIPLES[key];
+  const observed = tripleState[key];
+  const svg = document.getElementById(cfg.svgId);
+  const bNode = svg.querySelector('.pgm-node[data-name="B"]');
+  bNode.classList.toggle('observed', observed);
+
+  let blocked;
+  if (cfg.type === 'collider') blocked = !observed;
+  else blocked = observed;
+
+  document.getElementById(cfg.svgId + '_path').classList.toggle('active', !blocked);
+
+  const statusEl = document.getElementById(cfg.statusId);
+  statusEl.innerHTML = 'A &perp; C | B: <span class="' + (blocked ? 'yes">true' : 'no">false') + '</span>';
+
+  const hintEl = document.getElementById(cfg.hintId);
+  if (cfg.type === 'collider'){
+    hintEl.textContent = observed
+      ? 'B is a collider: observing it opens the path \u2014 A and C become dependent ("explaining away").'
+      : 'B unobserved: the colliding path is closed by default \u2014 A and C are marginally independent.';
+  } else {
+    hintEl.textContent = observed
+      ? (cfg.type==='chain' ? 'Conditioning on the mediator B blocks the only path from A to C.' : 'Conditioning on the common cause B blocks the path from A to C.')
+      : 'With B unobserved, information flows freely from A to C along this path.';
+  }
+}
+buildTriple('chain'); buildTriple('fork'); buildTriple('collider');
+
+/* ============================================================
+   PGM: MARKOV BLANKET (sprinkler network)
+   ============================================================ */
+const MB_NODES = {
+  C:{ x:150, y:40,  label:'Cloudy' },
+  S:{ x:70,  y:135, label:'Sprinkler' },
+  R:{ x:230, y:135, label:'Rain' },
+  W:{ x:150, y:225, label:'WetGrass' }
+};
+const MB_RADIUS = 20;
+const MB_EDGES = [['C','S'],['C','R'],['S','W'],['R','W']];
+let mbSelected = 'S';
+
+function computeMarkovBlanket(nodeId){
+  const parents = MB_EDGES.filter(e => e[1]===nodeId).map(e => e[0]);
+  const children = MB_EDGES.filter(e => e[0]===nodeId).map(e => e[1]);
+  const coparents = new Set();
+  children.forEach(ch => {
+    MB_EDGES.filter(e => e[1]===ch && e[0]!==nodeId).forEach(e => coparents.add(e[0]));
+  });
+  return { parents, children, coparents:[...coparents], blanket: new Set([...parents, ...children, ...coparents]) };
+}
+
+function buildSprinkler(){
+  const svg = document.getElementById('svgSprinkler');
+  svg.innerHTML = '';
+  ensureArrowDefs(svg, 'arrowhead2');
+  MB_EDGES.forEach(([from,to]) => {
+    const p1 = MB_NODES[from], p2 = MB_NODES[to];
+    const dx=p2.x-p1.x, dy=p2.y-p1.y, len=Math.sqrt(dx*dx+dy*dy), r=MB_RADIUS;
+    const x1=p1.x+dx/len*r, y1=p1.y+dy/len*r, x2=p2.x-dx/len*(r+7), y2=p2.y-dy/len*(r+7);
+    const line = svgEl('line', { x1,y1,x2,y2, class:'mb-edge' });
+    line.dataset.from = from; line.dataset.to = to;
+    line.setAttribute('marker-end','url(#arrowhead2)');
+    svg.appendChild(line);
+  });
+  Object.keys(MB_NODES).forEach(id => {
+    const p = MB_NODES[id];
+    const g = svgEl('g', { class:'mb-node', tabindex:'0', role:'button' });
+    g.setAttribute('aria-label', 'select ' + MB_NODES[id].label);
+    g.appendChild(svgEl('circle', { cx:p.x, cy:p.y, r:MB_RADIUS }));
+    const letter = svgEl('text', { x:p.x, y:p.y+1, class:'mb-letter' });
+    letter.textContent = id;
+    g.appendChild(letter);
+    const label = svgEl('text', { x:p.x, y:p.y+MB_RADIUS+14, class:'mb-label' });
+    label.textContent = MB_NODES[id].label;
+    g.appendChild(label);
+    g.dataset.id = id;
+    g.addEventListener('click', () => { mbSelected = id; updateSprinkler(); });
+    g.addEventListener('keydown', (e) => { if (e.key==='Enter'||e.key===' '){ e.preventDefault(); mbSelected = id; updateSprinkler(); } });
+    svg.appendChild(g);
+  });
+  updateSprinkler();
+}
+function updateSprinkler(){
+  const svg = document.getElementById('svgSprinkler');
+  const mb = computeMarkovBlanket(mbSelected);
+  svg.querySelectorAll('.mb-node').forEach(g => {
+    const id = g.dataset.id;
+    g.classList.toggle('selected', id === mbSelected);
+    g.classList.toggle('blanket', mb.blanket.has(id));
+  });
+  svg.querySelectorAll('.mb-edge').forEach(line => {
+    const f = line.dataset.from, t = line.dataset.to;
+    const touches = (f === mbSelected || t === mbSelected);
+    line.classList.toggle('highlight', touches);
+  });
+  const label = MB_NODES[mbSelected].label;
+  const names = x => x.map(id => MB_NODES[id].label).join(', ') || 'none';
+  document.getElementById('mbDesc').innerHTML =
+    '<span class="name">' + label + '</span>\u2019s Markov blanket = { ' + names([...mb.blanket]) + ' }<br><br>' +
+    'Parents: ' + names(mb.parents) + '<br>' +
+    'Children: ' + names(mb.children) + '<br>' +
+    'Co-parents (other parents of its children): ' + names(mb.coparents);
+}
+buildSprinkler();
+
+/* ============================================================
+   PLATE DIAGRAM (static)
+   ============================================================ */
+function buildPlate(){
+  const svg = document.getElementById('svgPlate');
+  svg.innerHTML = '';
+  ensureArrowDefs(svg, 'arrowhead3');
+  /* plate rectangle */
+  const rect = svgEl('rect', { x:60, y:60, width:130, height:100, rx:4, fill:'none' });
+  rect.style.stroke = 'var(--border-strong)'; rect.style.strokeWidth = '1.6';
+  svg.appendChild(rect);
+  const nLabel = svgEl('text', { x:178, y:150 });
+  nLabel.textContent = 'N';
+  nLabel.style.fill = 'var(--ink-muted)'; nLabel.style.fontFamily = 'var(--font-mono)'; nLabel.style.fontSize = '12px';
+  svg.appendChild(nLabel);
+
+  const nodes = { pi:{x:30,y:110,label:'\u03C0'}, z:{x:100,y:110,label:'z\u1D62'}, x:{x:150,y:110,label:'x\u1D62'}, th:{x:220,y:110,label:'\u03B8'} };
+  const edges = [['pi','z'],['z','x'],['th','x']];
+  edges.forEach(([from,to]) => {
+    const p1 = nodes[from], p2 = nodes[to];
+    const dx=p2.x-p1.x, dy=p2.y-p1.y, len=Math.sqrt(dx*dx+dy*dy), r=16;
+    const x1=p1.x+dx/len*r, y1=p1.y+dy/len*r, x2=p2.x-dx/len*(r+7), y2=p2.y-dy/len*(r+7);
+    const line = svgEl('line', { x1,y1,x2,y2 });
+    line.style.stroke = 'var(--ink-muted)'; line.style.strokeWidth = '1.6';
+    line.setAttribute('marker-end','url(#arrowhead3)');
+    svg.appendChild(line);
+  });
+  Object.keys(nodes).forEach(key => {
+    const p = nodes[key];
+    const isLatent = (key === 'z');
+    const circle = svgEl('circle', { cx:p.x, cy:p.y, r:16 });
+    circle.style.fill = isLatent ? 'var(--surface-alt)' : 'var(--surface)';
+    circle.style.stroke = 'var(--ink)'; circle.style.strokeWidth = '1.6';
+    if (isLatent) circle.style.strokeDasharray = '3 2';
+    svg.appendChild(circle);
+    const t = svgEl('text', { x:p.x, y:p.y+1 });
+    t.textContent = p.label;
+    t.style.fill = 'var(--ink)'; t.style.fontFamily = 'var(--font-mono)'; t.style.fontSize = '12px';
+    t.style.textAnchor = 'middle'; t.style.dominantBaseline = 'central';
+    svg.appendChild(t);
+  });
+  const shaded = svgEl('text', { x:150, y:188 });
+  shaded.textContent = 'x\u1D62 observed \u00B7 z\u1D62 latent (dashed)';
+  shaded.style.fill = 'var(--ink-muted)'; shaded.style.fontFamily = 'var(--font-mono)'; shaded.style.fontSize = '9px';
+  shaded.style.textAnchor = 'middle';
+  svg.appendChild(shaded);
+}
+buildPlate();
+
+/* ============================================================
+   NAV SCROLL-SPY
+   ============================================================ */
+const sections = ['mixtures','biasvariance','pgm'].map(id => document.getElementById(id));
+const navLinks = Array.from(document.querySelectorAll('.nav-tabs a'));
+if ('IntersectionObserver' in window){
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting){
+        const idx = sections.indexOf(entry.target);
+        navLinks.forEach(a => a.classList.remove('active'));
+        if (navLinks[idx]) navLinks[idx].classList.add('active');
+      }
+    });
+  }, { rootMargin: '-40% 0px -55% 0px' });
+  sections.forEach(s => io.observe(s));
+}
+
+/* ============================================================
+   INIT + THEME / RESIZE REACTIVITY
+   ============================================================ */
+function redrawAll(){
+  drawGMM();
+  updateBV();
+}
+gmmSyncLabels();
+drawGMM();
+updateBV();
+
+window.addEventListener('resize', debounce(redrawAll, 150));
+if (window.matchMedia){
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  (mq.addEventListener ? mq.addEventListener.bind(mq) : mq.addListener.bind(mq))('change', redrawAll);
+}
+new MutationObserver(redrawAll).observe(document.documentElement, { attributes:true, attributeFilter:['data-theme'] });
+
+})();
+</script>
+</body>
+</html>
