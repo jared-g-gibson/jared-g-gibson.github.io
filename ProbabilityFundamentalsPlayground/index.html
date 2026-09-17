@@ -278,12 +278,12 @@ footer{padding:2.4rem 0; color:var(--ink-muted); font-size:.82rem;}
 
     <div class="topic-grid">
       <div class="key-points">
-        <p>Formally, each point $x_i$ has a hidden (latent) label $z_i \in \{1,\dots,K\}$ that you never observe. First $z_i$ is drawn from the mixing weights $\pi$, then $x_i$ is drawn from component $z_i$'s distribution:</p>
+        <p>Formally, each point <i>x<sub>i</sub></i> has a hidden (latent) label <i>z<sub>i</sub></i> &isin; {1, &hellip;, K} that you never observe. First <i>z<sub>i</sub></i> is drawn from the mixing weights <i>&pi;</i>, then <i>x<sub>i</sub></i> is drawn from component <i>z<sub>i</sub></i>'s distribution:</p>
         <span class="eq">p(x) = &Sigma;<sub>k</sub> &pi;<sub>k</sub> &middot; p(x | &theta;<sub>k</sub>),&nbsp;&nbsp; &Sigma;<sub>k</sub> &pi;<sub>k</sub> = 1</span>
         <ul>
-          <li><strong>Gaussian mixture (GMM):</strong> each component is a Gaussian $\mathcal{N}(\mu_k, \sigma_k^2)$ &mdash; natural for continuous data.</li>
+          <li><strong>Gaussian mixture (GMM):</strong> each component is a Gaussian <i>N</i>(&mu;<sub>k</sub>, &sigma;<sub>k</sub><sup>2</sup>) &mdash; natural for continuous data.</li>
           <li><strong>Bernoulli mixture (BMM):</strong> each component is a set of independent coin flips, one per dimension &mdash; natural for binary data (binarized pixels, yes/no features).</li>
-          <li>Because $z_i$ is unobserved, plain maximum likelihood is intractable in closed form, so we fit with <strong>Expectation&ndash;Maximization (EM)</strong>: the E&#8209;step computes soft responsibilities $p(z_i=k\mid x_i)$ for every point under the current parameters; the M&#8209;step refits $\pi,\mu,\sigma$ (or $\pi,\mu_{kd}$ for Bernoulli) as weighted averages using those responsibilities.</li>
+          <li>Because <i>z<sub>i</sub></i> is unobserved, plain maximum likelihood is intractable in closed form, so we fit with <strong>Expectation&ndash;Maximization (EM)</strong>: the E&#8209;step computes soft responsibilities <i>p</i>(<i>z<sub>i</sub></i>&nbsp;=&nbsp;k&nbsp;|&nbsp;<i>x<sub>i</sub></i>) for every point under the current parameters; the M&#8209;step refits <i>&pi;, &mu;, &sigma;</i> (or <i>&pi;, &mu;<sub>kd</sub></i> for Bernoulli) as weighted averages using those responsibilities.</li>
           <li>EM only climbs to a <strong>local</strong> optimum &mdash; the likelihood surface is non-convex, so initialization and restarts matter.</li>
           <li>Unlike k-means, membership is <strong>soft</strong>: a point gets a probability of belonging to each cluster, not a hard label.</li>
         </ul>
@@ -321,14 +321,14 @@ footer{padding:2.4rem 0; color:var(--ink-muted); font-size:.82rem;}
             </div>
           </div>
           <button class="btn" id="gmmSampleBtn" type="button">Draw 60 samples from this mixture</button>
-          <p class="triple-hint">Sampling first rolls the latent $z$ against your (normalized) weights, then draws $x$ from that component &mdash; dot color shows which component actually generated each point.</p>
+          <p class="triple-hint">Sampling first rolls the latent <i>z</i> against your (normalized) weights, then draws <i>x</i> from that component &mdash; dot color shows which component actually generated each point.</p>
         </div>
 
         <!-- BMM widget -->
         <div class="panel">
           <p class="panel-title">Bernoulli mixture &mdash; edit 3 prototypes over a 3&times;3 binary grid</p>
           <div class="bmm-layout" id="bmmProtos"></div>
-          <p class="triple-hint">Click any cell to cycle its probability of being &ldquo;on&rdquo; (light&nbsp;&rarr;&nbsp;dark). Each swatch is $\mu_{kd}$ for that component.</p>
+          <p class="triple-hint">Click any cell to cycle its probability of being &ldquo;on&rdquo; (light&nbsp;&rarr;&nbsp;dark). Each swatch is &mu;<sub>kd</sub> for that component.</p>
           <div class="controls-row" id="bmmWeights"></div>
           <button class="btn" id="bmmSampleBtn" type="button">Draw a sample</button>
           <div class="gallery" id="bmmGallery"></div>
@@ -354,7 +354,7 @@ footer{padding:2.4rem 0; color:var(--ink-muted); font-size:.82rem;}
           <li><strong>Bias:</strong> systematic error from a model too rigid to represent the true pattern (underfitting).</li>
           <li><strong>Variance:</strong> error from being too sensitive to the particular training sample you happened to draw (overfitting).</li>
         </ul>
-        <p>Small $k$ &rarr; low bias, high variance, jagged boundary that memorizes noise. Large $k$ &rarr; high bias, low variance, an over-smoothed boundary. The same logic applies to tree depth, polynomial degree, or regularization strength in any classifier.</p>
+        <p>Small <i>k</i> &rarr; low bias, high variance, jagged boundary that memorizes noise. Large <i>k</i> &rarr; high bias, low variance, an over-smoothed boundary. The same logic applies to tree depth, polynomial degree, or regularization strength in any classifier.</p>
         <p>Classification has a twist regression doesn't: only <strong>which side of the boundary</strong> a point lands on matters. Variance far from the boundary is harmless; variance right at the boundary flips predictions. So classifiers often tolerate messier internal estimates than regressors do, as long as the boundary stays roughly right.</p>
         <p>Bagging (random forests) averages many high-variance models to cancel variance. Boosting chains many high-bias weak learners to drive down bias.</p>
       </div>
@@ -456,7 +456,7 @@ footer{padding:2.4rem 0; color:var(--ink-muted); font-size:.82rem;}
         <div class="plate-box">
           <div class="plate-flex">
             <svg viewBox="0 0 260 205" id="svgPlate"></svg>
-            <p>A mixture model is itself a tiny PGM: for each of $N$ points, $z_i$ is drawn from global weights $\pi$, then $x_i$ from component $\theta_{z_i}$ &mdash; the rectangle (a &ldquo;plate&rdquo;) means &ldquo;repeat this $N$ times, independently.&rdquo;</p>
+            <p>A mixture model is itself a tiny PGM: for each of <i>N</i> points, <i>z<sub>i</sub></i> is drawn from global weights <i>&pi;</i>, then <i>x<sub>i</sub></i> from component <i>&theta;<sub>zi</sub></i> &mdash; the rectangle (a &ldquo;plate&rdquo;) means &ldquo;repeat this <i>N</i> times, independently.&rdquo;</p>
           </div>
         </div>
       </div>
