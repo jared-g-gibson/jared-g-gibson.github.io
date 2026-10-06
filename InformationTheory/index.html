@@ -1,0 +1,1233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Information Theory Lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..700&family=IBM+Plex+Mono:wght@400;500&family=Source+Sans+3:ital,wght@0,400..700;1,400..600&family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&display=swap">
+<style>
+/* Layout: a sticky rail of 13 concepts beside one reading column; each concept is a short explanation followed by a live lab panel. */
+:root{
+  --bg:#F0F4F6; --surface:#FFFFFF; --surface-2:#E4EBEE; --ink:#0E1F27; --ink-2:#465C66; --line:#C8D5DA;
+  --p:#087A8C; --q:#C24D17; --kl:#7339AA; --j:#3558A8; --ok:#1B7F52;
+  --p-soft:rgba(8,122,140,.13); --q-soft:rgba(194,77,23,.13); --kl-soft:rgba(115,57,170,.13);
+  --f-display:'Bricolage Grotesque','Segoe UI',system-ui,sans-serif;
+  --f-body:'Source Sans 3',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-math:'STIX Two Text','Cambria Math','Times New Roman',serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0B161B; --surface:#12212A; --surface-2:#1A2C36; --ink:#E2EEF2; --ink-2:#8CA4AF; --line:#284049;
+    --p:#43C6DA; --q:#F58F58; --kl:#C89CF3; --j:#8FADF2; --ok:#55C78F;
+    --p-soft:rgba(67,198,218,.16); --q-soft:rgba(245,143,88,.16); --kl-soft:rgba(200,156,243,.16);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0B161B; --surface:#12212A; --surface-2:#1A2C36; --ink:#E2EEF2; --ink-2:#8CA4AF; --line:#284049;
+  --p:#43C6DA; --q:#F58F58; --kl:#C89CF3; --j:#8FADF2; --ok:#55C78F;
+  --p-soft:rgba(67,198,218,.16); --q-soft:rgba(245,143,88,.16); --kl-soft:rgba(200,156,243,.16);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:400 17px/1.55 var(--f-body);-webkit-text-size-adjust:100%}
+:focus-visible{outline:2px solid var(--p);outline-offset:2px}
+b{font-weight:600}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line)}
+.top-in{max-width:1180px;margin:0 auto;padding:9px clamp(16px,4vw,32px);display:flex;align-items:center;gap:12px;justify-content:space-between}
+.brand{font:700 1.05rem/1 var(--f-display);letter-spacing:-.01em;white-space:nowrap}
+.top-r{display:flex;align-items:center;gap:10px;min-width:0}
+.jump{display:none;min-width:0;max-width:52vw;font:500 .9rem var(--f-body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:500 .82rem var(--f-mono);padding:6px 12px;border:0;background:transparent;color:var(--ink-2);cursor:pointer;min-height:32px}
+.seg button[aria-pressed="true"]{background:var(--p);color:var(--surface)}
+.seg-l{font:500 .72rem var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+
+/* hero */
+.hero{max-width:1180px;margin:0 auto;padding:38px clamp(16px,4vw,32px) 8px}
+.eyebrow{font:500 .76rem var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2);margin:0}
+h1{font:700 clamp(2.3rem,6.4vw,3.9rem)/1 var(--f-display);letter-spacing:-.025em;margin:.5rem 0 .9rem;text-wrap:balance}
+.hero .lede{max-width:58ch;color:var(--ink-2);font-size:1.13rem;margin:0}
+.cheat{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:26px}
+.cheat>div{background:var(--surface);padding:12px 16px;min-width:0}
+.cheat .k{font:500 .7rem var(--f-mono);letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2);margin-bottom:4px}
+.cheat .v{font-family:var(--f-math);font-size:1.22rem;overflow-x:auto;white-space:nowrap}
+
+/* shell + rail */
+.shell{max-width:1180px;margin:0 auto;padding:4px clamp(16px,4vw,32px) 90px;display:grid;grid-template-columns:210px minmax(0,1fr);gap:44px}
+.rail{position:sticky;top:calc(env(safe-area-inset-top,0px) + 66px);align-self:start;max-height:calc(100dvh - 90px);overflow-y:auto;padding:30px 0 12px;font-size:.95rem}
+.rail h4{font:500 .68rem var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2);margin:18px 0 6px}
+.rail h4:first-child{margin-top:0}
+.rail a{display:flex;gap:8px;padding:4px 8px;margin-left:-8px;border-radius:6px;color:var(--ink);text-decoration:none;line-height:1.3}
+.rail a span{font:500 .72rem var(--f-mono);color:var(--ink-2);padding-top:.2em;min-width:1.2rem}
+.rail a:hover{background:var(--surface-2)}
+.rail a[aria-current="true"]{background:var(--p-soft);font-weight:600}
+main{min-width:0}
+@media (max-width:1000px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{display:none}
+  .jump{display:block}
+  .seg-l{display:none}
+}
+
+/* sections */
+.sec{padding-top:58px;scroll-margin-top:62px}
+.part{font:500 .72rem var(--f-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2);margin:0 0 6px}
+.sec h2{font:700 clamp(1.65rem,3.8vw,2.25rem)/1.08 var(--f-display);letter-spacing:-.018em;margin:0 0 .55rem;text-wrap:balance;display:flex;gap:.7rem;align-items:baseline}
+.sec h2 .num{font:500 .9rem var(--f-mono);color:var(--p);letter-spacing:0}
+.sec .lede{font-size:1.1rem;color:var(--ink-2);max-width:62ch;margin:0 0 1rem}
+.prose{max-width:68ch}
+.prose p{margin:0 0 .9rem}
+.prose ul{padding-left:1.15rem;margin:0 0 .95rem}
+.prose li{margin-bottom:.4rem}
+.prose h3{font:600 1.02rem var(--f-display);margin:1.2rem 0 .4rem}
+.note{border-left:3px solid var(--p);background:var(--p-soft);padding:.65rem .95rem;border-radius:0 8px 8px 0;margin:0 0 1rem;font-size:.98rem;max-width:68ch}
+.note.warn{border-left-color:var(--q);background:var(--q-soft)}
+details{max-width:68ch;margin:0 0 1rem;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+summary{cursor:pointer;padding:.55rem .9rem;font-weight:600}
+details>div{padding:0 .9rem .5rem}
+
+/* math (hand-set, no library) */
+.m{font-family:var(--f-math);font-size:1.07em;white-space:nowrap}
+.eq{font-family:var(--f-math);font-size:1.26rem;text-align:center;padding:.7rem .6rem;margin:.55rem 0 1rem;overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px;white-space:nowrap}
+.eq i,.m i{font-style:italic}
+.eq.l{text-align:left}
+sub,sup{font-size:.68em;line-height:0}
+.op{font-size:1.3em;line-height:1}
+.fr{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 .14em;font-size:.95em}
+.fr>.nu{border-bottom:1px solid currentColor;padding:0 .25em .06em}
+.fr>.de{padding:.06em .25em 0}
+.c-p{color:var(--p)} .c-q{color:var(--q)} .c-kl{color:var(--kl)} .c-j{color:var(--j)} .c-ok{color:var(--ok)}
+
+/* lab panels */
+.lab{margin-top:1.1rem;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.sub{display:flex;flex-direction:column;gap:12px;min-width:0}
+.sub+.sub{border-top:1px dashed var(--line);padding-top:16px}
+.sub-t{font:600 .95rem var(--f-display);margin:0}
+.cap{display:flex;justify-content:space-between;gap:10px;font:500 .74rem var(--f-mono);letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);margin-bottom:-6px}
+.cap.p b{color:var(--p)} .cap.q b{color:var(--q)}
+.cap b{font-weight:500}
+.row{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-start}
+.row>*{flex:1 1 280px;min-width:0}
+.ctls{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:6px 24px}
+.ctl{display:grid;grid-template-columns:minmax(1.7rem,auto) minmax(0,1fr) minmax(3.4rem,auto);align-items:center;gap:10px}
+.ctl[hidden]{display:none}
+.ctl-n{font-family:var(--f-math);font-size:1.08rem;white-space:nowrap}
+.ctl-v{font:500 .84rem var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;min-height:28px;margin:0;accent-color:var(--p)}
+select.sel{font:500 .92rem var(--f-body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px;min-height:34px;max-width:100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:600 .84rem var(--f-body);border:1px solid var(--line);background:var(--surface-2);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer;min-height:32px}
+.chip:hover{border-color:var(--p)}
+.chip[aria-pressed="true"]{background:var(--p);color:var(--surface);border-color:var(--p)}
+.btn{font:600 .9rem var(--f-body);border:1px solid var(--p);background:var(--p);color:var(--surface);border-radius:8px;padding:7px 14px;cursor:pointer;min-height:36px}
+.btn.alt{background:transparent;color:var(--p)}
+.btn:hover{filter:brightness(1.08)}
+.live{font-family:var(--f-math);font-size:1.12rem;padding:.55rem .8rem;border-radius:8px;background:var(--bg);border:1px solid var(--line);overflow-x:auto;white-space:nowrap}
+.live.wrap{white-space:normal}
+.live b{font-family:var(--f-mono);font-size:.92em;font-weight:500}
+
+.ro{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr));gap:8px;margin:0}
+.ro-i{border:1px solid var(--line);border-left-width:4px;border-radius:8px;padding:6px 10px;background:var(--bg);min-width:0}
+.ro-i dt{font:500 .86rem var(--f-math);color:var(--ink-2);margin:0}
+.ro-i dd{margin:0;font:500 1.08rem var(--f-mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.ro-i.p{border-left-color:var(--p)} .ro-i.q{border-left-color:var(--q)} .ro-i.kl{border-left-color:var(--kl)} .ro-i.j{border-left-color:var(--j)} .ro-i.ok{border-left-color:var(--ok)}
+
+.scroll{overflow-x:auto}
+table.tbl{width:100%;border-collapse:collapse;font:400 .85rem var(--f-mono);font-variant-numeric:tabular-nums}
+.tbl th,.tbl td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.tbl th{font-weight:500;color:var(--ink-2);font-family:var(--f-math);font-size:.95rem}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl tr.hl td{background:var(--q-soft)}
+.tbl tfoot td{font-weight:500;border-bottom:0}
+
+/* svg charts */
+.chart{display:block;width:100%;height:auto;max-width:100%;touch-action:pan-y}
+.chart.drag{touch-action:none;cursor:ns-resize}
+.chart text{font-family:var(--f-mono);font-size:11px;fill:var(--ink-2)}
+.chart text.tl{font-family:var(--f-body);font-size:13px;fill:var(--ink)}
+.chart text.bg{font-family:var(--f-math);font-size:14px;fill:var(--ink)}
+.chart text.on{font-family:var(--f-body);font-size:12px;font-weight:600;fill:var(--surface)}
+.chart text.ac-p{fill:var(--p)} .chart text.ac-q{fill:var(--q)} .chart text.ac-kl{fill:var(--kl)} .chart text.ac-j{fill:var(--j)} .chart text.ac-ok{fill:var(--ok)}
+.ax{stroke:var(--line);stroke-width:1;fill:none}
+.gl{stroke:var(--line);stroke-width:1;stroke-dasharray:2 4}
+.ref{stroke:var(--ink-2);stroke-width:1.2;stroke-dasharray:5 4;fill:none}
+.ln-p{fill:none;stroke:var(--p);stroke-width:2.2} .ln-q{fill:none;stroke:var(--q);stroke-width:2.2}
+.ln-kl{fill:none;stroke:var(--kl);stroke-width:2.2} .ln-ink{fill:none;stroke:var(--ink);stroke-width:2}
+.ln-j{fill:none;stroke:var(--j);stroke-width:2.2}
+.fill-p{fill:var(--p)} .fill-q{fill:var(--q)} .fill-kl{fill:var(--kl)} .fill-j{fill:var(--j)} .fill-ok{fill:var(--ok)} .fill-ink{fill:var(--ink)} .fill-2{fill:var(--surface-2)}
+.fill-psoft{fill:var(--p-soft)} .fill-klsoft{fill:var(--kl-soft)} .fill-qsoft{fill:var(--q-soft)}
+.st-surface{stroke:var(--surface);stroke-width:1.5}
+.dot-p{fill:var(--p);stroke:var(--surface);stroke-width:2} .dot-q{fill:var(--q);stroke:var(--surface);stroke-width:2} .dot-kl{fill:var(--kl);stroke:var(--surface);stroke-width:2}
+
+footer{max-width:68ch;margin-top:72px;padding-top:18px;border-top:1px solid var(--line);color:var(--ink-2);font-size:.95rem}
+footer p{margin:0 0 .5rem}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="top"><div class="top-in">
+  <div class="brand">Information Theory Lab</div>
+  <div class="top-r">
+    <select class="jump" id="jump" aria-label="Jump to a concept"></select>
+    <span class="seg-l">Unit</span>
+    <div class="seg" role="group" aria-label="Logarithm base">
+      <button type="button" id="u-bits" aria-pressed="true">bits</button>
+      <button type="button" id="u-nats" aria-pressed="false">nats</button>
+    </div>
+  </div>
+</div></div>
+
+<header class="hero">
+  <p class="eyebrow">Advanced machine learning · Information theory</p>
+  <h1>Entropy, cross entropy and KL divergence, by hand</h1>
+  <p class="lede">Thirteen ideas, each with a small lab you can push around. Drag bars, move sliders and draw samples to see why the formulas look the way they do. Switch between bits and nats at any time.</p>
+  <div class="cheat" aria-label="Formula cheat sheet">
+    <div><div class="k">Information content</div><div class="v"><i>I</i>(<i>x</i>) = −log <i>p</i>(<i>x</i>)</div></div>
+    <div><div class="k">Entropy</div><div class="v"><i>H</i>(<i>P</i>) = −<span class="op">∑</span> <i>p</i> log <i>p</i></div></div>
+    <div><div class="k">Cross entropy</div><div class="v"><i>H</i>(<i>P</i>, <i>Q</i>) = −<span class="op">∑</span> <i>p</i> log <i>q</i></div></div>
+    <div><div class="k">KL divergence</div><div class="v"><i>D</i>(<i>P</i>‖<i>Q</i>) = <span class="op">∑</span> <i>p</i> log <span class="fr"><span class="nu"><i>p</i></span><span class="de"><i>q</i></span></span></div></div>
+    <div><div class="k">The identity</div><div class="v"><i>H</i>(<i>P</i>, <i>Q</i>) = <i>H</i>(<i>P</i>) + <i>D</i>(<i>P</i>‖<i>Q</i>)</div></div>
+    <div><div class="k">Perplexity</div><div class="v">PP = exp <i>H</i>(<i>P</i>, <i>Q</i>) = 2<sup>H in bits</sup></div></div>
+  </div>
+</header>
+
+<div class="shell">
+<nav class="rail" id="rail" aria-label="Concepts"></nav>
+<main>
+
+<!-- 1 -->
+<section class="sec" id="s-info" data-name="Information content" data-part="Measuring surprise">
+  <p class="part">Measuring surprise</p>
+  <h2><span class="num">1</span>Information content</h2>
+  <p class="lede">How surprised should you be when something happens? Information content turns that into a number.</p>
+  <div class="prose">
+    <p>The <b>information content</b> (or <b>surprisal</b>) of an outcome <i>x</i> with probability <i>p</i>(<i>x</i>) is</p>
+    <div class="eq"><i>I</i>(<i>x</i>) = log <span class="fr"><span class="nu">1</span><span class="de"><i>p</i>(<i>x</i>)</span></span> = −log <i>p</i>(<i>x</i>)</div>
+    <p>Rare outcomes carry a lot of information and certain ones carry none. The base of the logarithm sets the unit: base 2 gives <b>bits</b>, base <i>e</i> gives <b>nats</b>, and 1 nat ≈ 1.443 bits. The toggle at the top switches every number on this page.</p>
+    <p>The logarithm is there for one reason: information from independent events should add. If <i>x</i> and <i>y</i> are independent then <i>p</i>(<i>x</i>, <i>y</i>) = <i>p</i>(<i>x</i>)<i>p</i>(<i>y</i>), and only a logarithm turns that product into a sum.</p>
+    <div class="eq"><i>I</i>(<i>x</i>, <i>y</i>) = −log <i>p</i>(<i>x</i>)<i>p</i>(<i>y</i>) = <i>I</i>(<i>x</i>) + <i>I</i>(<i>y</i>)</div>
+    <p>A useful reading: <i>I</i> bits is about the number of yes/no questions needed to single out one outcome among 2<sup><i>I</i></sup> equally likely ones.</p>
+  </div>
+  <div class="lab" id="lab-info"></div>
+</section>
+
+<!-- 2 -->
+<section class="sec" id="s-entropy" data-name="Entropy" data-part="Measuring surprise">
+  <h2><span class="num">2</span>Entropy</h2>
+  <p class="lede">Entropy is the average surprise of a distribution.</p>
+  <div class="prose">
+    <p>Average the information content over the distribution itself:</p>
+    <div class="eq"><i>H</i>(<i>P</i>) = <i>E</i><sub><i>x</i>∼<i>P</i></sub>[ −log <i>p</i>(<i>x</i>) ] = −<span class="op">∑</span><sub><i>x</i></sub> <i>p</i>(<i>x</i>) log <i>p</i>(<i>x</i>)</div>
+    <p>with the convention 0 log 0 = 0. Entropy measures how uncertain you are before seeing a sample. It is also the best possible compression: no code can use fewer than <i>H</i>(<i>P</i>) bits per symbol on average, and good codes get within one bit of it (Shannon's source coding theorem).</p>
+    <ul>
+      <li><i>H</i> ≥ 0, and <i>H</i> = 0 only when one outcome has probability 1.</li>
+      <li>For <i>K</i> outcomes, <i>H</i> ≤ log <i>K</i>, with equality only for the uniform distribution.</li>
+      <li>2<sup><i>H</i></sup> (in bits) is the <b>effective number of outcomes</b>: a distribution that is as uncertain as a fair <i>k</i>-sided die has 2<sup><i>H</i></sup> = <i>k</i>.</li>
+    </ul>
+  </div>
+  <div class="lab" id="lab-entropy"></div>
+</section>
+
+<!-- 3 -->
+<section class="sec" id="s-rv" data-name="Entropy of random variables" data-part="Measuring surprise">
+  <h2><span class="num">3</span>Entropy of random variables</h2>
+  <p class="lede">The entropy of a random variable depends only on its distribution, not on the values it takes.</p>
+  <div class="prose">
+    <p>We write <i>H</i>(<i>X</i>) for the entropy of the distribution of <i>X</i>. Relabeling the outcomes, say <i>X</i> → 2<i>X</i> + 1, changes nothing, because only the probabilities enter. Some standard cases:</p>
+    <ul>
+      <li><b>Bernoulli</b>(<i>p</i>): <i>H</i> = −<i>p</i> log <i>p</i> − (1−<i>p</i>) log(1−<i>p</i>), largest (1 bit) at <i>p</i> = ½.</li>
+      <li><b>Geometric</b>(<i>p</i>): <i>H</i> = <i>H</i><sub>Bern</sub>(<i>p</i>) / <i>p</i>.</li>
+      <li><b>Binomial</b>(<i>n</i>, <i>p</i>) and <b>Poisson</b>(λ) have no tidy closed form, but for large parameters they approach ½ log(2π<i>e</i>·variance).</li>
+    </ul>
+    <p>For a continuous variable with density <i>f</i>, the analogue is the <b>differential entropy</b> <i>h</i>(<i>X</i>) = −∫ <i>f</i> log <i>f</i> d<i>x</i>. It is not the limit of discrete entropy: it can be negative, it changes under rescaling (<i>h</i>(<i>aX</i>) = <i>h</i>(<i>X</i>) + log|<i>a</i>|), and chopping <i>X</i> into bins of width Δ gives <i>H</i>(<i>X</i><sub>Δ</sub>) ≈ <i>h</i>(<i>X</i>) − log Δ. For a Gaussian,</p>
+    <div class="eq"><i>h</i>(<i>N</i>(μ, σ²)) = ½ log(2π<i>e</i>σ²)</div>
+    <p>and among all densities with a given variance the Gaussian has the largest differential entropy.</p>
+  </div>
+  <div class="lab" id="lab-rv"></div>
+</section>
+
+<!-- 4 -->
+<section class="sec" id="s-joint" data-name="Joint entropy" data-part="Two variables">
+  <p class="part">Two variables</p>
+  <h2><span class="num">4</span>Joint entropy</h2>
+  <p class="lede">The uncertainty of a pair, treated as one variable.</p>
+  <div class="prose">
+    <div class="eq"><i>H</i>(<i>X</i>, <i>Y</i>) = −<span class="op">∑</span><sub><i>x</i>,<i>y</i></sub> <i>p</i>(<i>x</i>, <i>y</i>) log <i>p</i>(<i>x</i>, <i>y</i>)</div>
+    <p>It satisfies max(<i>H</i>(<i>X</i>), <i>H</i>(<i>Y</i>)) ≤ <i>H</i>(<i>X</i>, <i>Y</i>) ≤ <i>H</i>(<i>X</i>) + <i>H</i>(<i>Y</i>). The upper bound is tight exactly when <i>X</i> and <i>Y</i> are independent. The gap is the <b>mutual information</b>, the amount the two variables share:</p>
+    <div class="eq"><i>I</i>(<i>X</i>; <i>Y</i>) = <i>H</i>(<i>X</i>) + <i>H</i>(<i>Y</i>) − <i>H</i>(<i>X</i>, <i>Y</i>)</div>
+    <p>Notation warning: <i>H</i>(<i>X</i>, <i>Y</i>) with random variables is joint entropy, while <i>H</i>(<i>P</i>, <i>Q</i>) with two distributions (section 6) is cross entropy. The lab below sends a symbol <i>X</i> through a noisy channel: with probability ρ the output <i>Y</i> copies <i>X</i>, otherwise <i>Y</i> is a fresh draw from the same distribution.</p>
+  </div>
+  <div class="lab" id="lab-joint"></div>
+</section>
+
+<!-- 5 -->
+<section class="sec" id="s-cond" data-name="Conditional entropy" data-part="Two variables">
+  <h2><span class="num">5</span>Conditional entropy</h2>
+  <p class="lede">What uncertainty is left in <i>X</i> once you know <i>Y</i>?</p>
+  <div class="prose">
+    <div class="eq"><i>H</i>(<i>X</i>|<i>Y</i>) = <span class="op">∑</span><sub><i>y</i></sub> <i>p</i>(<i>y</i>) <i>H</i>(<i>X</i>|<i>Y</i>=<i>y</i>) = −<span class="op">∑</span><sub><i>x</i>,<i>y</i></sub> <i>p</i>(<i>x</i>, <i>y</i>) log <i>p</i>(<i>x</i>|<i>y</i>)</div>
+    <p>It is the average, over <i>y</i>, of the entropy of the conditional distribution. The <b>chain rule</b> splits a joint entropy into steps:</p>
+    <div class="eq"><i>H</i>(<i>X</i>, <i>Y</i>) = <i>H</i>(<i>Y</i>) + <i>H</i>(<i>X</i>|<i>Y</i>) = <i>H</i>(<i>X</i>) + <i>H</i>(<i>Y</i>|<i>X</i>)</div>
+    <p>On average, conditioning never hurts: <i>H</i>(<i>X</i>|<i>Y</i>) ≤ <i>H</i>(<i>X</i>), with equality iff <i>X</i> and <i>Y</i> are independent. But for one particular <i>y</i>, <i>H</i>(<i>X</i>|<i>Y</i>=<i>y</i>) can be larger than <i>H</i>(<i>X</i>). A surprising observation can leave you less sure than before. The average still comes out no larger.</p>
+  </div>
+  <div class="lab" id="lab-cond"></div>
+</section>
+
+<!-- 6 -->
+<section class="sec" id="s-xent" data-name="Cross entropy" data-part="Comparing distributions">
+  <p class="part">Comparing distributions</p>
+  <h2><span class="num">6</span>Cross entropy</h2>
+  <p class="lede">The cost of describing data from <i>P</i> with a code built for <i>Q</i>.</p>
+  <div class="prose">
+    <p>Entropy is the best average code length when the code matches the data. Suppose the data really come from <i>P</i> but you built your code for a model <i>Q</i>, so outcome <i>x</i> costs −log <i>q</i>(<i>x</i>). The average cost is the <b>cross entropy</b>:</p>
+    <div class="eq"><i>H</i>(<i>P</i>, <i>Q</i>) = <i>E</i><sub><i>x</i>∼<i>P</i></sub>[ −log <i>q</i>(<i>x</i>) ] = −<span class="op">∑</span><sub><i>x</i></sub> <i>p</i>(<i>x</i>) log <i>q</i>(<i>x</i>)</div>
+    <p>It is never smaller than <i>H</i>(<i>P</i>), and the excess is exactly the KL divergence of section 8:</p>
+    <div class="eq"><i>H</i>(<i>P</i>, <i>Q</i>) = <i>H</i>(<i>P</i>) + <i>D</i><sub>KL</sub>(<i>P</i> ‖ <i>Q</i>)</div>
+    <p>This is the standard classification loss. The label is a one-hot distribution <i>P</i>, the network's softmax output is <i>Q</i>, and the cross entropy collapses to −log <i>q</i><sub>y</sub>, the negative log-likelihood of the correct class. It is not symmetric: <i>H</i>(<i>P</i>, <i>Q</i>) ≠ <i>H</i>(<i>Q</i>, <i>P</i>) in general.</p>
+  </div>
+  <div class="lab" id="lab-xent"></div>
+</section>
+
+<!-- 7 -->
+<section class="sec" id="s-ppl" data-name="Perplexity" data-part="Comparing distributions">
+  <h2><span class="num">7</span>Perplexity</h2>
+  <p class="lede">Cross entropy, exponentiated into something you can picture: a number of choices.</p>
+  <div class="prose">
+    <p>The perplexity of a distribution is <i>e</i><sup><i>H</i></sup>, which equals 2<sup><i>H</i></sup> when <i>H</i> is in bits. It is the effective number of equally likely outcomes. For a language model <i>Q</i> scored on a test sequence <i>x</i><sub>1</sub>, …, <i>x</i><sub><i>N</i></sub>:</p>
+    <div class="eq">PP = exp( −<span class="fr"><span class="nu">1</span><span class="de"><i>N</i></span></span> <span class="op">∑</span><sub><i>t</i></sub> ln <i>q</i>(<i>x</i><sub><i>t</i></sub> | <i>x</i><sub>&lt;<i>t</i></sub>) ) = exp <i>H</i>(<i>p̂</i>, <i>q</i>)</div>
+    <p>where <i>p̂</i> is the empirical distribution of the test data. Equivalently, it is the inverse geometric mean of the probabilities the model gave to what actually happened. A model that guesses uniformly over <i>V</i> tokens has PP = <i>V</i>; a model that is never surprised has PP = 1. Lower is better. Because the base cancels, perplexity is the same whether you compute it in bits or nats.</p>
+  </div>
+  <div class="lab" id="lab-ppl"></div>
+</section>
+
+<!-- 8 -->
+<section class="sec" id="s-kl" data-name="KL divergence" data-part="Comparing distributions">
+  <h2><span class="num">8</span>KL divergence</h2>
+  <p class="lede">The extra cost of using <i>Q</i> when the truth is <i>P</i>.</p>
+  <div class="prose">
+    <div class="eq"><i>D</i><sub>KL</sub>(<i>P</i> ‖ <i>Q</i>) = <span class="op">∑</span><sub><i>x</i></sub> <i>p</i>(<i>x</i>) log <span class="fr"><span class="nu"><i>p</i>(<i>x</i>)</span><span class="de"><i>q</i>(<i>x</i>)</span></span> = <i>E</i><sub><i>P</i></sub>[ log <i>p</i>(<i>x</i>) − log <i>q</i>(<i>x</i>) ] = <i>H</i>(<i>P</i>, <i>Q</i>) − <i>H</i>(<i>P</i>)</div>
+    <p>For densities, replace the sum by ∫ d<i>x</i>. Four things to remember:</p>
+    <ul>
+      <li><b>Not symmetric.</b> <i>D</i>(<i>P</i>‖<i>Q</i>) ≠ <i>D</i>(<i>Q</i>‖<i>P</i>), and the triangle inequality fails, so it is a divergence and not a distance.</li>
+      <li><b>Support matters.</b> If <i>q</i>(<i>x</i>) = 0 where <i>p</i>(<i>x</i>) &gt; 0, the divergence is infinite.</li>
+      <li><b>Terms can be negative</b> individually, but the total never is (section 11).</li>
+      <li>It is zero exactly when <i>P</i> = <i>Q</i>.</li>
+    </ul>
+  </div>
+  <div class="lab" id="lab-kl"></div>
+</section>
+
+<!-- 9 -->
+<section class="sec" id="s-interp" data-name="Interpreting KL divergence" data-part="KL divergence in depth">
+  <p class="part">KL divergence in depth</p>
+  <h2><span class="num">9</span>Interpreting KL divergence</h2>
+  <p class="lede">Two readings of the same number: wasted bits, and accumulated evidence.</p>
+  <div class="prose">
+    <ul>
+      <li><b>Extra code length.</b> Encoding samples from <i>P</i> with a code designed for <i>Q</i> costs <i>D</i>(<i>P</i>‖<i>Q</i>) more bits per symbol than the code designed for <i>P</i>.</li>
+      <li><b>Evidence per sample.</b> If data truly come from <i>P</i>, the expected log-likelihood ratio log <i>p</i>(<i>x</i>)/<i>q</i>(<i>x</i>) in favor of <i>P</i> is <i>D</i>(<i>P</i>‖<i>Q</i>). After <i>n</i> samples the likelihood ratio grows like <i>e</i><sup><i>nD</i></sup>, which is why the error rate of the best test between <i>P</i> and <i>Q</i> decays at rate <i>D</i> (Stein's lemma).</li>
+      <li><b>Information gained.</b> If <i>Q</i> is a prior and <i>P</i> is the posterior after an update, <i>D</i>(<i>P</i>‖<i>Q</i>) is how much the update taught you.</li>
+    </ul>
+    <p>The first two are the same quantity seen two ways. For one symbol <i>x</i>, the bits wasted by using <i>Q</i>'s code are −log <i>q</i>(<i>x</i>) − (−log <i>p</i>(<i>x</i>)) = log <i>p</i>(<i>x</i>)/<i>q</i>(<i>x</i>), which is the log-likelihood ratio. The lab below plots the running total of that quantity on random samples.</p>
+  </div>
+  <div class="lab" id="lab-interp"></div>
+</section>
+
+<!-- 10 -->
+<section class="sec" id="s-gauss" data-name="KL between two Gaussians" data-part="KL divergence in depth">
+  <h2><span class="num">10</span>KL between two Gaussians</h2>
+  <p class="lede">One of the few cases with a clean closed form, and the one behind the VAE loss.</p>
+  <div class="prose">
+    <p>For <i>P</i> = <i>N</i>(μ<sub>1</sub>, σ<sub>1</sub>²) and <i>Q</i> = <i>N</i>(μ<sub>2</sub>, σ<sub>2</sub>²), in nats:</p>
+    <div class="eq"><i>D</i><sub>KL</sub>(<i>P</i> ‖ <i>Q</i>) = ln <span class="fr"><span class="nu">σ<sub>2</sub></span><span class="de">σ<sub>1</sub></span></span> + <span class="fr"><span class="nu">σ<sub>1</sub>² + (μ<sub>1</sub> − μ<sub>2</sub>)²</span><span class="de">2σ<sub>2</sub>²</span></span> − <span class="fr"><span class="nu">1</span><span class="de">2</span></span></div>
+    <details>
+      <summary>Derivation</summary>
+      <div>
+        <p>Start from <i>D</i> = <i>E</i><sub><i>P</i></sub>[ln <i>p</i>(<i>x</i>) − ln <i>q</i>(<i>x</i>)]. Each log-density is −½ ln(2πσ²) − (<i>x</i>−μ)²/(2σ²). Under <i>P</i>, <i>E</i>[(<i>x</i>−μ<sub>1</sub>)²] = σ<sub>1</sub>² and <i>E</i>[(<i>x</i>−μ<sub>2</sub>)²] = σ<sub>1</sub>² + (μ<sub>1</sub>−μ<sub>2</sub>)². Substituting:</p>
+        <div class="eq">−½ ln(2πσ<sub>1</sub>²) − ½ + ½ ln(2πσ<sub>2</sub>²) + <span class="fr"><span class="nu">σ<sub>1</sub>² + (μ<sub>1</sub>−μ<sub>2</sub>)²</span><span class="de">2σ<sub>2</sub>²</span></span></div>
+        <p>and the first and third terms combine into ln(σ<sub>2</sub>/σ<sub>1</sub>).</p>
+      </div>
+    </details>
+    <p>Two special cases are worth memorizing. With equal variances it reduces to (μ<sub>1</sub>−μ<sub>2</sub>)²/(2σ²), half the squared distance in standard deviations. With <i>Q</i> = <i>N</i>(0, 1) it becomes ½(μ² + σ² − 1 − ln σ²), the regularizer in a VAE. In <i>d</i> dimensions: ½[tr(Σ<sub>2</sub><sup>−1</sup>Σ<sub>1</sub>) + (μ<sub>2</sub>−μ<sub>1</sub>)ᵀΣ<sub>2</sub><sup>−1</sup>(μ<sub>2</sub>−μ<sub>1</sub>) − <i>d</i> + ln(det Σ<sub>2</sub> / det Σ<sub>1</sub>)].</p>
+  </div>
+  <div class="lab" id="lab-gauss"></div>
+</section>
+
+<!-- 11 -->
+<section class="sec" id="s-nonneg" data-name="Non-negativity of KL" data-part="KL divergence in depth">
+  <h2><span class="num">11</span>Non-negativity of KL divergence</h2>
+  <p class="lede"><i>D</i>(<i>P</i>‖<i>Q</i>) ≥ 0, with equality only when <i>P</i> = <i>Q</i> (Gibbs' inequality).</p>
+  <div class="prose">
+    <p><b>Proof 1, from ln <i>x</i> ≤ <i>x</i> − 1.</b> Sum over outcomes with <i>p</i>(<i>x</i>) &gt; 0:</p>
+    <div class="eq">−<i>D</i> = <span class="op">∑</span> <i>p</i> ln <span class="fr"><span class="nu"><i>q</i></span><span class="de"><i>p</i></span></span> ≤ <span class="op">∑</span> <i>p</i> ( <span class="fr"><span class="nu"><i>q</i></span><span class="de"><i>p</i></span></span> − 1 ) = <span class="op">∑</span> <i>q</i> − <span class="op">∑</span> <i>p</i> ≤ 1 − 1 = 0</div>
+    <p><b>Proof 2, Jensen.</b> Because −ln is convex, <i>E</i>[−ln <i>X</i>] ≥ −ln <i>E</i>[<i>X</i>]. Take <i>X</i> = <i>q</i>(<i>x</i>)/<i>p</i>(<i>x</i>) with <i>x</i> drawn from <i>P</i>:</p>
+    <div class="eq"><i>D</i> = <i>E</i><sub><i>P</i></sub>[ −ln <span class="fr"><span class="nu"><i>q</i></span><span class="de"><i>p</i></span></span> ] ≥ −ln <i>E</i><sub><i>P</i></sub>[ <span class="fr"><span class="nu"><i>q</i></span><span class="de"><i>p</i></span></span> ] = −ln <span class="op">∑</span><sub><i>p</i>&gt;0</sub> <i>q</i> ≥ 0</div>
+    <p>Equality needs <i>q</i>/<i>p</i> to be constant, which forces <i>P</i> = <i>Q</i>. Several facts follow at once: <i>H</i>(<i>P</i>, <i>Q</i>) ≥ <i>H</i>(<i>P</i>); <i>H</i>(<i>P</i>) ≤ log <i>K</i> (apply it with <i>Q</i> uniform); and <i>I</i>(<i>X</i>; <i>Y</i>) ≥ 0, since mutual information is the KL divergence between the joint and the product of marginals, so <i>H</i>(<i>X</i>|<i>Y</i>) ≤ <i>H</i>(<i>X</i>).</p>
+  </div>
+  <div class="lab" id="lab-nonneg"></div>
+</section>
+
+<!-- 12 -->
+<section class="sec" id="s-mle" data-name="KL divergence and MLE" data-part="KL divergence in depth">
+  <h2><span class="num">12</span>KL divergence and maximum likelihood</h2>
+  <p class="lede">Fitting a model by maximum likelihood is minimizing a KL divergence.</p>
+  <div class="prose">
+    <p>Let <i>x</i><sub>1</sub>, …, <i>x</i><sub><i>N</i></sub> be data and <i>p̂</i> their empirical distribution. The average log-likelihood of a model <i>q</i><sub>θ</sub> regroups as an expectation under <i>p̂</i>:</p>
+    <div class="eq"><span class="fr"><span class="nu">1</span><span class="de"><i>N</i></span></span> <span class="op">∑</span><sub><i>i</i></sub> log <i>q</i><sub>θ</sub>(<i>x</i><sub><i>i</i></sub>) = <i>E</i><sub><i>p̂</i></sub>[ log <i>q</i><sub>θ</sub> ] = −<i>H</i>(<i>p̂</i>, <i>q</i><sub>θ</sub>) = −<i>H</i>(<i>p̂</i>) − <i>D</i>(<i>p̂</i> ‖ <i>q</i><sub>θ</sub>)</div>
+    <p><i>H</i>(<i>p̂</i>) does not depend on θ, so</p>
+    <div class="eq">argmax<sub>θ</sub> log-likelihood = argmin<sub>θ</sub> <i>H</i>(<i>p̂</i>, <i>q</i><sub>θ</sub>) = argmin<sub>θ</sub> <i>D</i>(<i>p̂</i> ‖ <i>q</i><sub>θ</sub>)</div>
+    <p>As <i>N</i> grows, <i>p̂</i> approaches the true distribution <i>P</i>*, so MLE converges to the model closest to <i>P</i>* in the forward direction <i>D</i>(<i>P</i>* ‖ <i>q</i><sub>θ</sub>). If the model family contains <i>P</i>*, that is <i>P</i>* itself. If not, it is the best approximation in that specific sense, which is the subject of the next section.</p>
+  </div>
+  <div class="lab" id="lab-mle"></div>
+</section>
+
+<!-- 13 -->
+<section class="sec" id="s-fwdrev" data-name="Forward vs reverse KL" data-part="KL divergence in depth">
+  <h2><span class="num">13</span>Forward vs reverse KL</h2>
+  <p class="lede">Which argument comes first decides what the best approximation looks like.</p>
+  <div class="prose">
+    <p>Approximate a target <i>P</i> with a simpler family <i>Q</i>. There are two ways to measure the mismatch.</p>
+    <ul>
+      <li><b>Forward</b> <i>D</i>(<i>P</i>‖<i>Q</i>) averages over <i>P</i>. It explodes wherever <i>P</i> has mass and <i>Q</i> does not, so the best <i>Q</i> is <b>mass-covering</b> (zero-avoiding). This is MLE. For a Gaussian <i>Q</i> the optimum matches the mean and variance of <i>P</i>.</li>
+      <li><b>Reverse</b> <i>D</i>(<i>Q</i>‖<i>P</i>) averages over <i>Q</i>. It explodes wherever <i>Q</i> has mass and <i>P</i> does not, so the best <i>Q</i> is <b>mode-seeking</b> (zero-forcing). It is what variational inference minimizes, and it can have several local optima.</li>
+    </ul>
+    <p>The target below is a mixture of two unit-variance Gaussians. Fit a single Gaussian to it both ways.</p>
+  </div>
+  <div class="lab" id="lab-fwdrev"></div>
+</section>
+
+<footer>
+  <p>Notation: <i>P</i> is the true or data distribution, <i>Q</i> the model, log is base 2 in bits and base <i>e</i> in nats, and all KL values are in the unit chosen at the top.</p>
+  <p>For the full treatment, see Cover and Thomas, <i>Elements of Information Theory</i>, and MacKay, <i>Information Theory, Inference, and Learning Algorithms</i>.</p>
+</footer>
+
+</main>
+</div>
+<script>
+(function(){
+'use strict';
+var NS='http://www.w3.org/2000/svg';
+var LN2=Math.LN2, LOG2PI=Math.log(2*Math.PI);
+function $(s,r){return (r||document).querySelector(s);}
+function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
+function clamp(v,a,b){return Math.min(b,Math.max(a,v));}
+function lin(d0,d1,r0,r1){return function(v){return r0+(v-d0)*(r1-r0)/(d1-d0);};}
+function sum(a){var s=0;for(var i=0;i<a.length;i++)s+=a[i];return s;}
+var reduceMotion=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+/* ---------- units: everything is computed in nats and converted for display ---------- */
+var S={unit:'bits'};
+function K(){return S.unit==='bits'?1/LN2:1;}
+function UN(){return S.unit;}
+function f(v,d){return v===Infinity?'∞':(v*K()).toFixed(d==null?3:d);}
+function fu(v,d){return f(v,d)+' '+UN();}
+function num(v,d){return v===Infinity?'∞':Number(v).toFixed(d==null?3:d);}
+
+/* ---------- information-theory primitives (nats) ---------- */
+function ent(p){var s=0;for(var i=0;i<p.length;i++)if(p[i]>0)s-=p[i]*Math.log(p[i]);return s;}
+function xent(p,q){var s=0;for(var i=0;i<p.length;i++)if(p[i]>0){if(q[i]<=0)return Infinity;s-=p[i]*Math.log(q[i]);}return s;}
+function kl(p,q){var s=0;for(var i=0;i<p.length;i++)if(p[i]>0){if(q[i]<=0)return Infinity;s+=p[i]*Math.log(p[i]/q[i]);}return s;}
+function norm(w){var s=sum(w);return s>0?w.map(function(x){return x/s;}):w.map(function(){return 1/w.length;});}
+function erf(x){var sg=x<0?-1:1;x=Math.abs(x);var t=1/(1+0.3275911*x);
+  var y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);return sg*y;}
+function Phi(z){return 0.5*(1+erf(z/Math.SQRT2));}
+function niceTicks(lo,hi,n){var span=hi-lo;if(!(span>0))return [lo];var raw=span/(n||5),mag=Math.pow(10,Math.floor(Math.log10(raw))),nr=raw/mag;
+  var step=(nr<1.5?1:nr<3.5?2:nr<7.5?5:10)*mag,out=[];for(var v=Math.ceil(lo/step-1e-9)*step;v<=hi+1e-9;v+=step)out.push(Math.abs(v)<1e-12?0:+v.toFixed(10));return out;}
+function tk(v){return String(+v.toFixed(2));}
+
+/* ---------- render registry ---------- */
+var renderers=[];
+function onRender(fn){renderers.push(fn);}
+function renderAll(){for(var i=0;i<renderers.length;i++)renderers[i]();}
+
+/* ---------- small DOM helpers ---------- */
+function mk(tag,cls,html){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;return e;}
+function sub(host,title){var d=mk('div','sub');if(title)d.appendChild(mk('h3','sub-t',title));host.appendChild(d);return d;}
+function control(host,o){
+  var wrap=mk('label','ctl','<span class="ctl-n">'+o.label+'</span><input type="range" id="'+o.id+'" min="'+o.min+'" max="'+o.max+'" step="'+o.step+'" value="'+o.value+'"><output class="ctl-v"></output>');
+  host.appendChild(wrap);
+  var inp=wrap.querySelector('input'),out=wrap.querySelector('output');
+  function show(){out.textContent=o.format?o.format(+inp.value):inp.value;}
+  inp.addEventListener('input',function(){show();if(o.onInput)o.onInput(+inp.value);});
+  show();
+  return {el:wrap,input:inp,set:function(v){inp.value=v;show();},get:function(){return +inp.value;}};
+}
+function chips(host,items,opts){
+  var w=mk('div','chips');host.appendChild(w);var sel=opts&&opts.select;
+  var btns=items.map(function(it,i){
+    var b=mk('button','chip',it.label);b.type='button';
+    if(sel)b.setAttribute('aria-pressed',String(i===(opts.start||0)));
+    b.addEventListener('click',function(){if(sel)api.select(i);it.on(i);});
+    w.appendChild(b);return b;});
+  var api={w:w,btns:btns,select:function(i){btns.forEach(function(x,j){x.setAttribute('aria-pressed',String(i===j));});}};
+  return api;
+}
+function button(host,label,fn,alt){var b=mk('button','btn'+(alt?' alt':''),label);b.type='button';b.addEventListener('click',fn);host.appendChild(b);return b;}
+function readouts(host,items){
+  var dl=mk('dl','ro'),map={};
+  items.forEach(function(it){var d=mk('div','ro-i'+(it.cls?' '+it.cls:''),'<dt>'+it.label+'</dt><dd></dd>');dl.appendChild(d);map[it.key]=d.querySelector('dd');});
+  host.appendChild(dl);
+  return function(key,val){map[key].innerHTML=val;};
+}
+function liveLine(host,wrap){var d=mk('div','live'+(wrap?' wrap':''));host.appendChild(d);return d;}
+
+/* ---------- charts that size themselves to their container ---------- */
+function Chart(host,h,draw){
+  var svg=document.createElementNS(NS,'svg');svg.setAttribute('class','chart');host.appendChild(svg);
+  var W=host.clientWidth||600,lastKey=null;
+  var self={svg:svg,h:h,getW:function(){return W;},
+    redraw:function(key){
+      if(key!=null&&key===lastKey&&self._w===W)return;
+      lastKey=key;self._w=W;
+      svg.setAttribute('viewBox','0 0 '+W+' '+h);svg.setAttribute('width',W);svg.setAttribute('height',h);
+      svg.innerHTML=draw(W,h);}};
+  if(window.ResizeObserver){new ResizeObserver(function(){var w=host.clientWidth;if(w>0&&Math.abs(w-W)>1){W=w;self.redraw();}}).observe(host);}
+  self.redraw();
+  return self;
+}
+function r1(v){return v.toFixed(1);}
+
+/* ---------- draggable bars ---------- */
+function setSimplex(w,i,target){
+  target=clamp(target,0,0.995);
+  var R=0,j;for(j=0;j<w.length;j++)if(j!==i)R+=w[j];
+  if(R<1e-9){for(j=0;j<w.length;j++)if(j!==i)w[j]=1e-3;R=1e-3*(w.length-1);}
+  var t=target<0.004?0:target;
+  w[i]=t*R/(1-t);
+  var s=sum(w);for(j=0;j<w.length;j++)w[j]/=s;
+}
+function BarEditor(host,o){
+  var mT=o.mT==null?22:o.mT,mB=o.mB==null?24:o.mB,mL=8,mR=8;
+  var ch=Chart(host,o.h||150,function(W,H){
+    var v=o.get(),k=v.length,bw=(W-mL-mR)/k,y=lin(0,o.ymax,H-mB,mT);
+    var s='<line class="ax" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+(H-mB)+'" y2="'+(H-mB)+'"/>';
+    for(var i=0;i<k;i++){
+      var x=v[i],bx=mL+i*bw+bw*0.17,w=bw*0.66,yt=y(clamp(x,0,o.ymax)),hh=Math.max(0,H-mB-yt);
+      s+='<rect class="'+o.cls+'" x="'+r1(bx)+'" y="'+r1(yt)+'" width="'+r1(w)+'" height="'+r1(hh)+'" rx="3"/>';
+      s+='<text x="'+r1(bx+w/2)+'" y="'+r1(yt-5)+'" text-anchor="middle">'+(o.label?o.label(i,x):x.toFixed(2))+'</text>';
+      s+='<text class="tl" x="'+r1(bx+w/2)+'" y="'+(H-7)+'" text-anchor="middle">'+o.names[i]+'</text>';
+    }
+    if(o.extra)s+=o.extra(W,H,y);
+    return s;});
+  if(!o.static){
+    var svg=ch.svg,drag=-1;svg.classList.add('drag');
+    var idx=function(e){var r=svg.getBoundingClientRect(),k=o.get().length;return clamp(Math.floor((e.clientX-r.left-mL)/((r.width-mL-mR)/k)),0,k-1);};
+    var val=function(e){var r=svg.getBoundingClientRect(),H=ch.h,sc=r.height/H;return clamp(((H-mB)-(e.clientY-r.top)/sc)/(H-mB-mT)*o.ymax,0,o.ymax);};
+    var apply=function(e){o.set(drag,val(e));};
+    svg.addEventListener('pointerdown',function(e){drag=idx(e);try{svg.setPointerCapture(e.pointerId);}catch(err){}apply(e);e.preventDefault();});
+    svg.addEventListener('pointermove',function(e){if(drag>=0)apply(e);});
+    var end=function(){drag=-1;};
+    svg.addEventListener('pointerup',end);svg.addEventListener('pointercancel',end);
+  }
+  return ch;
+}
+
+/* ================= shared distributions for sections 6-9, 11 ================= */
+var PQ={names:['a','b','c','d','e'],p:[0.45,0.25,0.15,0.10,0.05],q:[0.2,0.2,0.2,0.2,0.2]};
+function setPQ(p,q){if(p)PQ.p.splice(0,5,...p);if(q)PQ.q.splice(0,5,...q);}
+function pqEditors(host,h){
+  var out={};
+  host.appendChild(mk('div','cap p','<b><i>P</i> · the data</b><span>drag a bar</span>'));
+  var a=mk('div');host.appendChild(a);
+  out.p=BarEditor(a,{names:PQ.names,cls:'fill-p',h:h||116,ymax:1,get:function(){return PQ.p;},set:function(i,t){setSimplex(PQ.p,i,t);renderAll();}});
+  host.appendChild(mk('div','cap q','<b><i>Q</i> · the model</b><span>drag a bar</span>'));
+  var b=mk('div');host.appendChild(b);
+  out.q=BarEditor(b,{names:PQ.names,cls:'fill-q',h:h||116,ymax:1,get:function(){return PQ.q;},set:function(i,t){setSimplex(PQ.q,i,t);renderAll();}});
+  out.redraw=function(){out.p.redraw();out.q.redraw();};
+  return out;
+}
+function pqPresets(host){
+  return chips(host,[
+    {label:'Q = P',on:function(){setPQ(null,PQ.p.slice());renderAll();}},
+    {label:'Q uniform',on:function(){setPQ(null,[.2,.2,.2,.2,.2]);renderAll();}},
+    {label:'Q overconfident',on:function(){setPQ(null,[.01,.01,.01,.01,.96]);renderAll();}},
+    {label:'Q misses an outcome',on:function(){setPQ(null,[.5,.3,.2,0,0]);renderAll();}},
+    {label:'P one-hot (a label)',on:function(){setPQ([1,0,0,0,0],null);renderAll();}},
+    {label:'P skewed',on:function(){setPQ([.45,.25,.15,.10,.05],null);renderAll();}}
+  ]);
+}
+
+/* ================= 1. Information content ================= */
+function initInfo(){
+  var host=$('#lab-info'),A={p:0.126};
+  function tToP(t){return Math.pow(10,-9*(1-t/1000));}
+  function pToT(p){return 1000*(1+Math.log10(p)/9);}
+  function fmtP(p){return p>=0.001?p.toFixed(p>=0.1?3:4):p.toExponential(2);}
+  function fmtOdds(p){var n=1/p;return n<100?n.toFixed(1):n>=1e5?n.toExponential(2):Math.round(n).toLocaleString('en-US');}
+  var top=sub(host);
+  var ctls=mk('div','ctls');top.appendChild(ctls);
+  var c=control(ctls,{id:'info-p',label:'<i>p</i>(<i>x</i>)',min:0,max:1000,step:1,value:Math.round(pToT(A.p)),
+    format:function(v){return fmtP(tToP(v));},onInput:function(v){A.p=tToP(v);update();}});
+  chips(top,[['Fair coin: heads',1/2],['Roll a 6',1/6],['A given birthday',1/365],['Powerball jackpot',1/292201338]].map(function(x){
+    return {label:x[0],on:function(){A.p=x[1];c.set(pToT(x[1]));update();}};}));
+  var row=mk('div','row');top.appendChild(row);
+  var chartHost=mk('div');row.appendChild(chartHost);
+  var side=mk('div');side.style.cssText='display:flex;flex-direction:column;gap:12px';row.appendChild(side);
+  var ro=readouts(side,[{key:'I',label:'<i>I</i>(<i>x</i>)',cls:'p'},{key:'odds',label:'like 1 in'},{key:'q',label:'yes/no questions'}]);
+  side.appendChild(mk('div','cap','<span>Independent events add</span>'));
+  var bsel=mk('select','sel');bsel.id='info-b';
+  bsel.innerHTML='<option value="0.5">B: a fair coin lands heads</option><option value="0.16666666667">B: a die shows 6</option><option value="0.0027397">B: it is a given birthday</option>';
+  side.appendChild(bsel);bsel.addEventListener('change',update);
+  var lv=liveLine(side,true);
+  var ch=Chart(chartHost,250,function(W,H){
+    var mL=44,mR=14,mT=14,mB=34,ymaxU=S.unit==='bits'?8:5.5,kk=K();
+    var x=lin(0,1,mL,W-mR),y=lin(0,ymaxU,H-mB,mT),s='',i,t;
+    var yt=niceTicks(0,ymaxU,4);
+    for(i=0;i<yt.length;i++){t=yt[i];s+='<line class="gl" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+r1(y(t))+'" y2="'+r1(y(t))+'"/><text x="'+(mL-6)+'" y="'+r1(y(t)+4)+'" text-anchor="end">'+t+'</text>';}
+    [0,0.25,0.5,0.75,1].forEach(function(t){s+='<text x="'+r1(x(t))+'" y="'+(H-mB+16)+'" text-anchor="middle">'+t+'</text>';});
+    s+='<line class="ax" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+(H-mB)+'" y2="'+(H-mB)+'"/><line class="ax" x1="'+mL+'" x2="'+mL+'" y1="'+mT+'" y2="'+(H-mB)+'"/>';
+    var pts=[];for(i=1;i<=300;i++){var p=i/300,v=-Math.log(p)*kk;if(v<=ymaxU)pts.push(r1(x(p))+','+r1(y(v)));}
+    s+='<polyline class="ln-p" points="'+pts.join(' ')+'"/>';
+    var v=-Math.log(A.p)*kk,off=v>ymaxU,mx=x(A.p),my=off?mT+3:y(v);
+    if(!off)s+='<line class="ref" x1="'+r1(mx)+'" x2="'+r1(mx)+'" y1="'+r1(my)+'" y2="'+(H-mB)+'"/><line class="ref" x1="'+mL+'" x2="'+r1(mx)+'" y1="'+r1(my)+'" y2="'+r1(my)+'"/>';
+    s+='<circle class="dot-p" cx="'+r1(mx)+'" cy="'+r1(my)+'" r="6"/>';
+    if(off)s+='<text class="bg" x="'+r1(Math.min(mx+12,W-150))+'" y="'+(mT+8)+'">'+v.toFixed(1)+' '+UN()+', off the chart</text>';
+    s+='<text x="'+(W-mR)+'" y="'+(H-4)+'" text-anchor="end">probability <tspan font-style="italic">p</tspan></text><text x="'+mL+'" y="'+(mT-3)+'">'+UN()+'</text>';
+    return s;});
+  function update(){
+    var I=-Math.log(A.p),B=+bsel.value,IB=-Math.log(B);
+    ro('I',fu(I,2));ro('odds',fmtOdds(A.p));ro('q',num(I/LN2,1));
+    lv.innerHTML='<i>I</i>(A) + <i>I</i>(B) = '+f(I,2)+' + '+f(IB,2)+' = <b>'+f(I+IB,2)+'</b> '+UN()+' = −log('+fmtP(A.p)+' × '+fmtP(B)+')';
+    ch.redraw();
+  }
+  onRender(update);update();
+}
+
+/* ================= 2. Entropy ================= */
+function initEntropy(){
+  var host=$('#lab-entropy'),names=['a','b','c','d','e','f'],P=[0.34,0.22,0.16,0.12,0.10,0.06],KK=6;
+  host.appendChild(mk('div','cap p','<b>Distribution <i>P</i> over six outcomes</b><span>drag a bar</span>'));
+  var edHost=mk('div');host.appendChild(edHost);
+  var ed=BarEditor(edHost,{names:names,cls:'fill-p',h:170,ymax:1,get:function(){return P;},set:function(i,t){setSimplex(P,i,t);update();}});
+  host.appendChild(mk('div','cap','<span>Each outcome adds <i>p</i>·(−log <i>p</i>) to the entropy</span>'));
+  var stHost=mk('div');host.appendChild(stHost);
+  var st=Chart(stHost,78,function(W,H){
+    var mL=10,mR=10,x=lin(0,Math.log(KK),mL,W-mR),s='',c=0,i;
+    s+='<rect class="fill-2" x="'+mL+'" y="16" width="'+(W-mL-mR)+'" height="28" rx="4"/>';
+    for(i=0;i<KK;i++){var seg=P[i]>0?-P[i]*Math.log(P[i]):0;if(seg<=0)continue;
+      var x0=x(c),x1=x(c+seg);
+      s+='<rect class="fill-p st-surface" style="opacity:'+(i%2?0.72:1)+'" x="'+r1(x0)+'" y="16" width="'+r1(x1-x0)+'" height="28"/>';
+      if(x1-x0>20)s+='<text class="on" x="'+r1((x0+x1)/2)+'" y="34" text-anchor="middle">'+names[i]+'</text>';
+      c+=seg;}
+    s+='<line class="ref" x1="'+r1(x(c))+'" x2="'+r1(x(c))+'" y1="12" y2="52"/><text class="bg" x="'+r1(Math.min(x(c)+6,W-120))+'" y="64">H = '+f(c,2)+' '+UN()+'</text>';
+    s+='<text x="'+mL+'" y="64">0</text><text x="'+(W-mR)+'" y="10" text-anchor="end">log 6 = '+f(Math.log(KK),2)+' '+UN()+'</text>';
+    return s;});
+  chips(host,[
+    {label:'Uniform',on:function(){P.splice(0,6,1/6,1/6,1/6,1/6,1/6,1/6);update();}},
+    {label:'Skewed',on:function(){P.splice(0,6,.34,.22,.16,.12,.10,.06);update();}},
+    {label:'Peaked',on:function(){P.splice(0,6,.80,.08,.05,.03,.02,.02);update();}},
+    {label:'Two-point',on:function(){P.splice(0,6,.5,.5,0,0,0,0);update();}},
+    {label:'Deterministic',on:function(){P.splice(0,6,1,0,0,0,0,0);update();}}]);
+  var ro=readouts(host,[{key:'H',label:'<i>H</i>(<i>P</i>)',cls:'p'},{key:'max',label:'max = log 6'},{key:'frac',label:'<i>H</i> / max'},{key:'eff',label:'effective outcomes <i>e</i><sup><i>H</i></sup>'}]);
+  function update(){
+    var H=ent(P);ro('H',fu(H));ro('max',fu(Math.log(KK)));ro('frac',(100*H/Math.log(KK)).toFixed(0)+'%');ro('eff',num(Math.exp(H),2));
+    ed.redraw();st.redraw();}
+  onRender(update);update();
+}
+
+/* ================= 3. Entropy of random variables ================= */
+function initRV(){
+  var host=$('#lab-rv');
+  /* discrete families */
+  var d=sub(host,'Discrete families');
+  var F={kind:'binom',p:0.3,n:20,lam:6,m:10};
+  var sel=mk('select','sel');sel.id='rv-fam';
+  sel.innerHTML='<option value="bern">Bernoulli(p)</option><option value="binom" selected>Binomial(n, p)</option><option value="geom">Geometric(p)</option><option value="pois">Poisson(λ)</option><option value="unif">Uniform on {1…m}</option>';
+  d.appendChild(sel);
+  var ctls=mk('div','ctls');d.appendChild(ctls);
+  var cp=control(ctls,{id:'rv-p',label:'<i>p</i>',min:0.02,max:0.98,step:0.01,value:F.p,format:function(v){return v.toFixed(2);},onInput:function(v){F.p=v;upd();}});
+  var cn=control(ctls,{id:'rv-n',label:'<i>n</i>',min:1,max:60,step:1,value:F.n,onInput:function(v){F.n=v;upd();}});
+  var cl=control(ctls,{id:'rv-lam',label:'λ',min:0.2,max:30,step:0.1,value:F.lam,format:function(v){return v.toFixed(1);},onInput:function(v){F.lam=v;upd();}});
+  var cm=control(ctls,{id:'rv-m',label:'<i>m</i>',min:1,max:40,step:1,value:F.m,onInput:function(v){F.m=v;upd();}});
+  function vis(){var k=F.kind;cp.el.hidden=!(k==='bern'||k==='binom'||k==='geom');cn.el.hidden=k!=='binom';cl.el.hidden=k!=='pois';cm.el.hidden=k!=='unif';}
+  sel.addEventListener('change',function(){F.kind=sel.value;vis();upd();});
+  var chHost=mk('div');d.appendChild(chHost);
+  function pmf(){
+    var ks=[],pm=[],k,v;
+    if(F.kind==='bern'){ks=[0,1];pm=[1-F.p,F.p];}
+    else if(F.kind==='binom'){var n=F.n,p=F.p;v=Math.pow(1-p,n);for(k=0;k<=n;k++){ks.push(k);pm.push(v);v=v*(n-k)/(k+1)*p/(1-p);}}
+    else if(F.kind==='geom'){v=F.p;for(k=1;k<=3000&&v>1e-15;k++){ks.push(k);pm.push(v);v*=1-F.p;}}
+    else if(F.kind==='pois'){v=Math.exp(-F.lam);var km=Math.ceil(F.lam+12*Math.sqrt(F.lam)+30);for(k=0;k<=km;k++){ks.push(k);pm.push(v);v*=F.lam/(k+1);}}
+    else{for(k=1;k<=F.m;k++){ks.push(k);pm.push(1/F.m);}}
+    return {ks:ks,pm:pm};}
+  var cur=pmf();
+  var ch=Chart(chHost,190,function(W,H){
+    var mL=34,mR=10,mT=14,mB=26,ks=cur.ks,pm=cur.pm,show;
+    if(F.kind==='geom')show=Math.min(ks.length,30);else if(F.kind==='pois')show=Math.min(ks.length,Math.ceil(F.lam+5*Math.sqrt(F.lam)+8));else show=ks.length;
+    var mx=0,i;for(i=0;i<show;i++)mx=Math.max(mx,pm[i]);mx*=1.1;
+    var bw=(W-mL-mR)/show,y=lin(0,mx,H-mB,mT),s='';
+    var yt=niceTicks(0,mx,3);
+    yt.forEach(function(t){s+='<line class="gl" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+r1(y(t))+'" y2="'+r1(y(t))+'"/><text x="'+(mL-5)+'" y="'+r1(y(t)+4)+'" text-anchor="end">'+tk(t)+'</text>';});
+    s+='<line class="ax" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+(H-mB)+'" y2="'+(H-mB)+'"/>';
+    var stepL=Math.max(1,Math.ceil(show/10));
+    for(i=0;i<show;i++){var bx=mL+i*bw,w=Math.max(1,bw*0.78),yt2=y(pm[i]);
+      s+='<rect class="fill-p" x="'+r1(bx+bw*0.11)+'" y="'+r1(yt2)+'" width="'+r1(w)+'" height="'+r1(H-mB-yt2)+'" rx="1"/>';
+      if(i%stepL===0)s+='<text x="'+r1(bx+bw/2)+'" y="'+(H-mB+15)+'" text-anchor="middle">'+ks[i]+'</text>';}
+    if(show<ks.length)s+='<text x="'+(W-mR)+'" y="'+(mT+4)+'" text-anchor="end">tail continues →</text>';
+    return s;});
+  var ro=readouts(d,[{key:'H',label:'<i>H</i>(<i>X</i>)',cls:'p'},{key:'form',label:'closed form / approx.'},{key:'bound',label:'upper bound log |support|'}]);
+  var note=liveLine(d,true);
+  function upd(){
+    cur=pmf();var H=ent(cur.pm),form='—',nm='',bound='∞ (infinite support)';
+    var p=F.p,hb=-p*Math.log(p)-(1-p)*Math.log(1-p);
+    if(F.kind==='bern'){form=fu(hb);nm='Bernoulli: <i>H</i> = −<i>p</i> log <i>p</i> − (1−<i>p</i>) log(1−<i>p</i>), exact.';}
+    else if(F.kind==='geom'){form=fu(hb/p);nm='Geometric: <i>H</i> = <i>H</i><sub>Bern</sub>(<i>p</i>) / <i>p</i>, exact.';}
+    else if(F.kind==='binom'){form='≈ '+fu(0.5*Math.log(2*Math.PI*Math.E*F.n*p*(1-p)));nm='Binomial: ½ log(2π<i>e</i>·<i>np</i>(1−<i>p</i>)) is a large-<i>n</i> approximation.';}
+    else if(F.kind==='pois'){form='≈ '+fu(0.5*Math.log(2*Math.PI*Math.E*F.lam));nm='Poisson: ½ log(2π<i>e</i>λ) is a large-λ approximation.';}
+    else{form=fu(Math.log(F.m));nm='Uniform on <i>m</i> points: <i>H</i> = log <i>m</i>, the maximum for that support.';}
+    if(F.kind==='bern')bound=fu(Math.log(2));else if(F.kind==='binom')bound=fu(Math.log(F.n+1));else if(F.kind==='unif')bound=fu(Math.log(F.m));
+    ro('H',fu(H));ro('form',form);ro('bound',bound);note.textContent='';note.innerHTML=nm;
+    ch.redraw();}
+  vis();
+  /* continuous */
+  var c=sub(host,'Continuous: Gaussian differential entropy, and what binning does to it');
+  var G={sigma:0.8,delta:0.5};
+  var cc=mk('div','ctls');c.appendChild(cc);
+  control(cc,{id:'rv-sigma',label:'σ',min:0.1,max:2,step:0.01,value:G.sigma,format:function(v){return v.toFixed(2);},onInput:function(v){G.sigma=v;updC();}});
+  control(cc,{id:'rv-delta',label:'Δ',min:0.05,max:1.5,step:0.01,value:G.delta,format:function(v){return v.toFixed(2);},onInput:function(v){G.delta=v;updC();}});
+  var chH2=mk('div');c.appendChild(chH2);
+  function bins(){var N=Math.ceil(8*G.sigma/G.delta)+1,out=[];for(var k=-N;k<=N;k++){var a=(k-0.5)*G.delta/G.sigma,b=(k+0.5)*G.delta/G.sigma;out.push({c:k*G.delta,p:Phi(b)-Phi(a)});}return out;}
+  var ch2=Chart(chH2,220,function(W,H){
+    var mL=30,mR=10,mT=14,mB=26,x=lin(-6,6,mL,W-mR),sg=G.sigma,bs=bins(),pk=1/(sg*Math.sqrt(2*Math.PI)),mxv=pk,s='',i;
+    bs.forEach(function(b){mxv=Math.max(mxv,b.p/G.delta);});mxv*=1.12;
+    var y=lin(0,mxv,H-mB,mT);
+    niceTicks(0,mxv,3).forEach(function(t){s+='<line class="gl" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+r1(y(t))+'" y2="'+r1(y(t))+'"/><text x="'+(mL-5)+'" y="'+r1(y(t)+4)+'" text-anchor="end">'+tk(t)+'</text>';});
+    bs.forEach(function(b){var x0=clamp(x(b.c-G.delta/2),mL,W-mR),x1=clamp(x(b.c+G.delta/2),mL,W-mR);if(x1-x0<=0)return;
+      s+='<rect class="fill-psoft" x="'+r1(x0)+'" y="'+r1(y(b.p/G.delta))+'" width="'+r1(x1-x0)+'" height="'+r1(H-mB-y(b.p/G.delta))+'" stroke="var(--p)" stroke-width="1"/>';});
+    var pts=[];for(i=0;i<=240;i++){var xv=-6+12*i/240;pts.push(r1(x(xv))+','+r1(y(pk*Math.exp(-0.5*Math.pow(xv/sg,2)))));}
+    s+='<polyline class="ln-p" points="'+pts.join(' ')+'"/><line class="ax" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+(H-mB)+'" y2="'+(H-mB)+'"/>';
+    [-6,-4,-2,0,2,4,6].forEach(function(t){s+='<text x="'+r1(x(t))+'" y="'+(H-mB+15)+'" text-anchor="middle">'+t+'</text>';});
+    s+='<text x="'+(W-mR)+'" y="'+(mT)+'" text-anchor="end">bars: <tspan font-style="italic">p</tspan><tspan baseline-shift="sub" font-size="9">k</tspan> / Δ</text>';
+    return s;});
+  var ro2=readouts(c,[{key:'h',label:'<i>h</i>(<i>X</i>) = ½ log(2π<i>e</i>σ²)',cls:'p'},{key:'Hd',label:'<i>H</i>(<i>X</i><sub>Δ</sub>), binned',cls:'q'},{key:'ap',label:'<i>h</i> − log Δ'},{key:'u',label:'uniform, same σ: ½ log(12σ²)'}]);
+  var note2=liveLine(c,true);
+  function updC(){
+    var sg=G.sigma,h=0.5*Math.log(2*Math.PI*Math.E*sg*sg),Hd=ent(bins().map(function(b){return b.p;})),ap=h-Math.log(G.delta),hu=0.5*Math.log(12*sg*sg);
+    ro2('h',fu(h));ro2('Hd',fu(Hd));ro2('ap',fu(ap));ro2('u',fu(hu));
+    note2.innerHTML=(h<0?'<b>h(X) is negative</b> here: the density is taller than 1, so differential entropy can drop below zero. ':'')+
+      'For small Δ the binned entropy tracks <i>h</i> − log Δ; as Δ approaches σ the approximation breaks down.';
+    ch2.redraw();}
+  onRender(function(){upd();updC();});upd();updC();
+}
+
+/* ================= 4 & 5. Joint and conditional entropy ================= */
+var JT={s:0.7,rho:0.55};
+function jointStats(){
+  var KK=4,px=norm(Array.apply(null,Array(KK)).map(function(_,k){return Math.pow(k+1,-JT.s);})),J=[],x,y,flat=[];
+  for(x=0;x<KK;x++){J[x]=[];for(y=0;y<KK;y++){J[x][y]=px[x]*(JT.rho*(x===y?1:0)+(1-JT.rho)*px[y]);flat.push(J[x][y]);}}
+  var HX=ent(px),HY=HX,HXY=ent(flat),MI=Math.max(0,HX+HY-HXY);
+  return {px:px,py:px,J:J,HX:HX,HY:HY,HXY:HXY,MI:MI,HXgY:HXY-HY,HYgX:HXY-HX};
+}
+function diagram(W,st,withCond){
+  var mL=10,mR=10,x=lin(0,2*Math.log(4),mL,W-mR),a=st.HX-st.MI,b=st.MI,c=st.HY-st.MI,by=66,bh=30,s='';
+  var segs=[[0,a,'fill-j','H(X|Y)'],[a,a+b,'fill-kl','I(X;Y)'],[a+b,a+b+c,'fill-ok','H(Y|X)']];
+  segs.forEach(function(g){if(g[1]-g[0]>1e-9){var w=x(g[1])-x(g[0]);
+    s+='<rect class="'+g[2]+' st-surface" x="'+r1(x(g[0]))+'" y="'+by+'" width="'+r1(w)+'" height="'+bh+'"/>';
+    if(w>50)s+='<text class="on" x="'+r1((x(g[0])+x(g[1]))/2)+'" y="'+(by+19)+'" text-anchor="middle">'+g[3]+'</text>';}});
+  function br(u,v,y,label,down){var d=down?'M'+r1(x(u))+' '+(y-5)+' V'+y+' H'+r1(x(v))+' V'+(y-5):'M'+r1(x(u))+' '+(y+5)+' V'+y+' H'+r1(x(v))+' V'+(y+5);
+    return '<path class="ref" d="'+d+'"/><text class="bg" x="'+r1((x(u)+x(v))/2)+'" y="'+(down?y+17:y-6)+'" text-anchor="middle">'+label+'</text>';}
+  s+=br(0,st.HX,20,'H(X) = '+f(st.HX,2),false);
+  s+=br(a,a+b+c,46,'H(Y) = '+f(st.HY,2),false);
+  s+=br(0,st.HXY,by+bh+8+5,'H(X,Y) = '+f(st.HXY,2)+' '+UN(),true);
+  return s;
+}
+function jointControls(host,idp){
+  var ctls=mk('div','ctls');host.appendChild(ctls);
+  var cs=control(ctls,{id:idp+'-s',label:'skew <i>s</i>',min:0,max:2.5,step:0.05,value:JT.s,format:function(v){return v.toFixed(2);},onInput:function(v){JT.s=v;renderAll();}});
+  var cr=control(ctls,{id:idp+'-rho',label:'ρ',min:0,max:1,step:0.01,value:JT.rho,format:function(v){return v.toFixed(2);},onInput:function(v){JT.rho=v;renderAll();}});
+  return {sync:function(){cs.set(JT.s);cr.set(JT.rho);}};
+}
+var JLET=['a','b','c','d'];
+function initJoint(){
+  var host=$('#lab-joint');
+  var jc=jointControls(host,'joint');
+  chips(host,[{label:'Independent (ρ = 0)',on:function(){JT.rho=0;renderAll();}},{label:'Noisy channel',on:function(){JT.rho=0.55;JT.s=0.7;renderAll();}},{label:'Y = X (ρ = 1)',on:function(){JT.rho=1;renderAll();}},{label:'Uniform symbols',on:function(){JT.s=0;renderAll();}}]);
+  var row=mk('div','row');host.appendChild(row);
+  var h1=mk('div'),h2=mk('div');row.appendChild(h1);row.appendChild(h2);
+  var hm=Chart(h1,236,function(W,H){
+    var st=jointStats(),KK=4,cs=Math.min(48,(W-84)/KK),x0=(W-cs*KK)/2-8,y0=40,s='',vmax=0,x,y;
+    for(x=0;x<KK;x++)for(y=0;y<KK;y++)vmax=Math.max(vmax,st.J[x][y]);
+    s+='<text class="bg" x="'+r1(x0+cs*KK/2)+'" y="14" text-anchor="middle">joint p(x, y)</text>';
+    for(y=0;y<KK;y++)s+='<text class="tl" x="'+r1(x0+y*cs+cs/2)+'" y="'+(y0-8)+'" text-anchor="middle">y='+JLET[y]+'</text>';
+    for(x=0;x<KK;x++){
+      s+='<text class="tl" x="'+r1(x0-8)+'" y="'+r1(y0+x*cs+cs/2+4)+'" text-anchor="end">x='+JLET[x]+'</text>';
+      for(y=0;y<KK;y++){var v=st.J[x][y],o=0.06+0.7*Math.pow(v/vmax,0.85);
+        s+='<rect class="fill-j" fill-opacity="'+o.toFixed(2)+'" x="'+r1(x0+y*cs+1)+'" y="'+r1(y0+x*cs+1)+'" width="'+(cs-2)+'" height="'+(cs-2)+'" rx="3"/>';
+        s+='<text class="'+(o>0.5?'on':'tl')+'" x="'+r1(x0+y*cs+cs/2)+'" y="'+r1(y0+x*cs+cs/2+4)+'" text-anchor="middle" style="font-size:11px;font-family:var(--f-mono)">'+v.toFixed(3)+'</text>';}
+      s+='<text x="'+r1(x0+cs*KK+8)+'" y="'+r1(y0+x*cs+cs/2+4)+'">'+st.px[x].toFixed(2)+'</text>';}
+    for(y=0;y<KK;y++)s+='<text x="'+r1(x0+y*cs+cs/2)+'" y="'+(y0+cs*KK+16)+'" text-anchor="middle">'+st.py[y].toFixed(2)+'</text>';
+    s+='<text x="'+r1(x0+cs*KK+8)+'" y="'+(y0-8)+'">p(x)</text><text x="'+r1(x0-8)+'" y="'+(y0+cs*KK+16)+'" text-anchor="end">p(y)</text>';
+    return s;});
+  var dg=Chart(h2,140,function(W){return diagram(W,jointStats());});
+  var ro=readouts(host,[{key:'HX',label:'<i>H</i>(<i>X</i>)',cls:'j'},{key:'HY',label:'<i>H</i>(<i>Y</i>)',cls:'ok'},{key:'HXY',label:'<i>H</i>(<i>X</i>, <i>Y</i>)',cls:'p'},{key:'MI',label:'<i>I</i>(<i>X</i>; <i>Y</i>)',cls:'kl'}]);
+  var lv=liveLine(host,true);
+  function update(){
+    jc.sync();var st=jointStats();
+    ro('HX',fu(st.HX));ro('HY',fu(st.HY));ro('HXY',fu(st.HXY));ro('MI',fu(st.MI));
+    lv.innerHTML='<i>H</i>(<i>X</i>,<i>Y</i>) = '+f(st.HXY,2)+' ≤ <i>H</i>(<i>X</i>) + <i>H</i>(<i>Y</i>) = '+f(st.HX+st.HY,2)+' '+UN()+(st.MI<1e-9?' &nbsp;<b>equal: X and Y are independent</b>':'');
+    hm.redraw();dg.redraw();}
+  onRender(update);update();
+}
+function initCond(){
+  var host=$('#lab-cond'),yy=0;
+  var jc=jointControls(host,'cond');
+  host.appendChild(mk('div','cap','<span>Condition on <i>Y</i> = …</span>'));
+  var yc=chips(host,JLET.map(function(l,i){return {label:'y = '+l,on:function(){yy=i;update();}};}),{select:true,start:0});
+  var row=mk('div','row');host.appendChild(row);
+  var h1=mk('div'),h2=mk('div');row.appendChild(h1);row.appendChild(h2);
+  var cb=BarEditor(h1,{names:JLET,cls:'fill-j',h:176,mT:38,ymax:1,static:true,get:function(){var st=jointStats(),c=[];for(var x=0;x<4;x++)c.push(st.J[x][yy]/st.py[yy]);return c;},
+    extra:function(W,H,y){var st=jointStats(),Hc=ent(jointStats().J.map(function(r){return r[yy]/st.py[yy];}));
+      return '<text class="bg" x="'+(W-8)+'" y="16" text-anchor="end">p(x | y='+JLET[yy]+'),  H = '+f(Hc,2)+' '+UN()+'</text>';}});
+  var dg=Chart(h2,140,function(W){return diagram(W,jointStats());});
+  var tw=mk('div','scroll');host.appendChild(tw);
+  var ro=readouts(host,[{key:'HXgY',label:'<i>H</i>(<i>X</i>|<i>Y</i>)',cls:'j'},{key:'HX',label:'<i>H</i>(<i>X</i>)',cls:'j'},{key:'red',label:'reduction = <i>I</i>(<i>X</i>;<i>Y</i>)',cls:'kl'}]);
+  var lv=liveLine(host,true);
+  function update(){
+    jc.sync();var st=jointStats(),rows='',y,x;
+    for(y=0;y<4;y++){var cnd=[];for(x=0;x<4;x++)cnd.push(st.J[x][y]/st.py[y]);var Hy=ent(cnd);
+      rows+='<tr'+(Hy>st.HX+1e-9?' class="hl"':'')+'><td>y = '+JLET[y]+'</td><td>'+st.py[y].toFixed(3)+'</td><td>'+f(Hy,3)+'</td><td>'+f(st.py[y]*Hy,3)+'</td></tr>';}
+    tw.innerHTML='<table class="tbl"><thead><tr><th>given</th><th>p(y)</th><th>H(X|Y=y) ('+UN()+')</th><th>p(y)·H(X|Y=y)</th></tr></thead><tbody>'+rows+'</tbody><tfoot><tr><td>sum</td><td></td><td></td><td>'+f(st.HXgY,3)+'</td></tr></tfoot></table>';
+    ro('HXgY',fu(st.HXgY));ro('HX',fu(st.HX));ro('red',fu(st.MI));
+    var worse=false;for(y=0;y<4;y++){var c2=[];for(x=0;x<4;x++)c2.push(st.J[x][y]/st.py[y]);if(ent(c2)>st.HX+1e-9)worse=true;}
+    lv.innerHTML='Chain rule: <i>H</i>(<i>Y</i>) + <i>H</i>(<i>X</i>|<i>Y</i>) = '+f(st.HY,2)+' + '+f(st.HXgY,2)+' = <b>'+f(st.HY+st.HXgY,2)+'</b> = <i>H</i>(<i>X</i>,<i>Y</i>) = '+f(st.HXY,2)+' '+UN()+
+      (worse?'<br><span style="font-size:.9em">Highlighted rows: for that particular <i>y</i> the uncertainty about <i>X</i> went <b>up</b>, yet the average (sum) is still ≤ <i>H</i>(<i>X</i>).</span>':'');
+    cb.redraw();dg.redraw();}
+  onRender(update);update();
+}
+
+/* ================= 6. Cross entropy ================= */
+function initXent(){
+  var host=$('#lab-xent');
+  pqPresets(host);
+  var ed=pqEditors(host,112);
+  host.appendChild(mk('div','cap','<span><i>H</i>(<i>P</i>,<i>Q</i>) = <i>H</i>(<i>P</i>) + <i>D</i>(<i>P</i>‖<i>Q</i>): the bar below splits the cost</span>'));
+  var stHost=mk('div');host.appendChild(stHost);
+  var st=Chart(stHost,84,function(W,H){
+    var HP=ent(PQ.p),HC=xent(PQ.p,PQ.q),mL=10,mR=10,fin=isFinite(HC);
+    var dom=Math.max(Math.log(5),fin?HC:HP*1.3)*1.04,x=lin(0,dom,mL,W-mR),s='';
+    s+='<rect class="fill-2" x="'+mL+'" y="14" width="'+(W-mL-mR)+'" height="28" rx="4"/>';
+    s+='<rect class="fill-p st-surface" x="'+mL+'" y="14" width="'+r1(x(HP)-mL)+'" height="28"/>';
+    if(x(HP)-mL>40)s+='<text class="on" x="'+r1((mL+x(HP))/2)+'" y="32" text-anchor="middle">H(P)</text>';
+    if(fin){var w=x(HC)-x(HP);if(w>0.5)s+='<rect class="fill-kl st-surface" x="'+r1(x(HP))+'" y="14" width="'+r1(w)+'" height="28"/>';
+      if(w>26)s+='<text class="on" x="'+r1((x(HP)+x(HC))/2)+'" y="32" text-anchor="middle">D</text>';
+      s+='<line class="ref" x1="'+r1(x(HC))+'" x2="'+r1(x(HC))+'" y1="10" y2="50"/><text class="bg" x="'+r1(Math.min(x(HC)+6,W-150))+'" y="64">H(P,Q) = '+f(HC,2)+' '+UN()+'</text>';}
+    else{s+='<rect class="fill-kl st-surface" x="'+r1(x(HP))+'" y="14" width="'+r1(W-mR-x(HP))+'" height="28" opacity="0.55"/><text class="bg" x="'+(W-mR)+'" y="64" text-anchor="end">H(P,Q) = ∞: Q rules out an outcome that P produces</text>';}
+    s+='<text x="'+mL+'" y="64">0</text>';
+    return s;});
+  var tw=mk('div','scroll');host.appendChild(tw);
+  var ro=readouts(host,[{key:'HP',label:'<i>H</i>(<i>P</i>)',cls:'p'},{key:'HC',label:'<i>H</i>(<i>P</i>, <i>Q</i>)',cls:'q'},{key:'D',label:'<i>D</i>(<i>P</i>‖<i>Q</i>)',cls:'kl'},{key:'HR',label:'<i>H</i>(<i>Q</i>, <i>P</i>), swapped'}]);
+  var lv=liveLine(host,true);
+  function update(){
+    var HP=ent(PQ.p),HC=xent(PQ.p,PQ.q),D=kl(PQ.p,PQ.q),HR=xent(PQ.q,PQ.p),rows='',i;
+    for(i=0;i<5;i++){var p=PQ.p[i],q=PQ.q[i],term=p>0?(q>0?-p*Math.log(q):Infinity):0;
+      rows+='<tr'+(p>0&&q<=0?' class="hl"':'')+'><td>'+PQ.names[i]+'</td><td>'+p.toFixed(3)+'</td><td>'+q.toFixed(3)+'</td><td>'+(q>0?f(-Math.log(q),3):'∞')+'</td><td>'+(p>0?f(term,3):'0')+'</td></tr>';}
+    tw.innerHTML='<table class="tbl"><thead><tr><th>outcome</th><th><i>p</i></th><th><i>q</i></th><th>−log <i>q</i> ('+UN()+')</th><th><i>p</i>·(−log <i>q</i>)</th></tr></thead><tbody>'+rows+'</tbody><tfoot><tr><td>sum</td><td></td><td></td><td></td><td>'+f(HC,3)+'</td></tr></tfoot></table>';
+    ro('HP',fu(HP));ro('HC',fu(HC));ro('D',fu(D));ro('HR',fu(HR));
+    var oh=-1;for(i=0;i<5;i++)if(PQ.p[i]>0.999)oh=i;
+    lv.innerHTML=oh>=0?('<i>P</i> is one-hot on <b>'+PQ.names[oh]+'</b>, so <i>H</i>(<i>P</i>,<i>Q</i>) = −log <i>q</i>('+PQ.names[oh]+') = <b>'+f(HC,3)+'</b> '+UN()+': the cross-entropy loss of one labeled example.')
+      :('<i>H</i>(<i>P</i>) + <i>D</i>(<i>P</i>‖<i>Q</i>) = '+f(HP,3)+' + '+f(D,3)+' = <b>'+f(HC,3)+'</b> = <i>H</i>(<i>P</i>,<i>Q</i>) '+UN());
+    ed.redraw();st.redraw();}
+  onRender(update);update();
+}
+
+/* ================= 7. Perplexity ================= */
+function initPPL(){
+  var host=$('#lab-ppl'),toks=['The','cat','sat','on','the','mat','and','purred'];
+  var YMAX=14*LN2,sn=[3,6,4,1.5,1,3.5,3,7].map(function(b){return b*LN2;});
+  function setBits(arr){sn.splice(0,sn.length,...arr.map(function(b){return b*LN2;}));update();}
+  host.appendChild(mk('div','cap q','<b>A language model scoring one sentence</b><span>drag a bar: taller = more surprised</span>'));
+  var edHost=mk('div');host.appendChild(edHost);
+  function pl(p){return p>=0.1?p.toFixed(2):p>=0.001?p.toFixed(3):p>0?p.toExponential(0):'0';}
+  var ed=BarEditor(edHost,{names:toks,cls:'fill-q',h:220,mT:26,ymax:YMAX,get:function(){return sn;},set:function(i,v){sn[i]=v;update();},
+    label:function(i,x){return pl(Math.exp(-x));},
+    extra:function(W,H,y){
+      var s='',kk=K(),ymaxU=YMAX*kk,mean=sum(sn)/sn.length;
+      niceTicks(0,ymaxU,4).forEach(function(t){if(t>0)s+='<line class="gl" x1="8" x2="'+(W-8)+'" y1="'+r1(y(t/kk))+'" y2="'+r1(y(t/kk))+'"/><text x="'+(W-9)+'" y="'+r1(y(t/kk)-3)+'" text-anchor="end">'+t+'</text>';});
+      s+='<line class="ref" x1="8" x2="'+(W-8)+'" y1="'+r1(y(mean))+'" y2="'+r1(y(mean))+'"/><text class="bg" style="stroke:var(--surface);stroke-width:4px;paint-order:stroke" x="10" y="'+r1(y(mean)-5)+'">mean '+f(mean,2)+' '+UN()+'</text>';
+      return s;}});
+  host.appendChild(mk('div','cap','<span>Bar label: probability <i>q</i> the model gave the real next word. Bar height: −log <i>q</i> in the chosen unit.</span>'));
+  chips(host,[
+    {label:'Strong model',on:function(){setBits([1,2.2,1.8,0.7,0.5,1.6,1.4,3.0]);}},
+    {label:'Typical model',on:function(){setBits([3,6,4,1.5,1,3.5,3,7]);}},
+    {label:'Weak model',on:function(){setBits([5,8,6,4,3.5,7,5,9]);}},
+    {label:'Uniform guess over 10,000 words',on:function(){var b=Math.log2(10000);setBits(toks.map(function(){return b;}));}},
+    {label:'Perfect (never surprised)',on:function(){setBits(toks.map(function(){return 0;}));}}]);
+  var ro=readouts(host,[{key:'nll',label:'average −log <i>q</i>  =  <i>H</i>(<i>p̂</i>, <i>q</i>)',cls:'q'},{key:'pp',label:'perplexity',cls:'p'},{key:'geo',label:'geometric mean of <i>q</i>'}]);
+  var lv=liveLine(host,true);
+  function update(){
+    var mean=sum(sn)/sn.length,pp=Math.exp(mean);
+    ro('nll',fu(mean));ro('pp',num(pp,2));ro('geo',num(1/pp,4));
+    lv.innerHTML='In bits: 2<sup>'+(mean/LN2).toFixed(3)+'</sup> = <b>'+pp.toFixed(2)+'</b> &nbsp;·&nbsp; In nats: <i>e</i><sup>'+mean.toFixed(3)+'</sup> = <b>'+pp.toFixed(2)+'</b>. The average changes with the unit; perplexity does not. The model behaves like a fair '+pp.toFixed(1)+'-sided die at every word.';
+    ed.redraw();}
+  onRender(update);update();
+}
+
+/* ================= 8. KL divergence ================= */
+function initKL(){
+  var host=$('#lab-kl');
+  pqPresets(host);
+  var ed=pqEditors(host,104);
+  host.appendChild(mk('div','cap','<span>Each outcome contributes <i>p</i>·log(<i>p</i>/<i>q</i>)</span>'));
+  var tHost=mk('div');host.appendChild(tHost);
+  function terms(){return PQ.p.map(function(p,i){var q=PQ.q[i];return p<=0?0:q<=0?Infinity:p*Math.log(p/q);});}
+  var tch=Chart(tHost,190,function(W,H){
+    var t=terms(),kk=K(),mL=8,mR=8,mT=22,mB=24,k=t.length,bw=(W-mL-mR)/k,m=0.3,i;
+    t.forEach(function(v){if(isFinite(v))m=Math.max(m,Math.abs(v)*kk*1.3);});
+    var y=lin(-m,m,H-mB,mT),y0=y(0),s='';
+    s+='<line class="ax" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+r1(y0)+'" y2="'+r1(y0)+'"/><text x="'+(W-mR)+'" y="'+r1(y0-4)+'" text-anchor="end">0</text>';
+    for(i=0;i<k;i++){
+      var v=t[i],bx=mL+i*bw+bw*0.17,w=bw*0.66,inf=!isFinite(v),vu=inf?m:v*kk,yy=y(clamp(vu,-m,m)),top=Math.min(yy,y0),hh=Math.abs(yy-y0);
+      if(hh>0.3)s+='<rect class="'+(vu>=0?'fill-kl':'fill-ok')+'" x="'+r1(bx)+'" y="'+r1(top)+'" width="'+r1(w)+'" height="'+r1(hh)+'" rx="3"/>';
+      s+='<text x="'+r1(bx+w/2)+'" y="'+r1(vu>=0?top-5:top+hh+13)+'" text-anchor="middle">'+(inf?'∞':(v*kk).toFixed(3))+'</text>';
+      s+='<text class="tl" x="'+r1(bx+w/2)+'" y="'+(H-7)+'" text-anchor="middle">'+PQ.names[i]+'</text>';}
+    return s;});
+  var ro=readouts(host,[{key:'D',label:'<i>D</i>(<i>P</i>‖<i>Q</i>) = sum of the bars',cls:'kl'},{key:'R',label:'<i>D</i>(<i>Q</i>‖<i>P</i>), reversed',cls:'q'},{key:'id',label:'<i>H</i>(<i>P</i>,<i>Q</i>) − <i>H</i>(<i>P</i>)'}]);
+  var lv=liveLine(host,true);
+  function update(){
+    var D=kl(PQ.p,PQ.q),R=kl(PQ.q,PQ.p),t=terms(),neg=-1,inf=false,i;
+    for(i=0;i<t.length;i++){if(t[i]<-1e-9)neg=i;if(t[i]===Infinity)inf=true;}
+    ro('D',fu(D));ro('R',fu(R));ro('id',fu(xent(PQ.p,PQ.q)-ent(PQ.p)));
+    lv.innerHTML=inf?'<b>Infinite.</b> <i>Q</i> assigns probability 0 to an outcome that <i>P</i> can produce. Give that outcome any positive mass and the divergence becomes finite.'
+      :D<1e-9?'<i>P</i> = <i>Q</i>, so every term is zero.'
+      :neg>=0?'Outcome <b>'+PQ.names[neg]+'</b> has a negative term because <i>q</i> &gt; <i>p</i> there. The other terms more than make up for it, so the total stays ≥ 0.'
+      :'Every term is positive here. Compare <i>D</i>(<i>P</i>‖<i>Q</i>) with <i>D</i>(<i>Q</i>‖<i>P</i>): they are different numbers.';
+    ed.redraw();tch.redraw();}
+  onRender(update);update();
+}
+
+/* ================= 9. Interpreting KL: the cost of the wrong code ================= */
+function initInterp(){
+  var host=$('#lab-interp'),NMAX=1000,RUNS=12,U=[],N=300;
+  function reseed(){U=[];for(var r=0;r<RUNS;r++){var a=new Float32Array(NMAX);for(var t=0;t<NMAX;t++)a[t]=Math.random();U.push(a);}}
+  reseed();
+  var ctl=mk('div','ctls');host.appendChild(ctl);
+  control(ctl,{id:'interp-n',label:'<i>n</i>',min:20,max:1000,step:10,value:N,onInput:function(v){N=v;update();}});
+  var br=mk('div','chips');host.appendChild(br);
+  button(br,'Draw new samples',function(){reseed();update();});
+  pqPresets(host);
+  var ed=pqEditors(host,92);
+  host.appendChild(mk('div','cap','<span>Running total of <i>extra</i> '+'information paid for coding with <i>Q</i> instead of <i>P</i>, on samples drawn from <i>P</i></span>'));
+  var chHost=mk('div');host.appendChild(chHost);
+  var runs=[],D=0;
+  function simulate(){
+    D=kl(PQ.p,PQ.q);runs=[];if(!isFinite(D))return;
+    var cdf=[],c=0,i;for(i=0;i<5;i++){c+=PQ.p[i];cdf.push(c);}cdf[4]=1;
+    for(var r=0;r<RUNS;r++){var cum=new Float64Array(N+1),lp=0,lq=0;
+      for(var t=0;t<N;t++){var u=U[r][t],x=0;while(x<4&&u>=cdf[x])x++;
+        if(PQ.p[x]<=0)x=PQ.p.findIndex(function(v){return v>0;});
+        lp+=-Math.log(PQ.p[x]);lq+=-Math.log(PQ.q[x]);cum[t+1]=lq-lp;}
+      runs.push({cum:cum,lp:lp,lq:lq});}}
+  var ch=Chart(chHost,260,function(W,H){
+    var mL=48,mR=12,mT=14,mB=32,kk=K(),s='';
+    if(!isFinite(D))return '<text class="bg" x="'+mL+'" y="'+(H/2)+'">Q gives probability 0 to an outcome P produces. One such sample makes the evidence infinite, so D = ∞.</text>';
+    var lo=0,hi=D*N*kk,r,t;
+    runs.forEach(function(ru){for(t=0;t<=N;t+=Math.max(1,Math.floor(N/60))){lo=Math.min(lo,ru.cum[t]*kk);hi=Math.max(hi,ru.cum[t]*kk);}lo=Math.min(lo,ru.cum[N]*kk);hi=Math.max(hi,ru.cum[N]*kk);});
+    var pad=(hi-lo||1)*0.08;lo-=pad;hi+=pad;
+    var x=lin(0,N,mL,W-mR),y=lin(lo,hi,H-mB,mT);
+    niceTicks(lo,hi,4).forEach(function(v){s+='<line class="gl" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+r1(y(v))+'" y2="'+r1(y(v))+'"/><text x="'+(mL-6)+'" y="'+r1(y(v)+4)+'" text-anchor="end">'+tk(v)+'</text>';});
+    niceTicks(0,N,5).forEach(function(v){s+='<text x="'+r1(x(v))+'" y="'+(H-mB+16)+'" text-anchor="middle">'+v+'</text>';});
+    s+='<line class="ax" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+r1(y(0))+'" y2="'+r1(y(0))+'"/>';
+    var stp=Math.max(1,Math.floor(N/220));
+    runs.forEach(function(ru){var pts=[];for(t=0;t<=N;t+=stp)pts.push(r1(x(t))+','+r1(y(ru.cum[t]*kk)));pts.push(r1(x(N))+','+r1(y(ru.cum[N]*kk)));
+      s+='<polyline class="ln-kl" style="opacity:.34;stroke-width:1.4" points="'+pts.join(' ')+'"/>';});
+    s+='<line class="ref" x1="'+r1(x(0))+'" y1="'+r1(y(0))+'" x2="'+r1(x(N))+'" y2="'+r1(y(D*N*kk))+'"/>';
+    s+='<text class="bg" x="'+(W-mR)+'" y="'+(mT+4)+'" text-anchor="end">dashed: slope <tspan font-style="italic">D</tspan> = '+f(D,3)+' '+UN()+' per sample</text>';
+    s+='<text x="'+(W-mR)+'" y="'+(H-4)+'" text-anchor="end">samples drawn, <tspan font-style="italic">n</tspan></text><text x="'+mL+'" y="'+(mT-3)+'">extra '+UN()+'</text>';
+    return s;});
+  var ro=readouts(host,[{key:'lp',label:'avg length, code for <i>P</i>',cls:'p'},{key:'lq',label:'avg length, code for <i>Q</i>',cls:'q'},{key:'ex',label:'measured extra',cls:'kl'},{key:'D',label:'<i>D</i>(<i>P</i>‖<i>Q</i>) exact',cls:'kl'}]);
+  var lv=liveLine(host,true);
+  function update(){
+    simulate();
+    if(isFinite(D)){var lp=0,lq=0;runs.forEach(function(ru){lp+=ru.lp;lq+=ru.lq;});var tot=RUNS*N;
+      ro('lp',fu(lp/tot));ro('lq',fu(lq/tot));ro('ex',fu((lq-lp)/tot));
+      lv.innerHTML='Each thin line is one run of '+N+' samples. They scatter, but all climb at the same average rate, <i>D</i> per sample. That rate is also how fast evidence for <i>P</i> over <i>Q</i> accumulates.';}
+    else{ro('lp','—');ro('lq','—');ro('ex','∞');lv.innerHTML='A single sample from the outcome <i>Q</i> forbids has likelihood ratio infinity, so the running total jumps to ∞.';}
+    ro('D',fu(D));ed.redraw();ch.redraw();}
+  onRender(update);update();
+}
+
+/* ================= 10. KL between two Gaussians ================= */
+function klGaussNats(m1,s1,m2,s2){return Math.log(s2/s1)+(s1*s1+(m1-m2)*(m1-m2))/(2*s2*s2)-0.5;}
+function klGaussNumeric(m1,s1,m2,s2){
+  var lo=m1-10*s1,hi=m1+10*s1,n=4000,h=(hi-lo)/n,tot=0;
+  for(var i=0;i<=n;i++){var x=lo+i*h,lp=-0.5*LOG2PI-Math.log(s1)-0.5*Math.pow((x-m1)/s1,2),lq=-0.5*LOG2PI-Math.log(s2)-0.5*Math.pow((x-m2)/s2,2);
+    var v=Math.exp(lp)*(lp-lq);tot+=(i===0||i===n?0.5:1)*v;}
+  return tot*h;}
+function initGauss(){
+  var host=$('#lab-gauss'),G={m1:0,s1:1,m2:1.5,s2:1.6};
+  var ctl=mk('div','ctls');host.appendChild(ctl);
+  var cs=[
+    control(ctl,{id:'g-m1',label:'μ<sub>1</sub>',min:-4,max:4,step:0.05,value:G.m1,format:function(v){return v.toFixed(2);},onInput:function(v){G.m1=v;update();}}),
+    control(ctl,{id:'g-s1',label:'σ<sub>1</sub>',min:0.3,max:3,step:0.05,value:G.s1,format:function(v){return v.toFixed(2);},onInput:function(v){G.s1=v;update();}}),
+    control(ctl,{id:'g-m2',label:'μ<sub>2</sub>',min:-4,max:4,step:0.05,value:G.m2,format:function(v){return v.toFixed(2);},onInput:function(v){G.m2=v;update();}}),
+    control(ctl,{id:'g-s2',label:'σ<sub>2</sub>',min:0.3,max:3,step:0.05,value:G.s2,format:function(v){return v.toFixed(2);},onInput:function(v){G.s2=v;update();}})];
+  function setG(a){G.m1=a[0];G.s1=a[1];G.m2=a[2];G.s2=a[3];cs.forEach(function(c,i){c.set(a[i]);});update();}
+  chips(host,[
+    {label:'P = Q',on:function(){setG([0,1,0,1]);}},
+    {label:'Shift only',on:function(){setG([0,1,2,1]);}},
+    {label:'Q wider than P',on:function(){setG([0,0.8,0,2]);}},
+    {label:'Q narrower than P',on:function(){setG([0,2,0,0.8]);}},
+    {label:'Q = N(0, 1) (VAE prior)',on:function(){setG([1.2,0.6,0,1]);}}]);
+  host.appendChild(mk('div','cap','<span>Densities: <b style="color:var(--p)">P</b> and <b style="color:var(--q)">Q</b>, then the integrand <i>p</i>(<i>x</i>) log(<i>p</i>(<i>x</i>)/<i>q</i>(<i>x</i>)) whose area is <i>D</i>(<i>P</i>‖<i>Q</i>)</span>'));
+  var cH=mk('div');host.appendChild(cH);
+  function pdf(x,m,s){return Math.exp(-0.5*Math.pow((x-m)/s,2))/(s*Math.sqrt(2*Math.PI));}
+  var ch=Chart(cH,340,function(W,H){
+    var mL=40,mR=12,x=lin(-9,9,mL,W-mR),s='',i,kk=K();
+    var h1=170,top1=10,bot1=top1+h1,top2=bot1+34,bot2=H-24;
+    var mx=0.05;for(i=0;i<=180;i++){var xv=-9+18*i/180;mx=Math.max(mx,pdf(xv,G.m1,G.s1),pdf(xv,G.m2,G.s2));}mx*=1.08;
+    var y1=lin(0,mx,bot1,top1);
+    niceTicks(0,mx,3).forEach(function(t){s+='<line class="gl" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+r1(y1(t))+'" y2="'+r1(y1(t))+'"/><text x="'+(mL-5)+'" y="'+r1(y1(t)+4)+'" text-anchor="end">'+tk(t)+'</text>';});
+    var pp=[],qp=[],ig=[],imax=0.02;
+    for(i=0;i<=360;i++){var xx=-9+18*i/360,p=pdf(xx,G.m1,G.s1),q=pdf(xx,G.m2,G.s2);
+      pp.push(r1(x(xx))+','+r1(y1(p)));qp.push(r1(x(xx))+','+r1(y1(q)));
+      var v=p>1e-12?p*Math.log(p/Math.max(q,1e-300))*kk:0;ig.push(v);imax=Math.max(imax,Math.abs(v));}
+    s+='<polygon class="fill-psoft" points="'+r1(x(-9))+','+r1(bot1)+' '+pp.join(' ')+' '+r1(x(9))+','+r1(bot1)+'"/>';
+    s+='<polyline class="ln-p" points="'+pp.join(' ')+'"/><polyline class="ln-q" points="'+qp.join(' ')+'"/>';
+    s+='<line class="ax" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+bot1+'" y2="'+bot1+'"/>';
+    var y2=lin(-imax*1.15,imax*1.15,bot2,top2),z=y2(0),ar=[];
+    for(i=0;i<=360;i++)ar.push(r1(x(-9+18*i/360))+','+r1(y2(ig[i])));
+    s+='<polygon class="fill-klsoft" points="'+r1(x(-9))+','+r1(z)+' '+ar.join(' ')+' '+r1(x(9))+','+r1(z)+'"/><polyline class="ln-kl" points="'+ar.join(' ')+'"/>';
+    s+='<line class="ax" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+r1(z)+'" y2="'+r1(z)+'"/>';
+    niceTicks(-imax,imax,2).forEach(function(t){if(t!==0)s+='<text x="'+(mL-5)+'" y="'+r1(y2(t)+4)+'" text-anchor="end">'+tk(t)+'</text>';});
+    [-8,-4,0,4,8].forEach(function(t){s+='<text x="'+r1(x(t))+'" y="'+(H-8)+'" text-anchor="middle">'+t+'</text>';});
+    s+='<text x="'+mL+'" y="'+(top2-8)+'" class="ac-kl">integrand in '+UN()+' per unit x</text>';
+    return s;});
+  var ro=readouts(host,[{key:'cf',label:'closed form <i>D</i>(<i>P</i>‖<i>Q</i>)',cls:'kl'},{key:'nu',label:'numeric integral'},{key:'rev',label:'<i>D</i>(<i>Q</i>‖<i>P</i>), reversed',cls:'q'}]);
+  var lv=liveLine(host,true);
+  function update(){
+    var a=klGaussNats(G.m1,G.s1,G.m2,G.s2),nu=klGaussNumeric(G.m1,G.s1,G.m2,G.s2),rv=klGaussNats(G.m2,G.s2,G.m1,G.s1);
+    ro('cf',fu(a,4));ro('nu',fu(nu,4));ro('rev',fu(rv,4));
+    var t1=Math.log(G.s2/G.s1),t2=(G.s1*G.s1+Math.pow(G.m1-G.m2,2))/(2*G.s2*G.s2);
+    lv.innerHTML='ln(σ<sub>2</sub>/σ<sub>1</sub>) + (σ<sub>1</sub>² + Δμ²)/(2σ<sub>2</sub>²) − ½ = '+f(t1,3)+' + '+f(t2,3)+' − '+f(0.5,3)+' = <b>'+f(a,3)+'</b> '+UN()+' &nbsp;(the same formula in nats, converted)';
+    ch.redraw();}
+  onRender(update);update();
+}
+
+/* ================= 11. Non-negativity ================= */
+function initNonneg(){
+  var host=$('#lab-nonneg'),T={t:0};
+  pqPresets(host);
+  var ed=pqEditors(host,92);
+  var ctl=mk('div','ctls');host.appendChild(ctl);
+  control(ctl,{id:'nn-t',label:'<i>t</i>',min:0,max:1,step:0.01,value:0,format:function(v){return v.toFixed(2);},onInput:function(v){T.t=v;update();}});
+  host.appendChild(mk('div','cap','<span>Slide <i>t</i> to replace <i>Q</i> by (1−<i>t</i>)<i>Q</i> + <i>t</i><i>P</i>, moving it toward <i>P</i></span>'));
+  host.appendChild(mk('div','cap','<span>Points: outcome <i>i</i> at <i>x</i> = <i>q</i>/<i>p</i>, height −ln <i>x</i>, size ∝ <i>p</i>. The violet diamond is their <i>p</i>-weighted average.</span>'));
+  var cH=mk('div');host.appendChild(cH);
+  function qEff(){return PQ.q.map(function(q,i){return (1-T.t)*q+T.t*PQ.p[i];});}
+  var XMAX=4,YLO=-1.4,YHI=3.2;
+  var ch=Chart(cH,300,function(W,H){
+    var mL=44,mR=14,mT=14,mB=32,kk=K(),x=lin(0,XMAX,mL,W-mR),y=lin(YLO,YHI,H-mB,mT),s='',i;
+    var q=qEff(),p=PQ.p;
+    niceTicks(YLO*kk,YHI*kk,5).forEach(function(v){s+='<line class="gl" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+r1(y(v/kk))+'" y2="'+r1(y(v/kk))+'"/><text x="'+(mL-6)+'" y="'+r1(y(v/kk)+4)+'" text-anchor="end">'+tk(v)+'</text>';});
+    [0,1,2,3,4].forEach(function(v){s+='<text x="'+r1(x(v))+'" y="'+(H-mB+16)+'" text-anchor="middle">'+v+'</text>';});
+    s+='<line class="ax" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+r1(y(0))+'" y2="'+r1(y(0))+'"/>';
+    var pts=[];for(i=1;i<=240;i++){var xv=0.03+(XMAX-0.03)*i/240,v=-Math.log(xv);if(v<=YHI)pts.push(r1(x(xv))+','+r1(y(v)));}
+    s+='<polyline class="ln-ink" points="'+pts.join(' ')+'"/>';
+    var xt=1-YLO;
+    s+='<line class="ref" x1="'+r1(x(0.0))+'" y1="'+r1(y(1))+'" x2="'+r1(x(xt))+'" y2="'+r1(y(YLO))+'"/>';
+    s+='<text x="'+r1(x(xt)+6)+'" y="'+r1(y(YLO)-6)+'">tangent: 1 − <tspan font-style="italic">x</tspan></text><text x="'+r1(x(0.12))+'" y="'+r1(y(2.9))+'">−ln <tspan font-style="italic">x</tspan></text>';
+    var cx=0,cy=0,inf=false;
+    for(i=0;i<p.length;i++){if(p[i]<=0)continue;var xr=q[i]/p[i];
+      if(q[i]<=0){inf=true;s+='<circle class="fill-q" cx="'+r1(x(0))+'" cy="'+(mT+4)+'" r="'+r1(4+16*Math.sqrt(p[i]))+'"/><text x="'+r1(x(0)+10)+'" y="'+(mT+8)+'">'+PQ.names[i]+' (x = 0, ∞)</text>';continue;}
+      var yv=-Math.log(xr),px=x(Math.min(xr,XMAX)),py=y(clamp(yv,YLO,YHI));cx+=p[i]*xr;cy+=p[i]*yv;
+      s+='<circle class="fill-q st-surface" cx="'+r1(px)+'" cy="'+r1(py)+'" r="'+r1(4+16*Math.sqrt(p[i]))+'" style="opacity:.9"/><text x="'+r1(px+8+12*Math.sqrt(p[i]))+'" y="'+r1(py+4)+'">'+PQ.names[i]+(xr>XMAX?' (x='+xr.toFixed(1)+')':'')+'</text>';}
+    if(!inf){var fx=-Math.log(cx);
+      s+='<line class="ref" x1="'+r1(x(cx))+'" x2="'+r1(x(cx))+'" y1="'+r1(y(clamp(fx,YLO,YHI)))+'" y2="'+r1(y(clamp(cy,YLO,YHI)))+'" style="stroke:var(--kl);stroke-dasharray:none;stroke-width:3"/>';
+      s+='<circle class="dot-p" style="fill:var(--ink)" cx="'+r1(x(cx))+'" cy="'+r1(y(clamp(fx,YLO,YHI)))+'" r="4"/>';
+      s+='<rect class="fill-kl st-surface" x="'+r1(x(cx)-7)+'" y="'+r1(y(clamp(cy,YLO,YHI))-7)+'" width="14" height="14" transform="rotate(45 '+r1(x(cx))+' '+r1(y(clamp(cy,YLO,YHI)))+')"/>';}
+    s+='<text x="'+(W-mR)+'" y="'+(H-4)+'" text-anchor="end"><tspan font-style="italic">x</tspan> = <tspan font-style="italic">q</tspan>/<tspan font-style="italic">p</tspan></text><text x="'+mL+'" y="'+(mT-3)+'">'+UN()+'</text>';
+    return s;});
+  var ro=readouts(host,[{key:'D',label:'<i>D</i>(<i>P</i>‖<i>Q</i>) = average height',cls:'kl'},{key:'f',label:'height of curve at the average: −ln <i>E</i>[<i>x</i>]'},{key:'gap',label:'Jensen gap',cls:'ok'}]);
+  var lv=liveLine(host,true);
+  var tb=mk('div','chips');host.appendChild(tb);
+  var tst=liveLine(host,true);tst.innerHTML='Stress test: draw random pairs of distributions and look for a negative divergence.';
+  button(tb,'Try 20,000 random pairs',function(){
+    var minD=Infinity,neg=0,n=20000;
+    for(var r=0;r<n;r++){var k=2+Math.floor(Math.random()*7),a=[],b=[],j;for(j=0;j<k;j++){a.push(-Math.log(Math.random()+1e-12));b.push(-Math.log(Math.random()+1e-12));}
+      a=norm(a);b=norm(b);var d=kl(a,b);if(d<minD)minD=d;if(d<-1e-12)neg++;}
+    tst.innerHTML='Smallest divergence found in '+n.toLocaleString('en-US')+' random pairs: <b>'+f(minD,5)+'</b> '+UN()+'. Negative results: <b>'+neg+'</b>.';});
+  function update(){
+    var q=qEff(),D=kl(PQ.p,q),mass=0,i;
+    for(i=0;i<5;i++)if(PQ.p[i]>0)mass+=q[i];
+    var fx=mass>0?-Math.log(mass):Infinity;
+    ro('D',fu(D));ro('f',fu(fx));ro('gap',isFinite(D)?fu(D-fx):'∞');
+    lv.innerHTML=!isFinite(D)?'Some <i>q</i> = 0 where <i>p</i> &gt; 0, so a point sits at infinity and <i>D</i> = ∞.':
+      D<1e-9?'<i>Q</i> = <i>P</i>: every point sits at <i>x</i> = 1 on the curve and the divergence is exactly 0.':
+      'The average point lies above the curve (Jensen) and above the tangent line (the ln <i>x</i> ≤ <i>x</i> − 1 proof). Its height is <i>D</i> ≥ 0.';
+    ed.redraw();ch.redraw();}
+  onRender(update);update();
+}
+
+/* ================= 12. KL divergence and MLE ================= */
+function initMLE(){
+  var host=$('#lab-mle'),M={pt:0.35,N:40,theta:0.5},UN_=[];
+  var NM=500,U=[];function reseed(){U=[];for(var i=0;i<NM;i++)U.push(Math.random());}reseed();
+  var ctl=mk('div','ctls');host.appendChild(ctl);
+  control(ctl,{id:'mle-pt',label:'true <i>p</i>*',min:0.05,max:0.95,step:0.01,value:M.pt,format:function(v){return v.toFixed(2);},onInput:function(v){M.pt=v;update();}});
+  control(ctl,{id:'mle-n',label:'<i>N</i>',min:5,max:500,step:1,value:M.N,onInput:function(v){M.N=v;update();}});
+  var th=control(ctl,{id:'mle-th',label:'θ',min:0.01,max:0.99,step:0.005,value:M.theta,format:function(v){return v.toFixed(3);},onInput:function(v){M.theta=v;update();}});
+  var bb=mk('div','chips');host.appendChild(bb);
+  button(bb,'Draw a new dataset',function(){reseed();update();});
+  var snap=button(bb,'Snap θ to the MLE',function(){th.set(clamp(stats().ph,0.01,0.99));M.theta=th.get();update();},true);
+  var dataHost=mk('div');host.appendChild(dataHost);
+  var data=Chart(dataHost,54,function(W,H){
+    var n=M.N,show=Math.min(n,120),cw=Math.min(14,(W-20)/show),s='',i,h=0;
+    for(i=0;i<n;i++)if(U[i]<M.pt)h++;
+    for(i=0;i<show;i++){var heads=U[i]<M.pt;s+='<rect class="'+(heads?'fill-p':'fill-2')+'" x="'+r1(10+i*cw)+'" y="8" width="'+r1(cw-2)+'" height="18" rx="2"/>';}
+    s+='<text x="10" y="46">'+h+' heads in '+n+' flips'+(n>show?' (first '+show+' shown)':'')+'  →  <tspan font-style="italic">p̂</tspan> = '+(h/n).toFixed(3)+'</text>';
+    return s;});
+  function stats(){var h=0;for(var i=0;i<M.N;i++)if(U[i]<M.pt)h++;var ph=h/M.N;
+    return {ph:ph,H:(ph>0&&ph<1)?-ph*Math.log(ph)-(1-ph)*Math.log(1-ph):0};}
+  function ll(ph,t){return ph*Math.log(t)+(1-ph)*Math.log(1-t);}
+  function dkl(ph,t){var s=0;if(ph>0)s+=ph*Math.log(ph/t);if(ph<1)s+=(1-ph)*Math.log((1-ph)/(1-t));return s;}
+  var row=mk('div','row');host.appendChild(row);
+  var h1=mk('div'),h2=mk('div');row.appendChild(h1);row.appendChild(h2);
+  function panel(mode){return function(W,H){
+    var st=stats(),mL=46,mR=12,mT=26,mB=30,kk=K(),s='',i;
+    var ends=Math.max(dkl(st.ph,0.01),dkl(st.ph,0.99));
+    var lo=mode==='ll'?-(st.H+ends)*1.05:0,hi=mode==='ll'?0:ends*1.05;
+    var x=lin(0,1,mL,W-mR),y=lin(lo,hi,H-mB,mT);
+    niceTicks(lo*kk,hi*kk,4).forEach(function(v){s+='<line class="gl" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+r1(y(v/kk))+'" y2="'+r1(y(v/kk))+'"/><text x="'+(mL-6)+'" y="'+r1(y(v/kk)+4)+'" text-anchor="end">'+tk(v)+'</text>';});
+    [0,0.25,0.5,0.75,1].forEach(function(v){s+='<text x="'+r1(x(v))+'" y="'+(H-mB+16)+'" text-anchor="middle">'+v+'</text>';});
+    var pts=[];for(i=0;i<=200;i++){var t=0.01+0.98*i/200,v=mode==='ll'?ll(st.ph,t):dkl(st.ph,t);pts.push(r1(x(t))+','+r1(y(v)));}
+    s+='<polyline class="'+(mode==='ll'?'ln-p':'ln-kl')+'" points="'+pts.join(' ')+'"/>';
+    var vm=mode==='ll'?ll(st.ph,clamp(st.ph,0.01,0.99)):dkl(st.ph,clamp(st.ph,0.01,0.99));
+    s+='<line class="ref" x1="'+r1(x(clamp(st.ph,0.01,0.99)))+'" x2="'+r1(x(clamp(st.ph,0.01,0.99)))+'" y1="'+mT+'" y2="'+(H-mB)+'"/>';
+    s+='<circle class="'+(mode==='ll'?'dot-p':'dot-kl')+'" cx="'+r1(x(clamp(st.ph,0.01,0.99)))+'" cy="'+r1(y(vm))+'" r="5" style="fill:var(--ink)"/>';
+    var cv=mode==='ll'?ll(st.ph,M.theta):dkl(st.ph,M.theta);
+    s+='<circle class="'+(mode==='ll'?'dot-p':'dot-kl')+'" cx="'+r1(x(M.theta))+'" cy="'+r1(y(cv))+'" r="6"/>';
+    s+='<text class="bg" x="'+mL+'" y="14">'+(mode==='ll'?'average log-likelihood (maximize)':'D(p̂ ‖ q_θ) (minimize)')+'</text><text x="'+(W-mR)+'" y="'+(H-3)+'" text-anchor="end">θ</text>';
+    return s;};}
+  var cA=Chart(h1,230,panel('ll')),cB=Chart(h2,230,panel('kl'));
+  var ro=readouts(host,[{key:'ll',label:'avg log-likelihood',cls:'p'},{key:'H',label:'−<i>H</i>(<i>p̂</i>), a constant'},{key:'D',label:'−<i>D</i>(<i>p̂</i>‖<i>q</i><sub>θ</sub>)',cls:'kl'},{key:'mle',label:'MLE θ̂ = <i>p̂</i>'}]);
+  var lv=liveLine(host,true);
+  function update(){
+    var st=stats();
+    ro('ll',fu(ll(st.ph,M.theta),4));ro('H',fu(-st.H,4));ro('D',fu(-dkl(st.ph,M.theta),4));ro('mle',st.ph.toFixed(3));
+    lv.innerHTML='<b>'+f(ll(st.ph,M.theta),3)+'</b> = −<i>H</i>(<i>p̂</i>) − <i>D</i>(<i>p̂</i>‖<i>q</i><sub>θ</sub>) = '+f(-st.H,3)+' − '+f(dkl(st.ph,M.theta),3)+' '+UN()+'. The two curves peak and bottom out at the same θ: the sample proportion.';
+    data.redraw();cA.redraw();cB.redraw();}
+  onRender(update);update();
+}
+
+/* ================= 13. Forward vs reverse KL ================= */
+function initFwdRev(){
+  var host=$('#lab-fwdrev'),F={d:6,mu:0,sigma:2},GX0=-14,GN=560,GDX=0.05;
+  var xs=[],cacheD=null,logP=[],Pd=[],heat=null,optima=null,anim=null;
+  function lnN(x,m,s){return -0.5*LOG2PI-Math.log(s)-0.5*Math.pow((x-m)/s,2);}
+  function lnMix(x,d){var a=lnN(x,-d/2,1),b=lnN(x,d/2,1),m=Math.max(a,b);return m+Math.log(0.5*Math.exp(a-m)+0.5*Math.exp(b-m));}
+  function prep(){if(cacheD===F.d)return;cacheD=F.d;xs=[];logP=[];Pd=[];
+    for(var j=0;j<=GN;j++){var x=GX0+j*GDX;xs.push(x);var l=lnMix(x,F.d);logP.push(l);Pd.push(Math.exp(l));}}
+  function fwd(mu,sg){var t=0;for(var j=0;j<=GN;j++)t+=Pd[j]*(logP[j]-lnN(xs[j],mu,sg));return t*GDX;}
+  function rev(mu,sg){var t=0;for(var j=0;j<=GN;j++){var l=lnN(xs[j],mu,sg);t+=Math.exp(l)*(l-logP[j]);}return t*GDX;}
+  var MU0=-8,MU1=8,S0=0.3,S1=6,NC=36,NR=26;
+  function search(fn,mu,sg){
+    var x=[mu,Math.log(sg)],fx=fn(x[0],Math.exp(x[1])),step=[1,0.3],path=[[x[0],Math.exp(x[1])]],lo=[MU0,Math.log(S0)],hi=[MU1,Math.log(S1)];
+    for(var it=0;it<500;it++){var imp=false;
+      for(var i=0;i<2;i++)for(var dir=-1;dir<=1;dir+=2){var c=x.slice();c[i]=clamp(c[i]+dir*step[i],lo[i],hi[i]);var fc=fn(c[0],Math.exp(c[1]));if(fc<fx-1e-12){x=c;fx=fc;imp=true;path.push([x[0],Math.exp(x[1])]);}}
+      if(!imp){step=[step[0]/2,step[1]/2];if(step[0]<1e-3)break;}}
+    return {mu:x[0],sigma:Math.exp(x[1]),f:fx,path:path};}
+  function build(){
+    prep();
+    if(heat&&heat.d===F.d)return;
+    var fh=[],rh=[],i,j;
+    for(j=0;j<NR;j++){var sg=S0*Math.pow(S1/S0,j/(NR-1));fh.push([]);rh.push([]);
+      for(i=0;i<NC;i++){var mu=MU0+(MU1-MU0)*i/(NC-1);fh[j].push(fwd(mu,sg));rh[j].push(rev(mu,sg));}}
+    heat={d:F.d,f:fh,r:rh};
+    var fo={mu:0,sigma:Math.sqrt(1+F.d*F.d/4)};
+    optima={fwd:fo,revL:search(rev,-F.d/2,1.2),revR:search(rev,F.d/2,1.2)};}
+  var ctl=mk('div','ctls');host.appendChild(ctl);
+  var cD=control(ctl,{id:'fr-d',label:'<i>d</i>',min:0,max:10,step:0.25,value:F.d,format:function(v){return v.toFixed(2);},onInput:function(v){F.d=v;schedule();}});
+  var cM=control(ctl,{id:'fr-mu',label:'μ',min:-8,max:8,step:0.05,value:F.mu,format:function(v){return v.toFixed(2);},onInput:function(v){F.mu=v;update();}});
+  var cS=control(ctl,{id:'fr-sg',label:'σ',min:0.3,max:6,step:0.05,value:F.sigma,format:function(v){return v.toFixed(2);},onInput:function(v){F.sigma=v;update();}});
+  host.appendChild(mk('div','cap','<span><i>d</i> = distance between the two modes of <b style="color:var(--p)">P</b>; μ, σ describe the single Gaussian <b style="color:var(--q)">Q</b></span>'));
+  var br=mk('div','chips');host.appendChild(br);
+  function setQ(mu,sg){F.mu=clamp(mu,MU0,MU1);F.sigma=clamp(sg,S0,S1);cM.set(F.mu);cS.set(F.sigma);}
+  function animate(path){
+    if(anim)cancelAnimationFrame(anim);
+    if(reduceMotion||path.length<2){var l=path[path.length-1];setQ(l[0],l[1]);update();return;}
+    var n=path.length,steps=Math.min(n,48),k=0;
+    (function tick(){var idx=Math.min(n-1,Math.round(k*(n-1)/steps)),p=path[idx];setQ(p[0],p[1]);update();k++;if(k<=steps)anim=requestAnimationFrame(tick);})();}
+  button(br,'Fit with forward KL',function(){build();var cur=[F.mu,F.sigma],t=optima.fwd,path=[];for(var i=0;i<=24;i++){var a=i/24;path.push([cur[0]+(t.mu-cur[0])*a,cur[1]+(t.sigma-cur[1])*a]);}animate(path);});
+  button(br,'Fit with reverse KL',function(){build();animate(search(rev,F.mu,F.sigma).path);},true);
+  chips(br,[{label:'Start on left mode',on:function(){setQ(-F.d/2,1);update();}},{label:'Start on right mode',on:function(){setQ(F.d/2,1);update();}},{label:'Start at center',on:function(){setQ(0,2);update();}}]);
+  var dH=mk('div');host.appendChild(dH);
+  var dens=Chart(dH,230,function(W,H){
+    prep();var mL=34,mR=12,mT=12,mB=26,x=lin(-12,12,mL,W-mR),s='',j;
+    var pm=0;for(j=0;j<=GN;j+=4)pm=Math.max(pm,Pd[j]);
+    var qmax=1/(F.sigma*Math.sqrt(2*Math.PI)),ymx=Math.max(pm*1.3,Math.min(qmax*1.08,0.9)),y=lin(0,ymx,H-mB,mT);
+    niceTicks(0,ymx,3).forEach(function(t){s+='<line class="gl" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+r1(y(t))+'" y2="'+r1(y(t))+'"/><text x="'+(mL-5)+'" y="'+r1(y(t)+4)+'" text-anchor="end">'+tk(t)+'</text>';});
+    var pp=[],qp=[];for(j=0;j<=GN;j+=2){var xx=xs[j];pp.push(r1(x(xx))+','+r1(y(Pd[j])));qp.push(r1(x(xx))+','+r1(y(Math.min(ymx*1.02,Math.exp(lnN(xx,F.mu,F.sigma))))));}
+    s+='<polygon class="fill-psoft" points="'+r1(x(xs[0]))+','+(H-mB)+' '+pp.join(' ')+' '+r1(x(xs[GN]))+','+(H-mB)+'"/><polyline class="ln-p" points="'+pp.join(' ')+'"/><polyline class="ln-q" points="'+qp.join(' ')+'"/>';
+    s+='<line class="ax" x1="'+mL+'" x2="'+(W-mR)+'" y1="'+(H-mB)+'" y2="'+(H-mB)+'"/>';
+    [-12,-8,-4,0,4,8,12].forEach(function(t){s+='<text x="'+r1(x(t))+'" y="'+(H-mB+15)+'" text-anchor="middle">'+t+'</text>';});
+    s+='<text class="bg ac-p" x="'+(mL+6)+'" y="'+(mT+8)+'">P: two modes at ±'+(F.d/2).toFixed(2)+'</text><text class="bg ac-q" x="'+(W-mR)+'" y="'+(mT+8)+'" text-anchor="end">Q = N('+F.mu.toFixed(2)+', '+F.sigma.toFixed(2)+'²)</text>';
+    return s;});
+  var row=mk('div','row');host.appendChild(row);
+  var hA=mk('div'),hB=mk('div');row.appendChild(hA);row.appendChild(hB);
+  function heatChart(host_,which){
+    var ck=null,cs_='';
+    return Chart(host_,230,function(W,H){
+      build();var mL=40,mR=8,mT=24,mB=26,cw=(W-mL-mR)/NC,ch_=(H-mT-mB)/NR,s='',i,j,M=which==='f'?heat.f:heat.r,cap=Math.log(1+8);
+      s+='<text class="bg" x="'+mL+'" y="14">'+(which==='f'?'Forward KL(P‖Q) over (μ, σ)':'Reverse KL(Q‖P) over (μ, σ)')+'</text>';
+      if(ck!==F.d+'|'+W){ck=F.d+'|'+W;cs_='';
+        for(j=0;j<NR;j++)for(i=0;i<NC;i++){var v=M[j][i],t=1-Math.min(1,Math.log(1+Math.max(0,v))/cap);
+          cs_+='<rect class="fill-kl" fill-opacity="'+(0.05+0.9*Math.pow(t,1.6)).toFixed(2)+'" x="'+r1(mL+i*cw)+'" y="'+r1(mT+(NR-1-j)*ch_)+'" width="'+r1(cw+0.6)+'" height="'+r1(ch_+0.6)+'"/>';}}
+      s+=cs_;
+      var px=function(mu){return mL+(mu-MU0)/(MU1-MU0)*(W-mL-mR);},py=function(sg){return mT+(1-Math.log(sg/S0)/Math.log(S1/S0))*(H-mT-mB);};
+      [-8,-4,0,4,8].forEach(function(t){s+='<text x="'+r1(px(t))+'" y="'+(H-mB+14)+'" text-anchor="middle">'+t+'</text>';});
+      [0.3,1,3,6].forEach(function(t){s+='<text x="'+(mL-5)+'" y="'+r1(py(t)+4)+'" text-anchor="end">'+t+'</text>';});
+      var marks=which==='f'?[optima.fwd]:[optima.revL,optima.revR];
+      marks.forEach(function(o){s+='<circle cx="'+r1(px(o.mu))+'" cy="'+r1(py(o.sigma))+'" r="7" fill="none" stroke="var(--ink)" stroke-width="2"/>';});
+      s+='<circle class="dot-q" cx="'+r1(px(F.mu))+'" cy="'+r1(py(F.sigma))+'" r="6"/>';
+      s+='<text x="'+(W-mR)+'" y="'+(H-3)+'" text-anchor="end">μ →  (rows: σ, log scale; darker = lower; ○ = optimum)</text>';
+      return s;});}
+  var hmA=heatChart(hA,'f'),hmB=heatChart(hB,'r');
+  [[hmA,'f'],[hmB,'r']].forEach(function(pr){pr[0].svg.addEventListener('click',function(e){
+    var r=pr[0].svg.getBoundingClientRect(),W=r.width,H=pr[0].h,mL=40,mR=8,mT=24,mB=26,cx=(e.clientX-r.left),cy=(e.clientY-r.top)*(H/r.height);
+    var mu=MU0+(cx-mL)/(W-mL-mR)*(MU1-MU0),fr=1-(cy-mT)/(H-mT-mB),sg=S0*Math.pow(S1/S0,fr);
+    if(cx<mL||cx>W-mR||cy<mT||cy>H-mB)return;setQ(mu,sg);update();});pr[0].svg.style.cursor='crosshair';});
+  var ro=readouts(host,[{key:'f',label:'forward <i>D</i>(<i>P</i>‖<i>Q</i>)',cls:'p'},{key:'r',label:'reverse <i>D</i>(<i>Q</i>‖<i>P</i>)',cls:'q'},{key:'fo',label:'forward optimum'},{key:'ro',label:'reverse optima'}]);
+  var lv=liveLine(host,true);
+  var pend=false;
+  function schedule(){if(pend)return;pend=true;requestAnimationFrame(function(){pend=false;update();});}
+  function update(){
+    build();var kk=K();
+    ro('f',fu(fwd(F.mu,F.sigma)));ro('r',fu(rev(F.mu,F.sigma)));
+    ro('fo','μ = '+optima.fwd.mu.toFixed(2)+', σ = '+optima.fwd.sigma.toFixed(2));
+    ro('ro','μ = '+optima.revL.mu.toFixed(2)+', σ = '+optima.revL.sigma.toFixed(2)+(Math.abs(optima.revL.mu-optima.revR.mu)>0.3?'<br>μ = '+optima.revR.mu.toFixed(2)+', σ = '+optima.revR.sigma.toFixed(2):''));
+    lv.innerHTML='Forward optimum is moment matching: μ = <i>E</i><sub><i>P</i></sub>[<i>x</i>] = 0 and σ² = Var<sub><i>P</i></sub> = 1 + <i>d</i>²/4 = '+(1+F.d*F.d/4).toFixed(2)+'. Reverse KL has '+(Math.abs(optima.revL.mu-optima.revR.mu)>0.3?'two local optima, one per mode, and the fit you get depends on where you start.':'a single optimum here, because the modes overlap.');
+    dens.redraw();hmA.redraw('f'+F.d+'|'+F.mu+'|'+F.sigma);hmB.redraw('r'+F.d+'|'+F.mu+'|'+F.sigma);}
+  onRender(update);update();
+}
+
+/* ================= navigation and boot ================= */
+function initNav(){
+  var secs=$$('.sec'),rail=$('#rail'),jump=$('#jump'),part='',html='',opts='',i;
+  secs.forEach(function(sec,n){var pt=sec.getAttribute('data-part'),nm=sec.getAttribute('data-name');
+    if(pt!==part){part=pt;html+='<h4>'+pt+'</h4>';}
+    html+='<a href="#'+sec.id+'" data-id="'+sec.id+'"><span>'+(n+1)+'</span>'+nm+'</a>';
+    opts+='<option value="'+sec.id+'">'+(n+1)+'. '+nm+'</option>';});
+  rail.innerHTML=html;jump.innerHTML='<option value="">Jump to…</option>'+opts;
+  function go(id){var el=document.getElementById(id);if(el)el.scrollIntoView({behavior:reduceMotion?'auto':'smooth',block:'start'});}
+  rail.addEventListener('click',function(e){var a=e.target.closest('a');if(!a)return;e.preventDefault();go(a.getAttribute('data-id'));});
+  jump.addEventListener('change',function(){if(jump.value){go(jump.value);jump.value='';}});
+  if(window.IntersectionObserver){
+    var io=new IntersectionObserver(function(entries){entries.forEach(function(en){if(en.isIntersecting){$$('#rail a').forEach(function(a){a.setAttribute('aria-current',String(a.getAttribute('data-id')===en.target.id));});}});},{rootMargin:'-20% 0px -70% 0px'});
+    secs.forEach(function(s){io.observe(s);});}
+  function setUnit(u){S.unit=u;$('#u-bits').setAttribute('aria-pressed',String(u==='bits'));$('#u-nats').setAttribute('aria-pressed',String(u==='nats'));try{localStorage.setItem('itlab-unit',u);}catch(e){}renderAll();}
+  $('#u-bits').addEventListener('click',function(){setUnit('bits');});
+  $('#u-nats').addEventListener('click',function(){setUnit('nats');});
+  try{var saved=localStorage.getItem('itlab-unit');if(saved==='nats')setUnit('nats');}catch(e){}
+}
+[initInfo,initEntropy,initRV,initJoint,initCond,initXent,initPPL,initKL,initInterp,initGauss,initNonneg,initMLE,initFwdRev,initNav].forEach(function(fn){
+  try{fn();}catch(err){if(window.console)console.error(fn.name,err);}
+});
+})();
+</script>
+</body>
+</html>
