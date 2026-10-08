@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mutual Information: An Interactive Guide</title>
+<style>
+:root{
+  --bg:#f5f7fb;--paper:#ffffff;--ink:#10141c;--muted:#586175;--line:#d8dee9;--soft:#eaeff7;
+  --x:#2c52d6;--y:#e08c00;--z:#0c9c8a;--mi:#c4267d;--pos:#0f8a5f;--neg:#d03a2a;
+  --serif:Charter,"Bitstream Charter","Sitka Text",Cambria,Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mathf:"STIX Two Math","Cambria Math","Latin Modern Math","Times New Roman",Times,serif;
+}
+[data-theme=dark]{
+  --bg:#0d1118;--paper:#151b25;--ink:#e8edf5;--muted:#97a1b3;--line:#273041;--soft:#1b2330;
+  --x:#7b98ff;--y:#ffb938;--z:#3fd1bd;--mi:#ff6fb5;--pos:#4fd39f;--neg:#ff7c6b;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:24px}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.75 var(--serif);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button,input,select,table,output,nav,.tile,.lab,.quiz,.chip,.btn{font-family:var(--sans)}
+[hidden]{display:none!important}
+a{color:var(--x)}
+p,li{max-width:66ch}
+p{margin:0 0 1em}
+ul,ol{padding-left:1.3em;margin:0 0 1em}
+li{margin-bottom:.4em}
+b,strong{font-weight:700}
+.layout{display:grid;grid-template-columns:268px minmax(0,1fr)}
+
+/* ---------- progress rail ---------- */
+nav.toc{position:sticky;top:0;height:100vh;overflow-y:auto;padding:34px 20px 24px 28px;border-right:1px solid var(--line);background:var(--paper);display:flex;flex-direction:column}
+.brand{font:800 20px/1.1 var(--sans);letter-spacing:-.02em;margin-bottom:26px}
+.brand small{display:block;font:500 12.5px/1.4 var(--sans);color:var(--muted);letter-spacing:0;margin-top:6px}
+.rail{position:relative;display:flex;flex-direction:column;gap:2px}
+.rail:before{content:"";position:absolute;left:11px;top:14px;bottom:14px;width:2px;background:var(--line)}
+.rail a{position:relative;display:flex;align-items:center;gap:12px;padding:7px 8px 7px 0;color:var(--ink);text-decoration:none;font-size:14.5px;line-height:1.25}
+.rail a .nd{position:relative;z-index:1;flex:none;width:24px;height:24px;border-radius:50%;background:var(--paper);border:2px solid var(--line);display:grid;place-items:center;font-size:11.5px;font-weight:700;color:var(--muted)}
+.rail a:hover .nd{border-color:var(--mi)}
+.rail a.active{font-weight:700}
+.rail a.active .nd{border-color:var(--mi);color:var(--mi)}
+.rail a.done .nd{background:var(--mi);border-color:var(--mi);color:#fff;font-size:0}
+.rail a.done .nd:after{content:"\2713";font-size:12px}
+.toc-foot{margin-top:auto;padding-top:22px;font-size:12.5px;color:var(--muted)}
+.ghost{border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;margin-bottom:10px}
+.ghost:hover{border-color:var(--mi)}
+
+main{padding:0 clamp(20px,5vw,64px) 120px;max-width:1000px;margin:0 auto;width:100%}
+section{margin:0 0 96px}
+h1,h2,h3,h4{font-family:var(--sans);letter-spacing:-.02em;line-height:1.12}
+h2{font-size:clamp(1.9rem,3.8vw,2.55rem);font-weight:800;margin:0 0 .6em;display:flex;align-items:baseline;gap:.5em}
+h2 .sn{font-size:.62em;font-weight:800;color:var(--mi);border:2px solid var(--mi);border-radius:50%;width:1.55em;height:1.55em;display:inline-grid;place-items:center;flex:none;transform:translateY(-.12em)}
+h3{font-size:1.28rem;font-weight:750;margin:1.8em 0 .5em}
+h4{font-size:1rem;margin:0 0 .6em}
+
+/* ---------- hero ---------- */
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:34px;align-items:center;padding:64px 0 56px;margin-bottom:56px;border-bottom:1px solid var(--line);background-image:radial-gradient(var(--line) 1px,transparent 1.2px);background-size:24px 24px;background-position:-12px -12px}
+.hero h1{font-size:clamp(2.7rem,6.4vw,4.6rem);font-weight:850;letter-spacing:-.035em;line-height:.98;margin:0 0 .45em}
+.hero .lede{font-size:1.18rem;max-width:34ch;color:var(--ink)}
+.hero .sub{color:var(--muted);font-size:.98rem;max-width:40ch}
+.venn-wrap{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px 12px 14px}
+#hvsvg{width:100%;height:auto;display:block;cursor:ew-resize;touch-action:none;outline:none}
+#hvsvg:focus-visible{outline:2px solid var(--mi);outline-offset:3px;border-radius:8px}
+.hv-read{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px;font-family:var(--sans)}
+.hv-read div{border-top:3px solid var(--line);padding-top:5px;font-size:11.5px;color:var(--muted);line-height:1.3}
+.hv-read b{display:block;font-size:20px;color:var(--ink);font-variant-numeric:tabular-nums}
+.hv-read .c-mi{border-top-color:var(--mi)}.hv-read .c-x{border-top-color:var(--x)}.hv-read .c-y{border-top-color:var(--y)}
+.hv-note{font:12.5px/1.4 var(--sans);color:var(--muted);margin:8px 2px 0}
+
+/* ---------- math ---------- */
+.m{font-family:var(--mathf);font-size:1.06em;white-space:nowrap}
+.m i{font-style:italic}
+.m sub,.m sup{font-size:.7em;line-height:0}
+.m .fn{font-style:normal}
+.m .fn+i,.m .fn+span.frac{margin-left:.16em}
+.m .rel{margin:0 .3em}
+.m .bin{margin:0 .2em}
+.m .mid{margin:0 .14em}
+.m .frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 .12em;line-height:1.2}
+.m .frac>.num{border-bottom:1px solid currentColor;padding:0 .22em .05em}
+.m .frac>.den{padding:.05em .22em 0}
+.m .sq{border-top:1px solid currentColor;padding:0 .12em;margin-left:.04em}
+.m .bigop{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;line-height:1.05;margin:0 .1em}
+.m .bigop .lim{font-size:.7em}.m .bigop .lim:empty{display:none}
+.m .bigop .op{font-size:1.5em}
+.m .bigop1{font-size:1.4em;margin:0 .1em}
+.m .hat{position:relative;display:inline-block}
+.m .hat:before{content:"\02C6";position:absolute;left:50%;top:-.55em;transform:translateX(-50%);font-style:normal}
+.m .ovl{border-top:1px solid currentColor}
+.m .indep{letter-spacing:-.34em;margin-right:.36em}
+.eqn{display:block;margin:1.1em 0;padding:.75em 1em;background:var(--soft);border-radius:8px;overflow-x:auto;text-align:center;font-size:1.12em;white-space:nowrap}
+.eqn.l{text-align:left}
+
+/* ---------- prose parts ---------- */
+.callout{margin:1.6em 0;padding:2px 0 2px 18px;border-left:4px solid var(--mi)}
+.callout b.k{font-family:var(--sans);color:var(--mi);display:block;margin-bottom:2px}
+.callout p:last-child{margin-bottom:0}
+.note{font-family:var(--sans);font-size:14px;color:var(--muted)}
+details{margin:1.2em 0;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+summary{cursor:pointer;padding:11px 16px;font:600 15px var(--sans)}
+details[open] summary{border-bottom:1px solid var(--line)}
+details>div{padding:6px 16px 12px}
+table.plain,table.dt{display:block;overflow-x:auto;max-width:100%}
+table.plain{border-collapse:collapse;font-size:15px;width:100%;margin:1em 0}
+table.plain th,table.plain td{border-bottom:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top}
+table.plain th{font-weight:700;border-bottom:2px solid var(--ink)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:1.4em 0 0}
+.cards a{display:block;border:1px solid var(--line);border-radius:10px;padding:12px 14px;text-decoration:none;color:var(--ink);background:var(--paper);font:14px/1.45 var(--sans)}
+.cards a:hover{border-color:var(--mi)}
+.cards a b{display:block;font-size:15.5px;margin-bottom:2px}
+.cards a span{color:var(--muted)}
+
+/* ---------- labs ---------- */
+.lab{margin:2.2em 0;background:var(--paper);border:1px solid var(--line);border-radius:12px;border-top:4px solid var(--mi);overflow:hidden}
+.lab-h{padding:12px 18px;font:700 15px var(--sans);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.lab-h span{font-weight:500;color:var(--muted);font-size:13px}
+.lab-b{padding:18px}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px 26px;margin-bottom:16px;align-items:end}
+.ctl{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13.5px;align-items:center}
+.ctl-l{color:var(--muted)}
+.ctl output{font-weight:700;font-variant-numeric:tabular-nums}
+.ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--mi);margin:4px 0}
+.ctl select{grid-column:1/-1;padding:7px 8px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:14px}
+.chk{display:flex;gap:8px;align-items:center;font-size:13.5px;color:var(--muted)}
+.chk input{accent-color:var(--mi)}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+.chip,.btn{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:6px 13px;font-size:13.5px;cursor:pointer}
+.chip:hover,.btn:hover{border-color:var(--mi)}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.btn{border-radius:8px}
+.btn.pri{background:var(--mi);color:#fff;border-color:var(--mi);font-weight:600}
+.btn:disabled{opacity:.4;cursor:default}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:22px;align-items:start}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:6px 18px;margin:14px 0}
+.tile{border-top:3px solid var(--line);padding-top:6px}
+.tile .tl{font-size:12.5px;color:var(--muted);line-height:1.3}
+.tile .tv{font-size:23px;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.tile .ts{font-size:12px;color:var(--muted)}
+.tile.mi{border-top-color:var(--mi)}.tile.mi .tv{color:var(--mi)}
+.tile.x{border-top-color:var(--x)}.tile.y{border-top-color:var(--y)}.tile.z{border-top-color:var(--z)}
+.tile.good .tv{color:var(--pos)}.tile.bad .tv{color:var(--neg)}
+.eqline{font-size:15px;margin:10px 0;padding:10px 14px;background:var(--soft);border-radius:8px;font-family:var(--sans);overflow-x:auto}
+.say{font:15px/1.55 var(--sans);margin:12px 0;padding:10px 14px;border-left:4px solid var(--mi);background:color-mix(in srgb,var(--mi) 7%,var(--paper))}
+.mini{font:13px/1.5 var(--sans);color:var(--muted);margin:6px 0 12px}
+table.jt{border-collapse:separate;border-spacing:3px;font-size:13.5px;margin:6px 0 12px}
+table.jt th{font-weight:600;color:var(--muted);padding:5px 8px;text-align:center;font-size:12.5px}
+table.jt td{text-align:center;padding:8px 12px;border-radius:6px;min-width:70px;font-variant-numeric:tabular-nums;background:var(--soft)}
+table.jt .big{font-size:15px;font-weight:700}
+table.jt .sm{font-size:11px;color:var(--muted);font-weight:400}
+table.jt td.pos .big{color:var(--pos)}table.jt td.neg .big{color:var(--neg)}
+table.jt .mg,table.jt tr.mg td,table.jt tr.mg th{background:transparent;color:var(--muted)}
+table.jt input{width:78px;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:14px;text-align:center}
+table.dt{border-collapse:collapse;font-size:13px;width:100%;margin:8px 0}
+table.dt th,table.dt td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right;font-variant-numeric:tabular-nums}
+table.dt th:first-child,table.dt td:first-child{text-align:left}
+table.dt th{font-weight:600;color:var(--muted);font-size:12px}
+table.dt td.pos{color:var(--pos);font-weight:700}table.dt td.neg{color:var(--neg);font-weight:700}
+.step{border-left:3px solid var(--line);padding:2px 0 2px 16px;margin:14px 0}
+.step.cur{border-left-color:var(--mi)}
+.step .sh{font:700 15px var(--sans);margin-bottom:4px}
+.step .sh span{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--mi);color:#fff;font-size:12px;margin-right:8px}
+.step p{font:15px/1.6 var(--sans);margin:4px 0 8px}
+.rk{display:grid;grid-template-columns:96px 1fr 70px;gap:10px;align-items:center;font:13.5px var(--sans);padding:5px 0}
+.rk .bar{height:14px;background:var(--soft);border-radius:4px;overflow:hidden}
+.rk .bar i{display:block;height:100%;background:var(--x)}
+.rk.me .bar i{background:var(--mi)}.rk.me b{color:var(--mi)}
+.rk b{font-variant-numeric:tabular-nums;text-align:right}
+.rk-h{font:700 15px var(--sans);margin:2px 0 8px}
+.hb{height:22px;border-radius:4px;display:flex;overflow:hidden;background:var(--soft)}
+.hb i{display:block;height:100%}
+.verdict{font:700 15px var(--sans);padding:10px 14px;border-radius:8px;margin:12px 0}
+.verdict.ok{background:color-mix(in srgb,var(--pos) 13%,var(--paper));color:var(--pos)}
+.verdict.no{background:color-mix(in srgb,var(--neg) 11%,var(--paper));color:var(--neg)}
+.verdict span{font-weight:500;color:var(--ink)}
+.flips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+.flip{width:36px;height:36px;border-radius:8px;border:2px solid var(--line);background:var(--paper);font:700 15px var(--sans);color:var(--ink);cursor:pointer}
+.flip.h{background:var(--x);border-color:var(--x);color:#fff}
+.sb{display:grid;grid-template-columns:150px 1fr 56px;gap:8px;align-items:center;font:13px var(--sans);padding:4px 0;cursor:pointer;border-radius:6px}
+.sb:hover{background:var(--soft)}
+.sb.sel{background:var(--soft);font-weight:700}
+.sb .bar{height:12px;background:var(--soft);border-radius:3px;overflow:hidden}
+.sb.sel .bar{background:var(--line)}
+.sb .bar i{display:block;height:100%;background:var(--x)}
+.sb.ok .bar i{background:var(--pos)}
+.pb{display:inline-block;height:10px;background:var(--x);border-radius:2px;vertical-align:middle;margin-right:6px}
+.pb.t{background:var(--mi)}
+
+/* ---------- charts ---------- */
+.chart{width:100%;height:auto;display:block}
+.chart .gl{stroke:var(--line);stroke-width:1}
+.chart .ax{stroke:var(--muted);stroke-width:1.2}
+.chart .tk{fill:var(--muted);font:11px var(--sans)}
+.chart .al{fill:var(--muted);font:12px var(--sans)}
+.chart .lbl{fill:var(--ink);font:600 12px var(--sans);paint-order:stroke;stroke:var(--paper);stroke-width:4px;stroke-linejoin:round}
+.chart .bt{fill:#fff;font:700 12px var(--sans)}
+[data-theme=dark] .chart .bt{fill:#0d1118}
+.chart .rl{fill:var(--muted);font:600 12.5px var(--sans)}
+.chart .dv{font:700 13px var(--sans)}
+.chart .cl{font:800 20px var(--sans)}
+.chart .lg{fill:var(--ink);font:12px var(--sans)}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;border-bottom:1px solid var(--line);margin-top:1.4em}
+.tab{border:0;background:transparent;font:600 14.5px var(--sans);color:var(--muted);padding:9px 14px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px}
+.tab.on{color:var(--ink);border-bottom-color:var(--mi)}
+.tabpanel{display:none;padding-top:14px}
+.tabpanel.on{display:block}
+
+/* ---------- quiz ---------- */
+.quiz{margin:2.4em 0 0;padding-top:20px;border-top:2px solid var(--ink)}
+.quiz h4{font-size:1.15rem}
+.qz{margin:1.2em 0 1.6em}
+.qq{font:600 16px/1.5 var(--sans);margin-bottom:6px}
+.opt{display:block;width:100%;max-width:640px;text-align:left;padding:10px 14px;margin:6px 0;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);cursor:pointer;font-size:15px;line-height:1.5}
+.opt:hover:not(:disabled){border-color:var(--mi)}
+.opt:disabled{cursor:default}
+.opt.good{border-color:var(--pos);background:color-mix(in srgb,var(--pos) 12%,var(--paper))}
+.opt.bad{border-color:var(--neg);background:color-mix(in srgb,var(--neg) 9%,var(--paper));opacity:.65}
+.try{font:600 14px var(--sans);color:var(--neg);min-height:1.2em}
+.why{display:none;font:15px/1.6 var(--sans);padding:8px 0 0 14px;border-left:3px solid var(--pos);max-width:640px;margin-top:8px}
+.why b{color:var(--pos)}
+
+footer{font:14px/1.6 var(--sans);color:var(--muted);border-top:1px solid var(--line);padding-top:20px}
+
+@media (max-width:900px){
+  .layout{display:block}
+  nav.toc{position:sticky;top:0;z-index:30;height:auto;flex-direction:row;align-items:center;padding:8px 12px;border-right:0;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden}
+  .brand,.toc-foot .prog{display:none}
+  .rail{flex-direction:row;gap:4px}.rail:before{display:none}
+  .rail a{white-space:nowrap;padding:5px 10px 5px 4px;font-size:13px}
+  .rail a .nd{width:22px;height:22px}
+  .toc-foot{margin:0 0 0 8px;padding:0}.ghost{margin:0;white-space:nowrap}
+  .hero{grid-template-columns:1fr;padding:36px 0 40px}
+  html{scroll-padding-top:70px}
+}
+@media (max-width:600px){
+  .m{white-space:normal}
+  .eqn .m,.eqline .m{white-space:nowrap}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<nav class="toc" id="toc" aria-label="Sections">
+  <div class="brand">Mutual information<small>An interactive guide for machine learning</small></div>
+  <div class="rail">
+    <a href="#intro" data-sec="intro"><span class="nd">0</span>Warm-up: entropy</a>
+    <a href="#s1" data-sec="s1"><span class="nd">1</span>Definition</a>
+    <a href="#s2" data-sec="s2"><span class="nd">2</span>Interpretation</a>
+    <a href="#s3" data-sec="s3"><span class="nd">3</span>A worked example</a>
+    <a href="#s4" data-sec="s4"><span class="nd">4</span>Conditional MI</a>
+    <a href="#s5" data-sec="s5"><span class="nd">5</span>Generalized correlation</a>
+    <a href="#s6" data-sec="s6"><span class="nd">6</span>Sufficient statistics</a>
+    <a href="#summary" data-sec="summary"><span class="nd">&#9733;</span>Cheat sheet</a>
+  </div>
+  <div class="toc-foot"><button class="ghost" id="theme" type="button">Light / dark</button><div class="prog" id="prog"></div></div>
+</nav>
+
+<main>
+
+<!-- ============================ HERO ============================ -->
+<header class="hero" id="top">
+  <div>
+    <h1>Mutual information</h1>
+    <p class="lede">How much does knowing one variable tell you about another? Drag the circles.</p>
+    <p class="sub">Each circle is the uncertainty in one random variable. Where they overlap is what the two share. Six lessons follow, and each one has an explanation, a lab you can poke at, and a short quiz.</p>
+  </div>
+  <div class="venn-wrap">
+    <svg id="hvsvg" class="chart" viewBox="0 0 460 250" tabindex="0" role="slider" aria-label="Overlap between X and Y" aria-valuemin="0" aria-valuemax="100" aria-valuenow="32"></svg>
+    <div class="hv-read" id="hvread"></div>
+    <p class="hv-note">Schematic: each circle has an area of 1 bit. Drag a circle, or use the arrow keys.</p>
+  </div>
+</header>
+
+<!-- ============================ WARM-UP ============================ -->
+<section id="intro">
+  <h2>Warm-up: entropy in one minute</h2>
+  <p>Everything in this guide is built from one quantity. The <b>surprise</b> of an outcome with probability $p$ is $-\log_2 p$ bits. A rare outcome is very surprising, and a certain outcome is not surprising at all. The <b>entropy</b> of a random variable is its average surprise:</p>
+  <div class="eqn">$H(X)=-\sum_{x}p(x)\log_2 p(x)=\mathbb{E}[-\log_2 p(X)]$</div>
+  <p>Three relatives of entropy will keep coming up. The joint entropy $H(X,Y)$ is the entropy of the pair. The conditional entropy $H(Y|X)=\sum_x p(x)H(Y|X=x)$ is the uncertainty left in $Y$ after you learn $X$. The two are tied together by the chain rule, $H(X,Y)=H(X)+H(Y|X)$. The last relative is the Kullback–Leibler divergence $D_{\text{KL}}(p\Vert q)=\sum_x p(x)\log\frac{p(x)}{q(x)}$, which is never negative and is zero only when $p=q$.</p>
+  <p class="note">Conventions: $0\log 0=0$. Logs are base 2, so everything is measured in bits. Natural logs give nats, and 1 bit = $\ln 2\approx 0.693$ nats.</p>
+  <div class="lab">
+    <div class="lab-h">Lab: surprise and entropy of a coin<span>move the slider</span></div>
+    <div class="lab-b" id="lab0"></div>
+  </div>
+</section>
+
+<!-- ============================ S1 ============================ -->
+<section id="s1">
+  <h2><span class="sn">1</span>The definition</h2>
+  <p>Take two random variables $X$ and $Y$ with joint distribution $p(x,y)$ and marginals $p(x)$ and $p(y)$. If they were independent, the joint would factor as $p(x)p(y)$. <b>Mutual information measures how far the true joint is from that factorized version.</b></p>
+  <div class="eqn">$I(X;Y)=\sum_{x,y}p(x,y)\,\log\frac{p(x,y)}{p(x)\,p(y)}$</div>
+  <p>The same quantity can be written in three other ways, and you will want all of them:</p>
+  <div class="eqn">$I(X;Y)=D_{\text{KL}}(p(x,y)\Vert p(x)p(y))$</div>
+  <div class="eqn">$I(X;Y)=H(X)-H(X|Y)=H(Y)-H(Y|X)$</div>
+  <div class="eqn">$I(X;Y)=H(X)+H(Y)-H(X,Y)$</div>
+  <details>
+    <summary>Derivation: why the entropy form equals the definition</summary>
+    <div>
+      <p>Rewrite the ratio inside the log as a conditional probability, $\frac{p(x,y)}{p(x)p(y)}=\frac{p(x|y)}{p(x)}$, and split the log:</p>
+      <div class="eqn l">$I(X;Y)=\sum_{x,y}p(x,y)\log\frac{p(x|y)}{p(x)}=-\sum_{x,y}p(x,y)\log p(x)+\sum_{x,y}p(x,y)\log p(x|y)$</div>
+      <p>In the first sum, $\sum_y p(x,y)=p(x)$, so it equals $H(X)$. The second sum is $-H(X|Y)$. Therefore $I(X;Y)=H(X)-H(X|Y)$. Swapping the roles of $X$ and $Y$ gives the other form, and combining with the chain rule $H(X|Y)=H(X,Y)-H(Y)$ gives the inclusion–exclusion form.</p>
+    </div>
+  </details>
+  <p>For continuous variables, replace sums with integrals. MI is still well defined and non-negative, even though differential entropy can be negative:</p>
+  <div class="eqn">$I(X;Y)=\int\int p(x,y)\log\frac{p(x,y)}{p(x)p(y)}\,dx\,dy$</div>
+
+  <h3>Properties worth memorizing</h3>
+  <ul>
+    <li><b>Symmetric.</b> $I(X;Y)=I(Y;X)$. This is obvious from the formula, and it is not true of $H(X|Y)$.</li>
+    <li><b>Non-negative.</b> $I(X;Y)\ge 0$, because it is a KL divergence (Gibbs' inequality, which follows from Jensen).</li>
+    <li><b>Zero exactly when independent.</b> $I(X;Y)=0 \iff p(x,y)=p(x)p(y)$.</li>
+    <li><b>Bounded by the entropies.</b> $I(X;Y)\le\min\{H(X),H(Y)\}$ for discrete variables. In the extreme, $I(X;X)=H(X)$, so entropy is a variable's &ldquo;self-information&rdquo;.</li>
+    <li><b>Blind to labels.</b> Relabelling the values of $X$ (any invertible map) leaves $I$ unchanged. Only the pattern of co-occurrence matters, not the numeric values. Section 5 builds on this.</li>
+    <li><b>Data processing.</b> Processing can only destroy information: $I(X;g(Y))\le I(X;Y)$ for any function $g$.</li>
+  </ul>
+
+  <div class="lab">
+    <div class="lab-h">Lab: build a joint distribution<span>two binary variables</span></div>
+    <div class="lab-b" id="lab1"></div>
+  </div>
+  <div class="callout"><b class="k">Things to try</b>
+    <p>First set $P(Y{=}1|X{=}0)$ equal to $P(Y{=}1|X{=}1)$, so that $X$ has no influence on $Y$. Mutual information drops to exactly zero, no matter what $P(X{=}1)$ is. Next try &ldquo;Perfect copy&rdquo;, where $I=H(X)$. Finally try &ldquo;Rare but informative&rdquo;. Some cells have large log-ratios, but they carry little probability mass, so the average stays modest.</p>
+  </div>
+  <div class="quiz" id="quiz-s1"></div>
+</section>
+
+<!-- ============================ S2 ============================ -->
+<section id="s2">
+  <h2><span class="sn">2</span>Interpretation</h2>
+  <p>MI is one number with several equivalent readings. Each reading is the right mental model in a different situation.</p>
+  <div class="tabset">
+    <div class="tabs" role="tablist">
+      <button class="tab on" data-t="t1" type="button">Uncertainty removed</button>
+      <button class="tab" data-t="t2" type="button">Distance from independence</button>
+      <button class="tab" data-t="t3" type="button">Evidence per observation</button>
+      <button class="tab" data-t="t4" type="button">Channel throughput</button>
+    </div>
+    <div class="tabpanel on" id="t1">
+      <div class="eqn">$I(X;Y)=H(X)-H(X|Y)$</div>
+      <p>Before you see $Y$, your uncertainty about $X$ is $H(X)$ bits. After you see it, the <em>average</em> uncertainty left is $H(X|Y)$. Mutual information is the average drop. If you were playing twenty questions to identify $X$, knowing $Y$ would save you $I(X;Y)$ yes/no questions on average.</p>
+      <p>The word &ldquo;average&rdquo; matters. A particular unlucky value of $y$ can leave you more uncertain than before. But averaged over $y$, information never hurts: $I\ge 0$.</p>
+    </div>
+    <div class="tabpanel" id="t2">
+      <div class="eqn">$I(X;Y)=D_{\text{KL}}(p(x,y)\Vert p(x)p(y))$</div>
+      <p>The product $p(x)p(y)$ is the best model of the pair that assumes no relationship. MI is the KL divergence from the truth to that model.</p>
+      <p>In coding terms, an ideal code built for the independent model spends $-\log p(x)p(y)$ bits on the pair $(x,y)$. The ideal code for the true joint spends $-\log p(x,y)$ bits. The average waste is exactly $I(X;Y)$ bits per pair. Dependence means there is redundancy you would miss by treating the variables separately.</p>
+    </div>
+    <div class="tabpanel" id="t3">
+      <div class="eqn">$\mathrm{pmi}(x;y)=\log\frac{p(x,y)}{p(x)p(y)}=\log\frac{p(x|y)}{p(x)}$</div>
+      <p>Pointwise mutual information is the log of the factor by which observing $y$ rescales the probability of $x$. A value of $+1$ bit means $y$ doubles the probability of $x$. A value of $-1$ bit means $y$ halves it. MI is the expectation of this quantity:</p>
+      <div class="eqn">$I(X;Y)=\mathbb{E}_{p(x,y)}[\mathrm{pmi}(X;Y)]$</div>
+      <p>Individual pmi values can be negative, but their average cannot. This is the number the table in the lab below shows for every cell.</p>
+    </div>
+    <div class="tabpanel" id="t4">
+      <p>A noisy channel $p(y|x)$ turns inputs into outputs. For a given input distribution, $I(X;Y)$ is the number of bits per use that actually get through. The best you can do over all input distributions is Shannon's <b>channel capacity</b>:</p>
+      <div class="eqn">$C=\max_{p(x)}I(X;Y)$</div>
+      <p>For the binary symmetric channel that flips each bit with probability $\varepsilon$, the capacity is $C=1-H_b(\varepsilon)$, reached with a uniform input. You can verify this in the lab below.</p>
+    </div>
+  </div>
+
+  <h3>Where you will meet it in machine learning</h3>
+  <ul>
+    <li><b>Decision trees and feature selection.</b> Information gain is $I(\text{feature};\text{label})$.</li>
+    <li><b>Representation learning.</b> InfoMax and contrastive methods such as InfoNCE maximize lower bounds on $I$ between views or layers.</li>
+    <li><b>Information bottleneck.</b> Compress $X$ into $T$ while keeping $I(T;Y)$ high: $\min I(X;T)-\beta\,I(T;Y)$.</li>
+    <li><b>Clustering evaluation.</b> Normalized MI compares two partitions of the same data.</li>
+  </ul>
+
+  <div class="lab">
+    <div class="lab-h">Lab: a noisy channel<span>binary symmetric channel</span></div>
+    <div class="lab-b" id="lab2"></div>
+  </div>
+  <div class="callout"><b class="k">Things to try</b>
+    <p>Set $\varepsilon=0$ for a perfect channel, where $I=H(X)$. Set $\varepsilon=0.5$ for pure noise, where $I=0$. Then set $\varepsilon=1$, a channel that always flips the bit. It is exactly as informative as the perfect one, because you can simply invert the output. Finally, skew the prior away from 0.5 and watch the purple dot fall below the dashed capacity curve.</p>
+  </div>
+  <div class="quiz" id="quiz-s2"></div>
+</section>
+
+<!-- ============================ S3 ============================ -->
+<section id="s3">
+  <h2><span class="sn">3</span>A worked example: does this word predict spam?</h2>
+  <p>You have 1000 emails, of which 300 are spam. For one candidate word, you recorded whether each email contains it. Let $S\in\{\text{spam},\text{ham}\}$ be the label and $W\in\{\text{has word},\text{no word}\}$ be the indicator. How much does the word tell you about the label?</p>
+  <p>This is how MI-based feature selection ranks features, and it is the same quantity a decision tree computes as &ldquo;information gain&rdquo; when it chooses a split. The lab walks through the computation one step at a time. You can edit the counts, and everything recomputes.</p>
+  <div class="lab">
+    <div class="lab-h"><div>Lab: computing $I(S;W)$ by hand</div><span>step through, then change the counts</span></div>
+    <div class="lab-b" id="lab3"></div>
+  </div>
+  <h3>What the ranking teaches</h3>
+  <ul>
+    <li><b>&ldquo;the&rdquo;</b> appears in nearly every email at the same rate in both classes, so its MI is about zero.</li>
+    <li><b>&ldquo;winner&rdquo;</b> is a perfect indicator of spam whenever it appears, but it appears in only 4.5% of emails. MI is an average over all emails, so a feature that is informative only rarely scores low.</li>
+    <li><b>&ldquo;free&rdquo;</b> is imperfect but frequent. It wins because it carries some information about many emails.</li>
+    <li>Because MI is symmetric, the same number also answers the reverse question: how much does the label tell you about the word?</li>
+    <li>With small samples these estimates are noisy and biased upward. Section 5 shows how large the bias is.</li>
+  </ul>
+  <div class="quiz" id="quiz-s3"></div>
+</section>
+
+<!-- ============================ S4 ============================ -->
+<section id="s4">
+  <h2><span class="sn">4</span>Conditional mutual information</h2>
+  <p>The dependence between $X$ and $Y$ can change when you learn a third variable $Z$. Conditional mutual information measures the dependence that remains once $Z$ is known. It is the MI computed inside each slice $Z=z$, averaged over $z$.</p>
+  <div class="eqn">$I(X;Y|Z)=\sum_z p(z)\,I(X;Y|Z{=}z)=\sum_{x,y,z}p(x,y,z)\log\frac{p(x,y|z)}{p(x|z)\,p(y|z)}$</div>
+  <p>It has the same family of equivalent forms as before, with everything conditioned on $Z$:</p>
+  <div class="eqn">$I(X;Y|Z)=H(X|Z)-H(X|Y,Z)=H(X,Z)+H(Y,Z)-H(Z)-H(X,Y,Z)$</div>
+  <p>It is zero exactly when $X$ and $Y$ are conditionally independent given $Z$, written $X\indep Y\mid Z$. When $X\to Z\to Y$ is a Markov chain, this holds.</p>
+
+  <h3>The chain rule</h3>
+  <div class="eqn">$I(X;Y,Z)=I(X;Z)+I(X;Y|Z)$</div>
+  <p>The information that $(Y,Z)$ carries about $X$ equals what $Z$ tells you, plus what $Y$ adds beyond $Z$. In general, $I(X;Y_1,\dots,Y_n)=\sum_i I(X;Y_i|Y_1,\dots,Y_{i-1})$. This is the bookkeeping rule behind many information-theoretic proofs, including the one in Section 6.</p>
+
+  <h3>Conditioning can go either way</h3>
+  <p>It is tempting to think that knowing more should reduce dependence. It does not always.</p>
+  <ul>
+    <li><b>Dependence can vanish.</b> If $Z$ is a common cause of $X$ and $Y$, or a relay in a chain $X\to Z\to Y$, then $I(X;Y)>0$ but $I(X;Y|Z)=0$. The variable $Z$ &ldquo;screens off&rdquo; one from the other.</li>
+    <li><b>Dependence can appear.</b> If $X$ and $Y$ are independent and $Z$ depends on both (a collider), then $I(X;Y)=0$ but $I(X;Y|Z)>0$. This is &ldquo;explaining away&rdquo;, or Berkson's paradox. The extreme case is the XOR, where $Z=X\oplus Y$ makes $X$ and $Y$ completely determine each other given $Z$.</li>
+  </ul>
+  <p>The difference is called the <b>interaction information</b>, $I(X;Y;Z)=I(X;Y)-I(X;Y|Z)$. It is positive when the three variables are redundant, and <em>negative</em> when they are synergistic. It is the one region of the three-variable information diagram that can be negative.</p>
+  <div class="callout"><b class="k">Why this matters in ML</b>
+    <p>Conditional independence tests drive causal-discovery algorithms. Feature selection methods such as CMIM and mRMR use $I(F;\text{label}|\text{already selected})$ to avoid picking redundant features. In Section 6, conditional MI measures exactly how much a summary statistic throws away.</p>
+  </div>
+
+  <div class="lab">
+    <div class="lab-h">Lab: three variables, four causal structures<span>binary $X$, $Y$, $Z$ with noise $q$</span></div>
+    <div class="lab-b" id="lab4"></div>
+  </div>
+  <div class="quiz" id="quiz-s4"></div>
+</section>
+
+<!-- ============================ S5 ============================ -->
+<section id="s5">
+  <h2><span class="sn">5</span>Mutual information as a generalized correlation coefficient</h2>
+  <p>Pearson's correlation $\rho=\frac{\mathrm{Cov}(X,Y)}{\sigma_X\sigma_Y}$ is the default measure of association, but it only detects linear trends. Take $X$ symmetric around zero and $Y=X^2$. Then $Y$ is a deterministic function of $X$, yet $\mathrm{Cov}(X,Y)=\mathbb{E}[X^3]=0$, so $\rho=0$.</p>
+  <p>Mutual information has no such blind spot. It is zero if and only if the variables are independent, whatever shape the dependence takes.</p>
+
+  <h3>The Gaussian case: where MI and ρ coincide</h3>
+  <p>For a bivariate Gaussian with correlation $\rho$, the entropies are $h(X)=\frac12\log(2\pi e\sigma_X^2)$ and $h(X,Y)=\frac12\log\big((2\pi e)^2\sigma_X^2\sigma_Y^2(1-\rho^2)\big)$. Plugging into $I=h(X)+h(Y)-h(X,Y)$ gives</p>
+  <div class="eqn">$I(X;Y)=-\frac{1}{2}\log(1-\rho^2)$</div>
+  <table class="plain">
+    <tr><th>$\rho$</th><th>0</th><th>0.5</th><th>0.8</th><th>0.9</th><th>0.99</th><th>1</th></tr>
+    <tr><td>$I$ in bits</td><td>0</td><td>0.21</td><td>0.74</td><td>1.20</td><td>2.83</td><td>&infin;</td></tr>
+  </table>
+  <p>In the Gaussian world, MI and $|\rho|$ carry exactly the same information, related by a monotone map. Inverting the map for <em>any</em> pair of variables defines Linfoot's <b>informational coefficient of correlation</b>, with $I$ measured in nats:</p>
+  <div class="eqn">$r_I=\sqrt{1-e^{-2I}}\in[0,1]$</div>
+  <p>This equals $|\rho|$ for Gaussians but also responds to nonlinear dependence. It is 0 for independent variables and tends to 1 as the relationship becomes deterministic.</p>
+
+  <h3>What makes a good dependence measure?</h3>
+  <p>Rényi (1959) proposed a wish list. It asks that the measure be defined for any pair of variables, symmetric, scaled to $[0,1]$, zero only under independence, one for a functional relationship, invariant under strictly monotone transformations of either variable, and equal to $|\rho|$ for bivariate normals. Pearson fails several of these items. MI, after the transform above, satisfies all of them.</p>
+  <p>The invariance deserves emphasis. Replace $Y$ by $e^Y$ and Pearson's $\rho$ changes, because the relationship is no longer a straight line. The mutual information does not change at all, because $e^Y$ carries the same information as $Y$.</p>
+
+  <h3>Caveats</h3>
+  <ul>
+    <li><b>No sign.</b> MI says that variables are dependent, but not whether the trend goes up or down.</li>
+    <li><b>Hard to estimate.</b> From samples, you must estimate densities or discretize. Simple histogram (&ldquo;plug-in&rdquo;) estimates are biased <em>upward</em>, by roughly $\frac{(B-1)^2}{2N\ln 2}$ bits for $B\times B$ bins and $N$ samples. Better estimators exist, such as k-nearest-neighbour (Kraskov et al.) and variational bounds, but the problem gets harder in high dimensions.</li>
+    <li><b>No scale invariance for free.</b> Raw MI has no fixed upper limit for continuous variables, which is why normalized versions ($r_I$, NMI) are used for comparison.</li>
+  </ul>
+
+  <div class="lab">
+    <div class="lab-h">Lab: correlation versus mutual information<span>pick a dataset, then try to fool Pearson</span></div>
+    <div class="lab-b" id="lab5"></div>
+  </div>
+  <div class="callout"><b class="k">Things to try</b>
+    <p>Pick &ldquo;Parabola&rdquo; or &ldquo;X-shape&rdquo;: Pearson reports almost nothing, while MI is clearly positive. Pick &ldquo;Independent&rdquo;: the raw plug-in MI is still above zero, which is the estimator's bias, and the bias-corrected value sits near zero. Then pick &ldquo;Linear&rdquo;, apply the $e^y$ transform, and watch Pearson fall while MI stays put. The bins are quantile-based, which is what makes the estimate invariant to monotone transforms.</p>
+  </div>
+  <div class="quiz" id="quiz-s5"></div>
+</section>
+
+<!-- ============================ S6 ============================ -->
+<section id="s6">
+  <h2><span class="sn">6</span>Sufficient statistics</h2>
+  <p>You observe data $X=(X_1,\dots,X_n)$ drawn from a distribution $p(x|\theta)$ with an unknown parameter $\theta$. A <b>statistic</b> $T(X)$ is any function of the data, in other words a summary. A summary is <b>sufficient</b> if it loses nothing about $\theta$.</p>
+
+  <h3>The classical definition</h3>
+  <p>$T$ is sufficient for $\theta$ if the conditional distribution of the data given $T$ does not depend on $\theta$:</p>
+  <div class="eqn">$p(x\mid T(x)=t,\;\theta)=p(x\mid T(x)=t)$</div>
+  <p>Once you know $T$, the leftover details of the data are noise as far as $\theta$ is concerned. Equivalently, by the Fisher–Neyman factorization theorem, the likelihood splits as $p(x|\theta)=g(T(x),\theta)\,h(x)$.</p>
+  <details>
+    <summary>Example: coin flips and the number of heads</summary>
+    <div>
+      <p>Flip a coin with heads probability $\theta$ a total of $n$ times, and let $T=\sum_i X_i$ be the number of heads. Any particular sequence with $t$ heads has probability $\theta^t(1-\theta)^{n-t}$, and there are $\binom{n}{t}$ such sequences, so $P(T=t\mid\theta)=\binom{n}{t}\theta^t(1-\theta)^{n-t}$. Dividing,</p>
+      <div class="eqn l">$P(\text{this sequence}\mid T=t,\theta)=\frac{\theta^t(1-\theta)^{n-t}}{\binom{n}{t}\theta^t(1-\theta)^{n-t}}=\frac{1}{\binom{n}{t}}$</div>
+      <p>The $\theta$ cancels. Given the number of heads, every arrangement is equally likely whatever $\theta$ is, so the order of the flips says nothing about $\theta$.</p>
+    </div>
+  </details>
+
+  <h3>The information-theoretic definition</h3>
+  <p>Treat $\theta$ as random with any prior. Since $T$ is a function of $X$, the chain $\theta\to X\to T(X)$ is always a Markov chain, and the data processing inequality gives $I(\theta;T)\le I(\theta;X)$. Sufficiency is exactly the case of equality:</p>
+  <div class="eqn">$T\text{ sufficient}\iff I(\theta;T(X))=I(\theta;X)\iff\theta\to T(X)\to X\text{ is Markov}$</div>
+  <p>The proof is the chain rule from Section 4, applied twice to $I(\theta;X,T)$. Because $T$ is a function of $X$, the pair $(X,T)$ carries the same information about $\theta$ as $X$ alone:</p>
+  <div class="eqn">$I(\theta;X)=I(\theta;X,T)=I(\theta;T)+I(\theta;X\mid T)$</div>
+  <p>So the <b>information lost by summarizing</b> is exactly the conditional mutual information $I(\theta;X|T)$. A statistic is sufficient precisely when that conditional MI is zero.</p>
+
+  <h3>Minimal sufficiency and the bottleneck</h3>
+  <p>The full data is trivially sufficient, so you want the coarsest sufficient summary. A <b>minimal sufficient statistic</b> is a function of every other sufficient statistic. It is the most compressed summary that still loses nothing. In information-bottleneck language, it minimizes $I(X;T)$ subject to $I(\theta;T)=I(\theta;X)$. Relaxing that constraint into a trade-off gives the information bottleneck objective from Section 2.</p>
+  <table class="plain">
+    <tr><th>Model</th><th>Minimal sufficient statistic</th></tr>
+    <tr><td>Bernoulli($\theta$), $n$ flips</td><td>number of heads, $\sum X_i$</td></tr>
+    <tr><td>Poisson($\lambda$)</td><td>$\sum X_i$</td></tr>
+    <tr><td>Gaussian, unknown mean, known variance</td><td>sample mean</td></tr>
+    <tr><td>Gaussian, both unknown</td><td>$(\sum X_i,\ \sum X_i^2)$</td></tr>
+    <tr><td>Uniform$(0,\theta)$</td><td>$\max_i X_i$</td></tr>
+  </table>
+  <p>Exponential families are special: their sufficient statistics have fixed dimension no matter how large $n$ is, which is why Bayesian updates in conjugate models only need running totals.</p>
+
+  <div class="lab">
+    <div class="lab-h">Lab: which summaries of coin flips are sufficient?<span>$\theta$ uniform on {0.1, 0.3, 0.5, 0.7, 0.9}</span></div>
+    <div class="lab-b" id="lab6"></div>
+  </div>
+  <div class="callout"><b class="k">Things to try</b>
+    <p>Pick &ldquo;Number of heads&rdquo; and notice that its information matches the full data exactly, and that $P(x|T,\theta)$ is the same for every $\theta$. Then pick &ldquo;First flip only&rdquo; and see both break. Also compare &ldquo;Heads + last flip&rdquo;, which is sufficient but not minimal: it keeps the same information with more than the necessary number of distinct values.</p>
+  </div>
+  <div class="quiz" id="quiz-s6"></div>
+</section>
+
+<!-- ============================ SUMMARY ============================ -->
+<section id="summary">
+  <h2>Cheat sheet</h2>
+  <table class="plain">
+    <tr><th>Idea</th><th>Formula</th><th>Remember it as</th></tr>
+    <tr><td>Mutual information</td><td>$I(X;Y)=\sum p(x,y)\log\frac{p(x,y)}{p(x)p(y)}=H(X)-H(X|Y)$</td><td>Bits of $X$ you learn from $Y$. Symmetric, never negative, zero iff independent.</td></tr>
+    <tr><td>As a divergence</td><td>$I=D_{\text{KL}}(p(x,y)\Vert p(x)p(y))$</td><td>Distance from independence, or the coding waste of ignoring a dependence.</td></tr>
+    <tr><td>Pointwise</td><td>$\mathrm{pmi}=\log\frac{p(x|y)}{p(x)}$</td><td>How much one observation shifts a probability. The average is $I$.</td></tr>
+    <tr><td>Conditional MI</td><td>$I(X;Y|Z)=H(X|Z)-H(X|Y,Z)$</td><td>Dependence left after $Z$. It can be larger or smaller than $I(X;Y)$.</td></tr>
+    <tr><td>Chain rule</td><td>$I(X;Y,Z)=I(X;Z)+I(X;Y|Z)$</td><td>Learn $Z$ first, then see what $Y$ adds.</td></tr>
+    <tr><td>Gaussian link</td><td>$I=-\frac12\log(1-\rho^2),\ r_I=\sqrt{1-e^{-2I}}$</td><td>MI is a correlation coefficient that also sees nonlinear dependence.</td></tr>
+    <tr><td>Sufficiency</td><td>$I(\theta;T)=I(\theta;X)\iff I(\theta;X|T)=0$</td><td>A lossless summary for inference about $\theta$.</td></tr>
+  </table>
+  <p>For further reading, Cover and Thomas, <em>Elements of Information Theory</em>, Chapter 2, covers entropy, mutual information, the data processing inequality and sufficient statistics in one place.</p>
+  <footer>This page is a single self-contained file. All numbers are computed live in your browser from the formulas shown, using base-2 logarithms.</footer>
+</section>
+
+</main>
+</div>
+
+<noscript><p style="padding:20px;font-family:sans-serif">This guide needs JavaScript for its interactive labs.</p></noscript>
+
+<script>
+(function(){
+'use strict';
+const R=String.raw;
+
+/* =====================================================================
+   1. A tiny TeX-like renderer (so the page needs no external libraries)
+   ===================================================================== */
+const GR={theta:'\u03b8',rho:'\u03c1',sigma:'\u03c3',mu:'\u03bc',pi:'\u03c0',epsilon:'\u03b5',varepsilon:'\u03b5',alpha:'\u03b1',beta:'\u03b2',gamma:'\u03b3',lambda:'\u03bb',tau:'\u03c4',phi:'\u03c6',delta:'\u03b4',eta:'\u03b7',nu:'\u03bd',omega:'\u03c9',chi:'\u03c7',kappa:'\u03ba',psi:'\u03c8',xi:'\u03be',zeta:'\u03b6'};
+const GU={Sigma:'\u03a3',Delta:'\u0394',Theta:'\u0398',Omega:'\u03a9',Pi:'\u03a0',Phi:'\u03a6',Gamma:'\u0393',Lambda:'\u039b'};
+const SY={to:'\u2192',rightarrow:'\u2192',leftarrow:'\u2190',Rightarrow:'\u21d2',Leftrightarrow:'\u21d4',iff:'\u21d4',le:'\u2264',leq:'\u2264',ge:'\u2265',geq:'\u2265',ne:'\u2260',neq:'\u2260',approx:'\u2248',cdot:'\u00b7',times:'\u00d7',in:'\u2208',oplus:'\u2295',perp:'\u22a5',infty:'\u221e',ldots:'\u2026',cdots:'\u22ef',pm:'\u00b1',partial:'\u2202',forall:'\u2200',equiv:'\u2261',propto:'\u221d',sim:'\u223c',Vert:'\u2016',lVert:'\u2016',rVert:'\u2016',langle:'\u27e8',rangle:'\u27e9',subseteq:'\u2286',emptyset:'\u2205',nabla:'\u2207',int:'\u222b',sum:'\u2211',prod:'\u220f'};
+const REL=new Set(['to','rightarrow','leftarrow','Rightarrow','Leftrightarrow','iff','le','leq','ge','geq','ne','neq','approx','in','perp','propto','equiv','sim','subseteq']);
+const FN=new Set(['log','ln','max','min','exp','arg','sup','inf','det','sign','Var','Cov','Pr']);
+
+function tex(src){
+  let i=0;const n=src.length;
+  const esc=c=>c==='<'?'&lt;':c==='>'?'&gt;':c==='&'?'&amp;':c;
+  const prevNS=pos=>{let j=pos-1;while(j>=0&&src[j]===' ')j--;return j>=0?src[j]:'';};
+  function readName(){
+    i++;
+    if(i>=n)return '';
+    if(/[A-Za-z]/.test(src[i])){let s='';while(i<n&&/[A-Za-z]/.test(src[i]))s+=src[i++];return s;}
+    return src[i++];
+  }
+  function rawGroup(){
+    while(src[i]===' ')i++;
+    if(src[i]!=='{')return esc(src[i++]||'');
+    i++;let s='',d=1;
+    while(i<n){const c=src[i++];if(c==='{')d++;else if(c==='}'){d--;if(!d)break;}s+=esc(c);}
+    return s;
+  }
+  function group(){
+    while(src[i]===' ')i++;
+    if(src[i]==='{'){i++;const h=seq();if(src[i]==='}')i++;return h;}
+    return single();
+  }
+  function seq(){let o='';while(i<n&&src[i]!=='}')o+=term();return o;}
+  function term(){
+    let big=null,base='';
+    if(src[i]==='\\'){
+      const save=i,name=readName();
+      if(name==='sum'||name==='prod'){big=name==='sum'?'\u2211':'\u220f';}
+      else{i=save;base=single();}
+    }else base=single();
+    let sub='',sup='';
+    while(i<n&&(src[i]==='_'||src[i]==='^')){const t=src[i++];const g=group();if(t==='_')sub=g;else sup=g;}
+    if(big!==null)return (sub||sup)?`<span class="bigop"><span class="lim">${sup}</span><span class="op">${big}</span><span class="lim">${sub}</span></span>`:`<span class="bigop1">${big}</span>`;
+    return base+(sub?`<sub>${sub}</sub>`:'')+(sup?`<sup>${sup}</sup>`:'');
+  }
+  function single(){
+    const c=src[i];
+    if(c===undefined)return '';
+    if(c==='\\')return cmd(readName());
+    if(c==='{'){i++;const h=seq();if(src[i]==='}')i++;return h;}
+    const pos=i;i++;
+    if(c===' ')return '';
+    if(/[A-Za-z]/.test(c))return `<i>${c}</i>`;
+    if(c==='='||c==='<'||c==='>')return `<span class="rel">${esc(c)}</span>`;
+    if(c==='+')return '<span class="bin">+</span>';
+    if(c==='-'){const p=prevNS(pos);return (p===''||'(=[,{+-;|\u2223'.indexOf(p)>=0)?'\u2212':'<span class="bin">\u2212</span>';}
+    if(c==="'")return '\u2032';
+    if(c==='~')return '\u00a0';
+    return esc(c);
+  }
+  function cmd(name){
+    switch(name){
+      case 'frac':{const a=group(),b=group();return `<span class="frac"><span class="num">${a}</span><span class="den">${b}</span></span>`;}
+      case 'sqrt':{const a=group();return `\u221a<span class="sq">${a}</span>`;}
+      case 'text':case 'mathrm':case 'operatorname':return `<span class="fn">${rawGroup()}</span>`;
+      case 'hat':{const a=group();return `<span class="hat">${a}</span>`;}
+      case 'overline':case 'bar':{const a=group();return `<span class="ovl">${a}</span>`;}
+      case 'mathbb':{const a=rawGroup();return ({E:'\ud835\udd3c',R:'\u211d',P:'\u2119'})[a]||a;}
+      case 'binom':{const a=group(),b=group();return `(<span class="frac"><span class="num">${a}</span><span class="den">${b}</span></span>)`;}
+      case 'left':case 'right':{const c=src[i++]||'';return c==='.'?'':esc(c);}
+      case 'indep':return '<span class="indep">\u22a5\u22a5</span>';
+      case 'mid':return '<span class="mid">|</span>';
+      case 'quad':return '\u2003';
+      case ',':return '\u2009';
+      case ';':case ':':return '\u2005';
+      case '!':return '';
+      case '\\':return '<br>';
+      case '|':return '\u2016';
+      case '{':return '{';
+      case '}':return '}';
+      case ' ':return ' ';
+    }
+    if(FN.has(name))return `<span class="fn">${name}</span>`;
+    if(GR[name])return `<i>${GR[name]}</i>`;
+    if(GU[name])return GU[name];
+    if(SY[name])return REL.has(name)?`<span class="rel">${SY[name]}</span>`:SY[name];
+    return esc(name);
+  }
+  let out='';
+  while(i<n){out+=seq();if(i<n&&src[i]==='}'){out+='}';i++;}}
+  return out;
+}
+const T=s=>'<span class="m">'+tex(s)+'</span>';
+const escH=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function typeset(root){
+  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(nd){
+    if(nd.nodeValue.indexOf('$')<0)return NodeFilter.FILTER_REJECT;
+    const p=nd.parentElement;
+    if(!p||p.closest('script,style,svg,textarea'))return NodeFilter.FILTER_REJECT;
+    return NodeFilter.FILTER_ACCEPT;}});
+  const nodes=[];while(w.nextNode())nodes.push(w.currentNode);
+  for(const nd of nodes){
+    const html=nd.nodeValue.split(/(\$\$[\s\S]+?\$\$|\$[^$]+?\$)/g).map(part=>{
+      if(part.length>4&&part.slice(0,2)==='$$')return `<span class="m">${tex(part.slice(2,-2))}</span>`;
+      if(part.length>2&&part[0]==='$'&&part[part.length-1]==='$')return `<span class="m">${tex(part.slice(1,-1))}</span>`;
+      return escH(part);
+    }).join('');
+    const holder=document.createElement('span');holder.innerHTML=html;
+    nd.replaceWith(...Array.from(holder.childNodes));
+  }
+}
+
+/* =====================================================================
+   2. Information-theory helpers
+   ===================================================================== */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const f=(x,d=3)=>{const v=Math.abs(x)<0.5*Math.pow(10,-d)?0:x;return v.toFixed(d);};
+const sg=(x,d=3)=>{const v=Math.abs(x)<0.5*Math.pow(10,-d)?0:x;return (v>=0?'+':'\u2212')+Math.abs(v).toFixed(d);};
+const xl=p=>p>1e-15?p*Math.log2(p):0;
+const Hs=a=>{let s=0;for(const p of a)s-=xl(p);return s;};
+const Hb=p=>-xl(p)-xl(1-p);
+const sum=a=>a.reduce((s,v)=>s+v,0);
+
+function marginal3(P,keep){
+  const dims=[P.length,P[0].length,P[0][0].length];
+  const out=new Array(keep.reduce((a,k)=>a*dims[k],1)).fill(0);
+  for(let x=0;x<dims[0];x++)for(let y=0;y<dims[1];y++)for(let z=0;z<dims[2];z++){
+    const idx=[x,y,z];let k=0;for(const a of keep)k=k*dims[a]+idx[a];out[k]+=P[x][y][z];
+  }
+  return out;
+}
+const H3=(P,keep)=>Hs(marginal3(P,keep));
+function mi2(J){
+  const px=J.map(r=>sum(r)),py=J[0].map((_,j)=>sum(J.map(r=>r[j])));
+  let s=0;
+  for(let i=0;i<J.length;i++)for(let j=0;j<J[0].length;j++){const p=J[i][j];if(p>1e-15)s+=p*Math.log2(p/(px[i]*py[j]));}
+  return s<0?0:s;
+}
+
+/* ---------- UI helpers ---------- */
+function slider(id,label,min,max,step,val,dec,suf){
+  dec=dec===undefined?2:dec;suf=suf||'';
+  return `<label class="ctl"><span class="ctl-l">${label}</span><output id="${id}-o">${(+val).toFixed(dec)}${suf}</output><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}" data-d="${dec}" data-suf="${suf}"></label>`;
+}
+function syncOut(root){
+  $$('input[type=range]',root).forEach(t=>{const o=document.getElementById(t.id+'-o');if(o)o.textContent=(+t.value).toFixed(+t.dataset.d)+(t.dataset.suf||'');});
+}
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t&&t.matches&&t.matches('input[type=range]')){const o=document.getElementById(t.id+'-o');if(o)o.textContent=(+t.value).toFixed(+t.dataset.d)+(t.dataset.suf||'');}
+});
+const tile=(l,v,s,c)=>`<div class="tile ${c||''}"><div class="tl">${l}</div><div class="tv">${v}</div>${s?`<div class="ts">${s}</div>`:''}</div>`;
+const heat=(v,c)=>`background:color-mix(in srgb,${c||'var(--mi)'} ${Math.round(70*Math.min(1,Math.max(0,v)))}%,var(--paper))`;
+
+function chart(o){
+  const W=o.w||560,Hh=o.h||300,m={l:54,r:18,t:14,b:46};
+  const pw=W-m.l-m.r,ph=Hh-m.t-m.b,x0=o.xr[0],x1=o.xr[1],y0=o.yr[0],y1=o.yr[1];
+  const sx=x=>m.l+(x-x0)/(x1-x0)*pw,sy=y=>m.t+ph-(y-y0)/(y1-y0)*ph;
+  const tk=(a,b,n)=>Array.from({length:n+1},(_,i)=>a+(b-a)*i/n);
+  const tf=v=>String(+v.toFixed(2));
+  let s='';
+  for(const v of tk(y0,y1,o.yt||4))s+=`<line class="gl" x1="${m.l}" x2="${W-m.r}" y1="${sy(v).toFixed(1)}" y2="${sy(v).toFixed(1)}"/><text class="tk" x="${m.l-8}" y="${(sy(v)+4).toFixed(1)}" text-anchor="end">${tf(v)}</text>`;
+  for(const v of tk(x0,x1,o.xt||5))s+=`<line class="gl" y1="${m.t}" y2="${Hh-m.b}" x1="${sx(v).toFixed(1)}" x2="${sx(v).toFixed(1)}"/><text class="tk" x="${sx(v).toFixed(1)}" y="${Hh-m.b+17}" text-anchor="middle">${tf(v)}</text>`;
+  s+=`<line class="ax" x1="${m.l}" x2="${W-m.r}" y1="${Hh-m.b}" y2="${Hh-m.b}"/><line class="ax" x1="${m.l}" x2="${m.l}" y1="${m.t}" y2="${Hh-m.b}"/>`;
+  if(o.xl)s+=`<text class="al" x="${m.l+pw/2}" y="${Hh-6}" text-anchor="middle">${o.xl}</text>`;
+  if(o.yl)s+=`<text class="al" transform="translate(14 ${m.t+ph/2}) rotate(-90)" text-anchor="middle">${o.yl}</text>`;
+  for(const L of o.lines||[]){
+    const d=L.pts.map((p,i)=>(i?'L':'M')+sx(p[0]).toFixed(1)+' '+sy(p[1]).toFixed(1)).join('');
+    s+=`<path d="${d}" fill="none" stroke="${L.c}" stroke-width="${L.w||2.5}"${L.dash?` stroke-dasharray="${L.dash}"`:''} stroke-linejoin="round"/>`;
+  }
+  for(const D of o.dots||[]){
+    s+=`<circle cx="${sx(D.x).toFixed(1)}" cy="${sy(D.y).toFixed(1)}" r="6" fill="${D.c}" stroke="var(--paper)" stroke-width="2"/>`;
+    if(D.t)s+=`<text class="lbl" x="${(sx(D.x)+(D.dx===undefined?10:D.dx)).toFixed(1)}" y="${(sy(D.y)+(D.dy===undefined?-10:D.dy)).toFixed(1)}" text-anchor="${D.a||'start'}">${D.t}</text>`;
+  }
+  (o.legend||[]).forEach((L,i)=>{
+    const lx=m.l+14,ly=m.t+16+i*18;
+    s+=`<line x1="${lx}" x2="${lx+24}" y1="${ly-4}" y2="${ly-4}" stroke="${L.c}" stroke-width="2.5"${L.dash?` stroke-dasharray="${L.dash}"`:''}/><text class="lg" x="${lx+30}" y="${ly}">${L.t}</text>`;
+  });
+  return `<svg class="chart" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${o.label||'chart'}">${s}</svg>`;
+}
+
+/* =====================================================================
+   3. Hero: draggable information diagram
+   ===================================================================== */
+function hero(){
+  const svg=$('#hvsvg'),read=$('#hvread');
+  const W=460,CY=125,r=80,A=Math.PI*r*r;
+  let d=90;
+  function draw(){
+    const xm=W/2,xa=xm-d/2,xb=xm+d/2;
+    const lensA=d>=2*r?0:2*r*r*Math.acos(d/(2*r))-(d/2)*Math.sqrt(4*r*r-d*d);
+    const I=lensA/A,hx=1-I;
+    let lens='';
+    if(d<2*r){const h=Math.sqrt(r*r-d*d/4);lens=`<path d="M${xm} ${(CY-h).toFixed(2)}A${r} ${r} 0 0 0 ${xm} ${(CY+h).toFixed(2)}A${r} ${r} 0 0 0 ${xm} ${(CY-h).toFixed(2)}z" fill="var(--mi)" fill-opacity=".62"/>`;}
+    const lensW=Math.max(0,2*r-d);
+    svg.innerHTML=`<circle cx="${xa}" cy="${CY}" r="${r}" fill="var(--x)" fill-opacity=".26" stroke="var(--x)" stroke-width="2.5"/>
+      <circle cx="${xb}" cy="${CY}" r="${r}" fill="var(--y)" fill-opacity=".26" stroke="var(--y)" stroke-width="2.5"/>${lens}
+      <text class="cl" x="${xa-r+14}" y="${CY-r+22}" fill="var(--x)">X</text>
+      <text class="cl" x="${xb+r-14}" y="${CY-r+22}" fill="var(--y)" text-anchor="end">Y</text>
+      ${lensW>46?`<text class="dv" x="${xm}" y="${CY+5}" text-anchor="middle" style="fill:var(--ink)">I(X;Y)</text>`:''}
+      <text class="tk" x="${xm}" y="${CY+r+30}" text-anchor="middle">${d<2*r?'drag to change how much they share':'independent: nothing shared'}</text>`;
+    svg.setAttribute('aria-valuenow',String(Math.round(I*100)));
+    read.innerHTML=`<div class="c-mi"><b>${f(I,2)}</b>I(X;Y)</div><div class="c-x"><b>${f(hx,2)}</b>H(X|Y)</div><div class="c-y"><b>${f(hx,2)}</b>H(Y|X)</div><div><b>${f(2-I,2)}</b>H(X,Y)</div>`;
+  }
+  function pt(e){const b=svg.getBoundingClientRect();return (e.clientX-b.left)*(W/(b.width||W));}
+  let drag=false;
+  svg.addEventListener('pointerdown',e=>{drag=true;try{svg.setPointerCapture(e.pointerId);}catch(_){}d=Math.max(0,Math.min(2*r,2*Math.abs(pt(e)-W/2)));draw();});
+  svg.addEventListener('pointermove',e=>{if(!drag)return;d=Math.max(0,Math.min(2*r,2*Math.abs(pt(e)-W/2)));draw();});
+  const up=()=>{drag=false;};
+  svg.addEventListener('pointerup',up);svg.addEventListener('pointercancel',up);
+  svg.addEventListener('keydown',e=>{
+    if(e.key==='ArrowLeft'||e.key==='ArrowDown'){d=Math.max(0,d-6);e.preventDefault();draw();}
+    if(e.key==='ArrowRight'||e.key==='ArrowUp'){d=Math.min(2*r,d+6);e.preventDefault();draw();}
+  });
+  draw();
+}
+
+/* =====================================================================
+   4. Lab 0: surprise and entropy
+   ===================================================================== */
+function lab0(){
+  const root=$('#lab0');
+  root.innerHTML=`<div class="controls">${slider('l0p','Probability of heads, p',.01,.99,.01,.5)}</div><div id="l0o"></div>`;
+  function upd(){
+    const p=+$('#l0p').value,sh=-Math.log2(p),st=-Math.log2(1-p),H=Hb(p);
+    const msg=H>0.97?'A fair coin is as unpredictable as a binary variable can be: 1 bit.':H<0.35?'The coin is nearly predictable, so you are rarely surprised and the average surprise is small.':(p>.5?'Heads is the common outcome, so it is cheap in surprise, and tails is expensive. Entropy weights each by how often it occurs.':'Tails is the common outcome, so it is cheap in surprise, and heads is expensive. Entropy weights each by how often it occurs.');
+    const pts=Array.from({length:101},(_,k)=>[k/100,Hb(k/100)]);
+    $('#l0o').innerHTML=`<div class="split"><div>
+      <div class="tiles">${tile('Surprise of heads',f(sh,2)+' bits',T('-\\log_2 p'),'x')}${tile('Surprise of tails',f(st,2)+' bits',T('-\\log_2(1-p)'),'y')}${tile('Entropy',f(H,3)+' bits','average surprise','mi')}</div>
+      <div class="eqline">${T('H=p\\cdot(-\\log_2 p)+(1-p)\\cdot(-\\log_2(1-p))')} = ${f(p,2)}&times;${f(sh,2)} + ${f(1-p,2)}&times;${f(st,2)} = <b>${f(H,3)}</b></div>
+      <div class="say">${msg}</div></div>
+      <div>${chart({xr:[0,1],yr:[0,1],xl:'P(heads)',yl:'entropy H (bits)',lines:[{pts,c:'var(--mi)'}],dots:[{x:p,y:H,c:'var(--mi)',t:f(H,2)+' bits',dy:p>.75?-12:-12,dx:p>.75?-10:10,a:p>.75?'end':'start'}],label:'Binary entropy curve',h:260})}</div></div>`;
+  }
+  root.addEventListener('input',upd);upd();
+}
+
+/* =====================================================================
+   5. Lab 1: joint distribution lab
+   ===================================================================== */
+function infoBars(a,b,c,max){
+  const W=560,L=76,pw=W-L-10,u=pw/max;
+  const rect=(x,y,w,col,txt)=>w*u<0.6?'':`<rect x="${(L+x*u).toFixed(1)}" y="${y}" width="${(w*u).toFixed(1)}" height="30" rx="4" fill="${col}"/>`+(w*u>52?`<text class="bt" x="${(L+(x+w/2)*u).toFixed(1)}" y="${y+19}" text-anchor="middle">${txt}</text>`:'');
+  return `<svg class="chart" viewBox="0 0 ${W} 150" role="img" aria-label="Entropy decomposition">
+    <text class="rl" x="${L-8}" y="30" text-anchor="end">H(X,Y)</text>
+    ${rect(0,10,a,'var(--x)','H(X|Y)')}${rect(a,10,b,'var(--mi)','I(X;Y)')}${rect(a+b,10,c,'var(--y)','H(Y|X)')}
+    <text class="rl" x="${L-8}" y="80" text-anchor="end">H(X)</text>
+    ${rect(0,60,a,'var(--x)','H(X|Y)')}${rect(a,60,b,'var(--mi)','I(X;Y)')}
+    <text class="rl" x="${L-8}" y="130" text-anchor="end">H(Y)</text>
+    ${rect(a,110,b,'var(--mi)','I(X;Y)')}${rect(a+b,110,c,'var(--y)','H(Y|X)')}
+  </svg>`;
+}
+function lab1(){
+  const root=$('#lab1');
+  const PRE=[
+    {n:'Independent',a:.3,b0:.6,b1:.6},
+    {n:'Perfect copy (Y = X)',a:.5,b0:0,b1:1},
+    {n:'Noisy copy',a:.5,b0:.1,b1:.9},
+    {n:'Opposite (Y = not X)',a:.5,b0:1,b1:0},
+    {n:'Rare but informative',a:.1,b0:.05,b1:.8}
+  ];
+  root.innerHTML=`<div class="chips">${PRE.map((p,i)=>`<button type="button" class="chip" data-i="${i}">${p.n}</button>`).join('')}</div>
+    <div class="controls">${slider('l1a','P(X = 1)',0,1,.01,.5)}${slider('l1b0','P(Y = 1 | X = 0)',0,1,.01,.2)}${slider('l1b1','P(Y = 1 | X = 1)',0,1,.01,.8)}</div>
+    <div id="l1o"></div>`;
+  function upd(){
+    const a=+$('#l1a').value,b0=+$('#l1b0').value,b1=+$('#l1b1').value;
+    const J=[[(1-a)*(1-b0),(1-a)*b0],[a*(1-b1),a*b1]];
+    const px=[J[0][0]+J[0][1],J[1][0]+J[1][1]],py=[J[0][0]+J[1][0],J[0][1]+J[1][1]];
+    const HX=Hs(px),HY=Hs(py),HXY=Hs([J[0][0],J[0][1],J[1][0],J[1][1]]);
+    const I=Math.max(0,HX+HY-HXY),HXgY=Math.max(0,HXY-HY),HYgX=Math.max(0,HXY-HX);
+    const cell=(x,y)=>{const p=J[x][y],q=px[x]*py[y];const pm=(p>1e-12&&q>1e-12)?Math.log2(p/q):null;return {p,q,pm,c:pm===null?0:p*pm};};
+    const jt=`<table class="jt"><tr><th>joint p(x,y)</th><th>Y=0</th><th>Y=1</th><th class="mg">p(x)</th></tr>`+[0,1].map(x=>`<tr><th>X=${x}</th>${[0,1].map(y=>`<td style="${heat(J[x][y])}">${f(J[x][y])}</td>`).join('')}<td class="mg">${f(px[x])}</td></tr>`).join('')+`<tr class="mg"><th>p(y)</th><td>${f(py[0])}</td><td>${f(py[1])}</td><td>1</td></tr></table>`;
+    const it=`<table class="jt"><tr><th>if independent: p(x)p(y)</th><th>Y=0</th><th>Y=1</th></tr>`+[0,1].map(x=>`<tr><th>X=${x}</th>${[0,1].map(y=>`<td style="${heat(px[x]*py[y],'var(--muted)')}">${f(px[x]*py[y])}</td>`).join('')}</tr>`).join('')+`</table>`;
+    const pt=`<table class="jt"><tr><th>log-ratio &times; p = contribution</th><th>Y=0</th><th>Y=1</th></tr>`+[0,1].map(x=>`<tr><th>X=${x}</th>${[0,1].map(y=>{const c=cell(x,y);const cl=c.pm===null?'':c.pm>0.0005?'pos':c.pm<-0.0005?'neg':'';return `<td class="${cl}"><div class="big">${c.pm===null?'n/a':sg(c.pm)}</div><div class="sm">&times; ${f(c.p)} = ${sg(c.c)}</div></td>`;}).join('')}</tr>`).join('')+`</table>`;
+    let msg;
+    if(I<0.002)msg='X and Y are independent here. The joint equals the product of its marginals, every log-ratio is 0, and I = 0.';
+    else if(I>Math.min(HX,HY)-0.002)msg='Knowing one variable pins down the other completely, so I equals the entropy of the variable that is fully determined.';
+    else msg=`Seeing Y removes ${f(100*I/HX,0)}% of the uncertainty about X, and seeing X removes ${f(100*I/HY,0)}% of the uncertainty about Y. It is the same ${f(I,3)} bits either way.`;
+    $('#l1o').innerHTML=`<div class="split"><div>${jt}${it}</div><div>${pt}<p class="mini">Green cells co-occur more often than independence predicts, and red cells less often. The three numbers in each cell are the log-ratio, the weight $p$, and their product. Adding the four products gives $I$.</p></div></div>
+      <div class="tiles">${tile(T('H(X)'),f(HX),'bits','x')}${tile(T('H(Y)'),f(HY),'bits','y')}${tile(T('H(X,Y)'),f(HXY),'bits')}${tile(T('H(X|Y)'),f(HXgY),'bits','x')}${tile(T('H(Y|X)'),f(HYgX),'bits','y')}${tile(T('I(X;Y)'),f(I),'bits','mi')}</div>
+      <div class="eqline">${T('I(X;Y)=H(X)+H(Y)-H(X,Y)')} = ${f(HX)} + ${f(HY)} &minus; ${f(HXY)} = <b>${f(I)}</b> bits &nbsp;&nbsp;|&nbsp;&nbsp; sum of the four contributions = <b>${f(sum([0,1].flatMap(x=>[0,1].map(y=>cell(x,y).c))))}</b></div>
+      ${infoBars(HXgY,I,HYgX,2)}
+      <div class="say">${msg}</div>`;
+    typeset($('#l1o'));
+  }
+  root.addEventListener('input',upd);
+  root.addEventListener('click',e=>{
+    const b=e.target.closest('.chip');if(!b)return;
+    const p=PRE[+b.dataset.i];$('#l1a').value=p.a;$('#l1b0').value=p.b0;$('#l1b1').value=p.b1;syncOut(root);upd();
+  });
+  upd();
+}
+
+/* =====================================================================
+   6. Lab 2: binary symmetric channel
+   ===================================================================== */
+function lab2(){
+  const root=$('#lab2');
+  root.innerHTML=`<div class="controls">${slider('l2e','Flip probability, &epsilon;',0,1,.01,.1)}${slider('l2p','Input prior, P(X = 1)',.01,.99,.01,.5)}</div><div id="l2o"></div>`;
+  function upd(){
+    const e=+$('#l2e').value,p=+$('#l2p').value;
+    const J=[[(1-p)*(1-e),(1-p)*e],[p*e,p*(1-e)]];
+    const px=[1-p,p],py=[J[0][0]+J[1][0],J[0][1]+J[1][1]];
+    const HX=Hb(p),HY=Hb(py[1]),Hn=Hb(e),I=Math.max(0,HY-Hn),HXgY=Math.max(0,HX-I);
+    const lw=v=>1+24*v;
+    const ln=(x1,y1,x2,y2,v,col)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${lw(v).toFixed(1)}" stroke-linecap="round" opacity=".7"/>`;
+    const diagram=`<svg class="chart" viewBox="0 0 460 210" role="img" aria-label="Channel diagram">
+      ${ln(104,50,356,50,J[0][0],'var(--pos)')}${ln(104,160,356,160,J[1][1],'var(--pos)')}${ln(104,50,356,160,J[0][1],'var(--neg)')}${ln(104,160,356,50,J[1][0],'var(--neg)')}
+      <text class="lbl" x="230" y="40" text-anchor="middle">${f(1-e,2)}</text><text class="lbl" x="230" y="186" text-anchor="middle">${f(1-e,2)}</text>
+      <text class="lbl" x="150" y="85" text-anchor="middle">${f(e,2)}</text><text class="lbl" x="150" y="133" text-anchor="middle">${f(e,2)}</text>
+      <circle cx="80" cy="50" r="24" fill="var(--x)"/><circle cx="80" cy="160" r="24" fill="var(--x)"/><circle cx="380" cy="50" r="24" fill="var(--y)"/><circle cx="380" cy="160" r="24" fill="var(--y)"/>
+      <text class="bt" x="80" y="55" text-anchor="middle">0</text><text class="bt" x="80" y="165" text-anchor="middle">1</text><text class="bt" x="380" y="55" text-anchor="middle">0</text><text class="bt" x="380" y="165" text-anchor="middle">1</text>
+      <text class="tk" x="44" y="54" text-anchor="end">${f(px[0],2)}</text><text class="tk" x="44" y="164" text-anchor="end">${f(px[1],2)}</text>
+      <text class="tk" x="416" y="54">${f(py[0],2)}</text><text class="tk" x="416" y="164">${f(py[1],2)}</text>
+      <text class="al" x="80" y="16" text-anchor="middle">input X</text><text class="al" x="380" y="16" text-anchor="middle">output Y</text>
+    </svg>`;
+    const pw=v=>100*v;
+    const before=`<div class="mini" style="margin:2px 0">Uncertainty about X before seeing Y: ${T('H(X)')} = ${f(HX)} bits</div><div class="hb" style="width:${pw(HX)}%"><i style="width:100%;background:var(--x)"></i></div>
+      <div class="mini" style="margin:10px 0 2px">After seeing Y: ${T('H(X|Y)')} = ${f(HXgY)} bits remain, and ${f(I)} bits were removed</div><div class="hb" style="width:${pw(HX)}%"><i style="width:${HX>0?100*HXgY/HX:0}%;background:var(--x)"></i><i style="width:${HX>0?100*I/HX:0}%;background:var(--mi)"></i></div>`;
+    const rows=[0,1].flatMap(x=>[0,1].map(y=>{const p=J[x][y],pc=py[y]>1e-12?p/py[y]:null;const pm=(p>1e-12&&px[x]>1e-12&&py[y]>1e-12)?Math.log2(p/(px[x]*py[y])):null;return `<tr><td>x=${x}, y=${y}</td><td>${f(p)}</td><td>${f(px[x])} &rarr; ${pc===null?'n/a':f(pc)}</td><td class="${pm===null?'':pm>0.0005?'pos':pm<-0.0005?'neg':''}">${pm===null?'n/a':sg(pm)}</td></tr>`;}));
+    const pts=Array.from({length:101},(_,k)=>{const ee=k/100;return [ee,Math.max(0,Hb(p*(1-ee)+(1-p)*ee)-Hb(ee))];});
+    const cap=Array.from({length:101},(_,k)=>[k/100,1-Hb(k/100)]);
+    $('#l2o').innerHTML=`<div class="split"><div>${diagram}<p class="mini">Line thickness shows the joint probability p(x,y). Labels show p(y|x). Green is a correct transmission and red is a flip.</p>${before}</div>
+      <div>${chart({xr:[0,1],yr:[0,1],xl:'flip probability \u03b5',yl:'I(X;Y) in bits',lines:[{pts:cap,c:'var(--muted)',dash:'6 5',w:2},{pts,c:'var(--mi)'}],dots:[{x:e,y:I,c:'var(--mi)',t:f(I,2)+' bits',dx:e>.7?-10:10,a:e>.7?'end':'start',dy:-12}],legend:[{c:'var(--muted)',dash:'6 5',t:'capacity (uniform input)'},{c:'var(--mi)',t:'your input prior'}],label:'Mutual information versus flip probability',h:280})}</div></div>
+      <div class="tiles">${tile(T('H(Y)'),f(HY),'output entropy','y')}${tile(T('H(Y|X)=H_b(\\varepsilon)'),f(Hn),'channel noise')}${tile(T('I(X;Y)'),f(I),'bits per use','mi')}${tile('Capacity at this \u03b5',f(1-Hb(e)),'bits per use')}</div>
+      <div class="eqline">${T('I(X;Y)=H(Y)-H(Y|X)')} = ${f(HY)} &minus; ${f(Hn)} = <b>${f(I)}</b> bits</div>
+      <table class="dt"><tr><th>outcome</th><th>p(x,y)</th><th>p(x) &rarr; p(x|y)</th><th>pmi (bits)</th></tr>${rows.join('')}</table>
+      <p class="mini">Each pmi value is ${T('\\log_2\\frac{p(x|y)}{p(x)}')}, the log of how much seeing y rescales the probability of x. Weighting them by p(x,y) and adding gives I.</p>`;
+    typeset($('#l2o'));
+  }
+  root.addEventListener('input',upd);upd();
+}
+
+/* =====================================================================
+   7. Lab 3: spam example
+   ===================================================================== */
+function lab3(){
+  const root=$('#lab3');
+  const WORDS=[{l:'\u201cfree\u201d',s:240,h:70},{l:'\u201cwinner\u201d',s:45,h:0},{l:'\u201cmeeting\u201d',s:6,h:210},{l:'\u201cthe\u201d',s:285,h:665},{l:'\u201cclick\u201d',s:150,h:120}];
+  const cellsOf=w=>[[w.s,300-w.s],[w.h,700-w.h]];
+  let step=1,cur=0;
+  root.innerHTML=`<div class="split"><div>
+    <div class="chips" id="l3w">${WORDS.map((w,i)=>`<button type="button" class="chip${i===0?' on':''}" data-i="${i}">${w.l}</button>`).join('')}</div>
+    <p class="mini">1000 emails: 300 spam and 700 ham. Pick a word, or type your own counts below.</p>
+    <table class="jt"><tr><th>counts</th><th>has word</th><th>no word</th></tr>
+      <tr><th>spam</th><td><input type="number" min="0" step="1" id="l3c00" value="240"></td><td><input type="number" min="0" step="1" id="l3c01" value="60"></td></tr>
+      <tr><th>ham</th><td><input type="number" min="0" step="1" id="l3c10" value="70"></td><td><input type="number" min="0" step="1" id="l3c11" value="630"></td></tr></table>
+    <div id="l3steps"></div></div>
+    <div><div class="rk-h">Which word makes the best feature?</div><div id="l3rank"></div>
+    <p class="mini">Bars show $I(S;W)$ in bits. The purple row follows your counts.</p></div></div>`;
+  function counts(){
+    return [[+$('#l3c00').value||0,+$('#l3c01').value||0],[+$('#l3c10').value||0,+$('#l3c11').value||0]].map(r=>r.map(v=>Math.max(0,Math.round(v))));
+  }
+  function analyze(c){
+    const N=sum(c.flat());
+    if(N===0)return null;
+    const J=c.map(r=>r.map(v=>v/N));
+    const ps=[J[0][0]+J[0][1],J[1][0]+J[1][1]],pw=[J[0][0]+J[1][0],J[0][1]+J[1][1]];
+    const HS=Hs(ps),HW=Hs(pw),HSW=Hs(J.flat());
+    return {N,J,ps,pw,HS,HW,I:Math.max(0,HS+HW-HSW)};
+  }
+  function render(){
+    const c=counts(),A=analyze(c);
+    const box=$('#l3steps');
+    if(!A){box.innerHTML='<p class="mini">Enter at least one email.</p>';}
+    else{
+      const {N,J,ps,pw,HS,I}=A;
+      const gt=fn=>`<table class="jt"><tr><th></th><th>has word</th><th>no word</th></tr>`+['spam','ham'].map((r,i)=>`<tr><th>${r}</th>${[0,1].map(j=>fn(i,j)).join('')}</tr>`).join('')+`</table>`;
+      const terms=[];
+      for(let i=0;i<2;i++)for(let j=0;j<2;j++){const p=J[i][j],q=ps[i]*pw[j];const pm=(p>1e-12&&q>1e-12)?Math.log2(p/q):null;terms.push({i,j,p,q,pm,c:pm===null?0:p*pm});}
+      const tm=(i,j)=>terms[i*2+j];
+      const names=['spam','ham'],wn=['has word','no word'];
+      const S=[
+        ['Counts to probabilities',`<p>Divide every count by the total of ${N} emails to get the joint distribution $p(s,w)$.</p>`+gt((i,j)=>`<td style="${heat(J[i][j])}"><div class="big">${f(J[i][j])}</div><div class="sm">${c[i][j]} / ${N}</div></td>`)],
+        ['Marginals',`<p>Adding across rows and columns: $P(\\text{spam})=${f(ps[0])}$ and $P(\\text{has word})=${f(pw[0])}$. Before looking at the word, the uncertainty about the label is $H(S)=${f(HS)}$ bits.</p>`],
+        ['What independence would predict',`<p>If the word had nothing to do with spam, each cell would equal the product of its marginals.</p>`+gt((i,j)=>`<td><div class="big">${f(ps[i]*pw[j])}</div><div class="sm">${f(ps[i])} &times; ${f(pw[j])}</div></td>`)],
+        ['Compare cell by cell',`<p>For each cell compute $\\log_2\\frac{p(s,w)}{p(s)p(w)}$. Positive means the pair occurs more than chance predicts, and negative means less.</p>`+gt((i,j)=>{const t=tm(i,j);const cl=t.pm===null?'':t.pm>0.0005?'pos':t.pm<-0.0005?'neg':'';return `<td class="${cl}"><div class="big">${t.pm===null?'n/a':sg(t.pm)}</div><div class="sm">ratio ${t.q>0?f(t.p/t.q,2):'n/a'}&times;</div></td>`;})],
+        ['Average, weighted by how common each cell is',`<p>Multiply each log-ratio by its probability $p(s,w)$ and add:</p><table class="dt">${terms.map(t=>`<tr><td>${names[t.i]}, ${wn[t.j]}</td><td>${f(t.p)} &times; ${t.pm===null?'n/a':sg(t.pm)}</td><td>${sg(t.c)}</td></tr>`).join('')}<tr><td><b>Total</b></td><td></td><td><b>${f(I)} bits</b></td></tr></table>`],
+        ['Read the result',`<p>$I(S;W)=${f(I)}$ bits, which is ${f(100*I/(HS||1),1)}% of the ${f(HS)} bits of uncertainty about the label. Equivalently, $H(S|W)=H(S)-I=${f(HS-I)}$ bits remain on average after checking the word. A decision tree would call ${f(I)} the information gain of this split.</p>`]
+      ];
+      box.innerHTML=S.slice(0,step).map((s,k)=>`<div class="step${k===step-1?' cur':''}"><div class="sh"><span>${k+1}</span>${s[0]}</div>${s[1]}</div>`).join('')+
+        `<div class="chips"><button type="button" class="btn" data-act="back"${step<=1?' disabled':''}>Back</button> <button type="button" class="btn pri" data-act="next"${step>=6?' disabled':''}>Next step</button> <button type="button" class="btn" data-act="all">Show all</button></div>`;
+      typeset(box);
+    }
+    const rows=WORDS.map(w=>{const a=analyze(cellsOf(w));return {l:w.l,I:a.I,me:false};});
+    if(A)rows.push({l:'your counts',I:A.I,me:true});
+    rows.sort((a,b)=>b.I-a.I);
+    const mx=Math.max(0.0001,...rows.map(r=>r.I));
+    $('#l3rank').innerHTML=rows.map(r=>`<div class="rk${r.me?' me':''}"><span>${r.l}</span><div class="bar"><i style="width:${(100*r.I/mx).toFixed(1)}%"></i></div><b>${f(r.I)}</b></div>`).join('');
+    typeset($('#l3rank').parentElement);
+  }
+  root.addEventListener('input',e=>{if(e.target.matches('input[type=number]')){$$('#l3w .chip').forEach(x=>x.classList.remove('on'));render();}});
+  root.addEventListener('click',e=>{
+    const chip=e.target.closest('#l3w .chip');
+    if(chip){const w=WORDS[+chip.dataset.i],c=cellsOf(w);$('#l3c00').value=c[0][0];$('#l3c01').value=c[0][1];$('#l3c10').value=c[1][0];$('#l3c11').value=c[1][1];$$('#l3w .chip').forEach(x=>x.classList.toggle('on',x===chip));render();return;}
+    const b=e.target.closest('[data-act]');if(!b)return;
+    if(b.dataset.act==='next')step=Math.min(6,step+1);
+    else if(b.dataset.act==='back')step=Math.max(1,step-1);
+    else step=6;
+    render();
+  });
+  render();
+}
+
+/* =====================================================================
+   8. Lab 4: conditional MI
+   ===================================================================== */
+function lab4(){
+  const root=$('#lab4');
+  const bern=(v,b,q)=>v===b?1-q:q;
+  const SC={
+    common:{n:'Common cause',g:'X \u2190 Z \u2192 Y',d:'Z is a hidden cause, such as a disease, and X and Y are two noisy symptoms of it. They are correlated only because they share Z.',p:(x,y,z,q)=>.5*bern(x,z,q)*bern(y,z,q)},
+    chain:{n:'Chain',g:'X \u2192 Z \u2192 Y',d:'X reaches Y through a noisy relay Z. Once you see the relay, X has nothing more to say about Y.',p:(x,y,z,q)=>.5*bern(z,x,q)*bern(y,z,q)},
+    xor:{n:'XOR (synergy)',g:'X \u2192 Z \u2190 Y',d:'X and Y are independent fair coins, and Z reports whether they differ (Z = X xor Y, flipped with probability q).',p:(x,y,z,q)=>.25*bern(z,x^y,q)},
+    coll:{n:'Collider (OR)',g:'X \u2192 Z \u2190 Y',d:'X and Y are independent, and Z = X or Y (think of &ldquo;admitted if talented or hard-working&rdquo;). Learning Z couples them: Berkson\u2019s paradox.',p:(x,y,z,q)=>.25*bern(z,x|y,q)}
+  };
+  let sc='common';
+  root.innerHTML=`<div class="chips" id="l4s">${Object.keys(SC).map(k=>`<button type="button" class="chip${k===sc?' on':''}" data-s="${k}">${SC[k].n}</button>`).join('')}</div>
+    <div class="controls">${slider('l4q','Noise probability, q',0,.5,.01,.1)}</div><div id="l4o"></div>`;
+  function build(q){
+    const P=[0,1].map(x=>[0,1].map(y=>[0,1].map(z=>SC[sc].p(x,y,z,q))));
+    return P;
+  }
+  function diagram(A){
+    const col=v=>v<-0.0005?'var(--neg)':'var(--ink)';
+    const t=(x,y,v)=>`<text class="dv" x="${x}" y="${y}" text-anchor="middle" style="fill:${col(v)}">${f(v,2)}</text>`;
+    return `<svg class="chart" viewBox="0 0 360 320" role="img" aria-label="Three-variable information diagram">
+      <circle cx="135" cy="125" r="85" fill="var(--x)" fill-opacity=".2" stroke="var(--x)" stroke-width="2.5"/>
+      <circle cx="225" cy="125" r="85" fill="var(--y)" fill-opacity=".2" stroke="var(--y)" stroke-width="2.5"/>
+      <circle cx="180" cy="200" r="85" fill="var(--z)" fill-opacity=".2" stroke="var(--z)" stroke-width="2.5"/>
+      <text class="cl" x="48" y="38" fill="var(--x)">X</text><text class="cl" x="312" y="38" fill="var(--y)" text-anchor="end">Y</text><text class="cl" x="180" y="314" fill="var(--z)" text-anchor="middle">Z</text>
+      ${t(92,102,A.onlyX)}${t(268,102,A.onlyY)}${t(180,262,A.onlyZ)}
+      ${t(180,86,A.xyz)}${t(124,180,A.xzy)}${t(236,180,A.yzx)}${t(180,156,A.center)}
+    </svg>`;
+  }
+  function upd(){
+    const q=+$('#l4q').value,P=build(q),h=k=>H3(P,k);
+    const HX=h([0]),HY=h([1]),HZ=h([2]),HXY=h([0,1]),HXZ=h([0,2]),HYZ=h([1,2]),HXYZ=h([0,1,2]);
+    const Ixy=HX+HY-HXY,Ixz=HX+HZ-HXZ,IxyGz=HXZ+HYZ-HZ-HXYZ,IxzGy=HXY+HYZ-HY-HXYZ,IyzGx=HXY+HXZ-HX-HXYZ;
+    const IxYZ=HX+HYZ-HXYZ,center=Ixy-IxyGz;
+    const A={onlyX:HXYZ-HYZ,onlyY:HXYZ-HXZ,onlyZ:HXYZ-HXY,xyz:IxyGz,xzy:IxzGy,yzx:IyzGx,center};
+    const slices=[0,1].map(z=>{const pz=sum(P.flatMap(r=>r.map(c=>c[z])));const J=P.map(r=>r.map(c=>pz>1e-15?c[z]/pz:0));return {z,pz,I:pz>1e-15?mi2(J):0};});
+    let verdict;
+    if(IxyGz<Ixy-0.01)verdict=`Conditioning on Z <b>reduced</b> the dependence from ${f(Ixy)} to ${f(IxyGz)} bits. Z explains (some of) the link between X and Y.`;
+    else if(IxyGz>Ixy+0.01)verdict=`Conditioning on Z <b>created</b> dependence: ${f(Ixy)} bits became ${f(IxyGz)} bits. Seeing Z couples two variables that were unrelated, so the interaction information is negative (synergy).`;
+    else verdict='Conditioning on Z barely changes the dependence between X and Y.';
+    $('#l4o').innerHTML=`<div class="say"><b>${SC[sc].n}:</b> ${SC[sc].g}. ${SC[sc].d}</div>
+      <div class="split"><div>
+        <div class="tiles">${tile(T('I(X;Y)'),f(Ixy),'ignoring Z','x')}${tile(T('I(X;Y|Z)'),f(IxyGz),'knowing Z','mi')}${tile(T('I(X;Y;Z)'),sg(center),'interaction information',center<-0.0005?'bad':'')}</div>
+        <div class="say">${verdict}</div>
+        <table class="dt"><tr><th>slice</th><th>p(z)</th><th>I(X;Y | Z=z)</th><th>p(z) &times; I</th></tr>${slices.map(s=>`<tr><td>Z = ${s.z}</td><td>${f(s.pz)}</td><td>${f(s.I)}</td><td>${f(s.pz*s.I)}</td></tr>`).join('')}<tr><td><b>Sum = I(X;Y|Z)</b></td><td></td><td></td><td><b>${f(sum(slices.map(s=>s.pz*s.I)))}</b></td></tr></table>
+        <div class="eqline">Chain rule: ${T('I(X;Y,Z)=I(X;Z)+I(X;Y|Z)')}<br>${f(IxYZ)} = ${f(Ixz)} + ${f(IxyGz)} = <b>${f(Ixz+IxyGz)}</b></div>
+      </div><div>${diagram(A)}
+        <p class="mini">Information diagram, in bits. Outer regions are information unique to one variable, ${T('H(X|Y,Z)')} and so on. Pairwise regions are conditional MIs, for example the top lens is ${T('I(X;Y|Z)')}. The center is ${T('I(X;Y;Z)')} and can be negative (shown in red).</p></div></div>`;
+    typeset($('#l4o'));
+  }
+  root.addEventListener('input',upd);
+  root.addEventListener('click',e=>{const b=e.target.closest('#l4s .chip');if(!b)return;sc=b.dataset.s;$$('#l4s .chip').forEach(x=>x.classList.toggle('on',x===b));upd();});
+  upd();
+}
+
+/* =====================================================================
+   9. Lab 5: correlation versus MI
+   ===================================================================== */
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gauss(r){let u=0;while(u===0)u=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*r());}
+const mean=a=>sum(a)/a.length;
+function pearson(a,b){const ma=mean(a),mb=mean(b);let sab=0,saa=0,sbb=0;for(let i=0;i<a.length;i++){const da=a[i]-ma,db=b[i]-mb;sab+=da*db;saa+=da*da;sbb+=db*db;}return saa>0&&sbb>0?sab/Math.sqrt(saa*sbb):0;}
+function ranks(a){const idx=a.map((_,i)=>i).sort((i,j)=>a[i]-a[j]);const r=new Array(a.length);idx.forEach((id,k)=>{r[id]=k;});return r;}
+function miBins(xs,ys,B){
+  const N=xs.length,rx=ranks(xs),ry=ranks(ys),c=new Float64Array(B*B),cx=new Float64Array(B),cy=new Float64Array(B);
+  for(let i=0;i<N;i++){const bx=Math.min(B-1,Math.floor(rx[i]*B/N)),by=Math.min(B-1,Math.floor(ry[i]*B/N));c[bx*B+by]++;cx[bx]++;cy[by]++;}
+  let s=0;
+  for(let a=0;a<B;a++)for(let b=0;b<B;b++){const v=c[a*B+b];if(v>0)s+=(v/N)*Math.log2(v*N/(cx[a]*cy[b]));}
+  return Math.max(0,s);
+}
+function lab5(){
+  const root=$('#lab5');
+  const KINDS=[['linear','Linear (Gaussian)'],['parabola','Parabola: y = x\u00b2'],['circle','Circle'],['sine','Sine wave'],['cross','X-shape: y = \u00b1x'],['expo','Monotone: y = e^1.5x'],['indep','Independent']];
+  const NOTE={
+    linear:'Jointly Gaussian data. Here MI and Pearson agree through the formula $I=-\\frac12\\log(1-\\rho^2)$.',
+    parabola:'$Y$ is nearly a function of $X$, but the trend is symmetric, so the correlation cancels out.',
+    circle:'A ring: knowing $x$ narrows $y$ to two values. Correlation is zero by symmetry.',
+    sine:'A wave with two periods. The relationship is strong but not monotone.',
+    cross:'$Y=\\pm X$ with a random sign. $|Y|$ is determined by $X$, but the sign hides all linear trend.',
+    expo:'A strictly monotone relation with heavy tails. Pearson underrates it, while MI and rank correlation do not.',
+    indep:'No relationship at all. Raw plug-in MI is still above zero, which is pure estimator bias.'
+  };
+  let kind='linear',seed=1;
+  root.innerHTML=`<div class="chips" id="l5k">${KINDS.map(k=>`<button type="button" class="chip${k[0]===kind?' on':''}" data-k="${k[0]}">${k[1]}</button>`).join('')}</div>
+    <div class="controls">
+      <div id="l5rw">${slider('l5r','Correlation \u03c1',-.99,.99,.01,.8)}</div>
+      <div id="l5nw" hidden>${slider('l5n','Noise level',0,1,.01,.3)}</div>
+      ${slider('l5N','Sample size N',100,3000,50,1000,0)}
+      ${slider('l5B','Quantile bins per axis B',2,20,1,8,0)}
+      <label class="ctl"><span class="ctl-l">Transform Y after generating</span><select id="l5t"><option value="id">none</option><option value="cube">y \u2192 y\u00b3</option><option value="exp">y \u2192 e^y</option></select></label>
+      <label class="chk"><input type="checkbox" id="l5g"> show the bin grid</label>
+      <div><button type="button" class="btn" id="l5re">Resample</button></div>
+    </div>
+    <div class="split"><div id="l5sc"></div><div id="l5sd"></div></div>`;
+  function gen(N,nz,rho){
+    const r=mulberry(seed*104729+13),xs=new Array(N),ys=new Array(N);
+    for(let i=0;i<N;i++){
+      let x,y;
+      switch(kind){
+        case 'linear':{x=gauss(r);y=rho*x+Math.sqrt(1-rho*rho)*gauss(r);break;}
+        case 'parabola':{x=2*r()-1;y=x*x+.35*nz*gauss(r);break;}
+        case 'circle':{const t=2*Math.PI*r();x=Math.cos(t)+.3*nz*gauss(r);y=Math.sin(t)+.3*nz*gauss(r);break;}
+        case 'sine':{x=4*Math.PI*r();y=Math.sin(x)+.6*nz*gauss(r);break;}
+        case 'cross':{x=2*r()-1;const s=r()<.5?-1:1;y=s*x+.3*nz*gauss(r);break;}
+        case 'expo':{x=gauss(r);y=Math.exp(1.5*x+.6*nz*gauss(r));break;}
+        default:{x=gauss(r);y=gauss(r);}
+      }
+      xs[i]=x;ys[i]=y;
+    }
+    return [xs,ys];
+  }
+  function edges(a,B){const s=a.slice().sort((p,q)=>p-q),N=s.length,e=[];for(let k=1;k<B;k++){const j=Math.round(k*N/B);e.push((s[Math.max(0,j-1)]+s[Math.min(N-1,j)])/2);}return e;}
+  function upd(){
+    const N=+$('#l5N').value,B=+$('#l5B').value,rho=+$('#l5r').value,nz=+$('#l5n').value,tr=$('#l5t').value;
+    $('#l5rw').hidden=kind!=='linear';$('#l5nw').hidden=kind==='linear'||kind==='indep';
+    let [xs,ys]=gen(N,nz,rho);
+    if(tr==='cube')ys=ys.map(v=>v*v*v);else if(tr==='exp')ys=ys.map(v=>Math.exp(Math.max(-30,Math.min(30,v))));
+    const r=pearson(xs,ys),sp=pearson(ranks(xs),ranks(ys));
+    const Iraw=miBins(xs,ys,B),bias=(B-1)*(B-1)/(2*N*Math.LN2),Ic=Math.max(0,Iraw-bias);
+    const rI=Math.sqrt(1-Math.pow(2,-2*Ic)),Ig=-0.5*Math.log2(Math.max(1e-9,1-r*r));
+    const Ith=kind==='linear'&&tr==='id'?-0.5*Math.log2(1-rho*rho):null;
+    // scatter
+    const SW=420,pad=26,xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys);
+    const dx=(xmax-xmin)||1,dy=(ymax-ymin)||1;
+    const sx=v=>pad+(v-xmin)/dx*(SW-2*pad),sy=v=>SW-pad-(v-ymin)/dy*(SW-2*pad);
+    let g='';
+    if($('#l5g').checked){g=edges(xs,B).map(e=>`<line x1="${sx(e).toFixed(1)}" x2="${sx(e).toFixed(1)}" y1="${pad}" y2="${SW-pad}" stroke="var(--mi)" stroke-opacity=".35"/>`).join('')+edges(ys,B).map(e=>`<line y1="${sy(e).toFixed(1)}" y2="${sy(e).toFixed(1)}" x1="${pad}" x2="${SW-pad}" stroke="var(--mi)" stroke-opacity=".35"/>`).join('');}
+    const pts=xs.map((x,i)=>`<circle cx="${sx(x).toFixed(1)}" cy="${sy(ys[i]).toFixed(1)}" r="2.1"/>`).join('');
+    $('#l5sc').innerHTML=`<svg class="chart" viewBox="0 0 ${SW} ${SW}" role="img" aria-label="Scatter plot"><rect x="${pad}" y="${pad}" width="${SW-2*pad}" height="${SW-2*pad}" fill="none" stroke="var(--line)"/>${g}<g fill="var(--x)" fill-opacity=".42">${pts}</g><text class="al" x="${SW/2}" y="${SW-6}" text-anchor="middle">x</text><text class="al" transform="translate(12 ${SW/2}) rotate(-90)" text-anchor="middle">y${tr==='id'?'':' (transformed)'}</text></svg><p class="mini">${NOTE[kind]}</p>`;
+    // side
+    const curve=Array.from({length:200},(_,k)=>{const rr=k*0.995/199;return [rr,-0.5*Math.log2(1-rr*rr)];});
+    const ar=Math.abs(r);
+    let say;
+    if(Ic<0.06&&ar<0.1)say='Both measures see essentially no dependence.';
+    else if(ar<0.3&&Ic>0.15)say=`Pearson says $r=${f(r,2)}$, which looks like nothing. The bias-corrected MI is ${f(Ic,2)} bits, so there is real dependence that correlation cannot see.`;
+    else if(Ith!==null)say=`The estimate (${f(Ic,2)} bits) is close to the closed form ${f(Ith,2)} bits. Coarse bins lose a little information and small samples add bias, so try changing B and N.`;
+    else say=`Pearson sees a ${f(ar,2)} correlation, while MI says ${f(Ic,2)} bits. The curve shows what MI a Gaussian with that correlation would have.`;
+    const dot={x:Math.min(ar,.995),y:Math.min(Ic,3.45),c:'var(--mi)',t:'your data',dx:ar>.6?-10:10,a:ar>.6?'end':'start',dy:Ic>3?14:-12};
+    $('#l5sd').innerHTML=`<div class="tiles">${tile('Pearson r',f(r),'linear only')}${tile('Spearman',f(sp),'monotone only')}${tile('MI plug-in',f(Iraw),'bits, raw','y')}${tile('Bias estimate',f(bias),'bits')}${tile('MI corrected',f(Ic),'bits','mi')}${tile(T('r_I'),f(rI),'from corrected MI','mi')}</div>
+      <div class="say">${say}</div>
+      ${chart({xr:[0,1],yr:[0,3.5],xl:'|correlation|',yl:'mutual information (bits)',yt:7,lines:[{pts:curve,c:'var(--muted)',dash:'6 5',w:2}],dots:[dot],legend:[{c:'var(--muted)',dash:'6 5',t:'Gaussian with this correlation'}],label:'Mutual information versus correlation',h:270})}
+      <p class="mini">A dot far above the dashed curve means the dependence is not captured by correlation. With B = ${B} bins the estimate cannot exceed ${f(Math.log2(B),2)} bits. ${Ith!==null?'Closed-form MI for this \u03c1: '+f(Ith,3)+' bits.':''}</p>`;
+    typeset($('#l5sd'));typeset($('#l5sc'));
+  }
+  root.addEventListener('input',upd);root.addEventListener('change',upd);
+  root.addEventListener('click',e=>{
+    const k=e.target.closest('#l5k .chip');
+    if(k){kind=k.dataset.k;$$('#l5k .chip').forEach(x=>x.classList.toggle('on',x===k));upd();return;}
+    if(e.target.id==='l5re'){seed++;upd();}
+  });
+  upd();
+}
+
+/* =====================================================================
+   10. Lab 6: sufficient statistics
+   ===================================================================== */
+const TH=[.1,.3,.5,.7,.9];
+const pc=x=>{let c=0;while(x){c+=x&1;x>>=1;}return c;};
+const STATS=[
+  {id:'sum',name:'Number of heads',lab:(q,s)=>s,note:'The textbook sufficient statistic for a Bernoulli parameter.'},
+  {id:'sumlast',name:'Heads + last flip',lab:(q,s,n)=>s*2+((q>>(n-1))&1),note:'Sufficient, because it contains the number of heads, but it carries extra detail that does not help.'},
+  {id:'full',name:'Entire sequence',lab:q=>q,note:'Trivially sufficient: nothing is thrown away.'},
+  {id:'first',name:'First flip only',lab:q=>q&1,note:'Ignores all the other flips, which also say something about \u03b8.'},
+  {id:'half',name:'Heads in first half',lab:(q,s,n)=>pc(q&((1<<(n>>1))-1)),note:'Counts heads, but only in half of the data.'},
+  {id:'maj',name:'Majority heads?',lab:(q,s,n)=>s*2>=n?1:0,note:'A coarsening of the count: it forgets how many heads there were.'},
+  {id:'par',name:'Parity of heads',lab:(q,s)=>s&1,note:'Even or odd count of heads. Almost no information about \u03b8.'}
+];
+function analyzeCoins(n){
+  const K=TH.length,pr=1/K,Nn=1<<n;
+  const lik=TH.map(t=>Array.from({length:n+1},(_,s)=>Math.pow(t,s)*Math.pow(1-t,n-s)));
+  const out={};
+  for(const st of STATS){
+    const m=new Map();
+    for(let q=0;q<Nn;q++){
+      const s=pc(q),lab=st.lab(q,s,n);let a=m.get(lab);
+      if(!a){a=new Float64Array(K);m.set(lab,a);}
+      for(let k=0;k<K;k++)a[k]+=pr*lik[k][s];
+    }
+    let I=0;
+    for(const a of m.values()){const pt=a.reduce((x,y)=>x+y,0);for(let k=0;k<K;k++){if(a[k]>1e-300)I+=a[k]*Math.log2(a[k]/(pr*pt));}}
+    out[st.id]={m,I};
+  }
+  return {out,lik,pr};
+}
+function lab6(){
+  const root=$('#lab6');
+  let n=6,sel='sum',bits=[1,1,0,1,0,1,0,0,1,1];
+  root.innerHTML=`<div class="controls">${slider('l6n','Number of flips, n',2,10,1,6,0)}</div>
+    <div class="chips" id="l6s">${STATS.map(s=>`<button type="button" class="chip${s.id===sel?' on':''}" data-s="${s.id}">${s.name}</button>`).join('')}</div><div id="l6o"></div>`;
+  const pf=x=>x===0?'0':x<1e-3?x.toExponential(1):x.toFixed(4);
+  function upd(){
+    n=+$('#l6n').value;
+    const {out,lik,pr}=analyzeCoins(n),Ifull=out.full.I,st=STATS.find(s=>s.id===sel),o=out[sel];
+    const gap=Math.max(0,Ifull-o.I),suff=gap<1e-9,minimal=suff&&o.m.size===n+1;
+    const q=bits.slice(0,n).reduce((a,b,i)=>a|(b<<i),0),s=pc(q),label=st.lab(q,s,n),arr=o.m.get(label);
+    const sa=sum(Array.from(arr)),Z=sum(TH.map((_,k)=>lik[k][s]));
+    const rows=TH.map((t,k)=>{const pxt=lik[k][s],ptt=arr[k]/pr,pxgt=pxt/ptt;return {t,pxt,ptt,pxgt,pf:lik[k][s]/Z,pt:arr[k]/sa};});
+    const spread=Math.max(...rows.map(r=>r.pxgt))-Math.min(...rows.map(r=>r.pxgt));
+    const dpost=Math.max(...rows.map(r=>Math.abs(r.pf-r.pt)));
+    const verdict=suff?`<div class="verdict ok">Sufficient. No information about \u03b8 is lost. <span>${minimal?'It is also minimal: it has the fewest possible distinct values, n + 1.':'It is not minimal, since it can be compressed further without loss.'}</span></div>`
+      :`<div class="verdict no">Not sufficient. It loses ${f(gap,3)} bits about \u03b8. <span>${st.note}</span></div>`;
+    const bars=STATS.map(x=>{const r=out[x.id].I/Ifull,ok=Ifull-out[x.id].I<1e-9;return `<div class="sb${x.id===sel?' sel':''}${ok?' ok':''}" data-s="${x.id}"><span>${x.name}</span><div class="bar"><i style="width:${(100*r).toFixed(1)}%"></i></div><span>${f(100*r,0)}%</span></div>`;}).join('');
+    $('#l6o').innerHTML=`${verdict}
+      <div class="tiles">${tile(T('I(\\theta;X)'),f(Ifull),'full data, bits','x')}${tile(T('I(\\theta;T)'),f(o.I),'this statistic, bits','mi')}${tile(T('I(\\theta;X|T)'),f(gap),'information lost, bits',suff?'good':'bad')}${tile(T('H(\\theta)'),f(Math.log2(TH.length)),'upper limit, bits')}</div>
+      <div class="eqline">${T('I(\\theta;X)=I(\\theta;T)+I(\\theta;X|T)')}: ${f(Ifull)} = ${f(o.I)} + ${f(gap)}</div>
+      <div class="split"><div><div class="rk-h">Information about \u03b8 kept, relative to the full data</div>${bars}<p class="mini">Click a row to select it. Green rows lose nothing.</p></div>
+      <div><div class="rk-h">Observe a sequence (click flips to toggle)</div>
+        <div class="flips">${bits.slice(0,n).map((b,i)=>`<button type="button" class="flip${b?' h':''}" data-i="${i}">${b?'H':'T'}</button>`).join('')}<button type="button" class="btn" id="l6r">Random</button></div>
+        <p class="mini">${s} heads in ${n} flips. The statistic reports T = ${label}. If T is sufficient, then given T the exact sequence should be equally likely whatever \u03b8 is.</p></div></div>
+      <table class="dt"><tr><th>\u03b8</th><th>P(x | \u03b8)</th><th>P(T=t | \u03b8)</th><th>P(x | T=t, \u03b8)</th><th>posterior from full data</th><th>posterior from T only</th></tr>
+      ${rows.map(r=>`<tr><td>${r.t}</td><td>${pf(r.pxt)}</td><td>${pf(r.ptt)}</td><td>${pf(r.pxgt)}</td><td><span class="pb" style="width:${(r.pf*90).toFixed(0)}px"></span>${f(r.pf,3)}</td><td><span class="pb t" style="width:${(r.pt*90).toFixed(0)}px"></span>${f(r.pt,3)}</td></tr>`).join('')}</table>
+      <div class="say">${spread<1e-9?`The column ${T('P(x|T{=}t,\\theta)')} is the same for every \u03b8, which is the classical definition of sufficiency. The two posteriors also match exactly.`:`The column ${T('P(x|T{=}t,\\theta)')} changes with \u03b8, so the leftover details of the data still depend on the parameter. The two posteriors differ by up to ${f(dpost,3)}, so using T alone would give you a different (worse-informed) belief about \u03b8.`}</div>`;
+    typeset($('#l6o'));
+  }
+  root.addEventListener('input',e=>{if(e.target.id==='l6n')upd();});
+  root.addEventListener('click',e=>{
+    const c=e.target.closest('#l6s .chip'),sb=e.target.closest('.sb'),fl=e.target.closest('.flip');
+    if(c){sel=c.dataset.s;$$('#l6s .chip').forEach(x=>x.classList.toggle('on',x===c));upd();return;}
+    if(sb){sel=sb.dataset.s;$$('#l6s .chip').forEach(x=>x.classList.toggle('on',x.dataset.s===sel));upd();return;}
+    if(fl){const i=+fl.dataset.i;bits[i]=bits[i]?0:1;upd();return;}
+    if(e.target.id==='l6r'){bits=bits.map(()=>Math.random()<.5?1:0);upd();}
+  });
+  upd();
+}
+
+/* =====================================================================
+   11. Quizzes
+   ===================================================================== */
+const QUIZ={
+  s1:[
+    {q:R`If $X$ and $Y$ are independent, what is $I(X;Y)$?`,o:[R`$0$`,R`$H(X)$`,R`$H(X)+H(Y)$`,R`It depends on the marginals`],a:0,w:R`Independence means $p(x,y)=p(x)p(y)$, so every log-ratio is $\log 1=0$.`},
+    {q:R`$Y$ is an exact copy of a fair coin flip $X$. What is $I(X;Y)$?`,o:['0 bits','0.5 bits','1 bit','2 bits'],a:2,w:R`$I(X;X)=H(X)=1$ bit. Seeing $Y$ removes all of the uncertainty about $X$.`},
+    {q:'Which statement about mutual information is false?',o:[R`$I(X;Y)=I(Y;X)$`,R`$I(X;Y)\ge 0$`,R`$I(X;Y)\le\min\{H(X),H(Y)\}$ for discrete variables`,R`$I(X;Y)<0$ when $X$ and $Y$ are negatively associated`],a:3,w:R`MI is a KL divergence, so it is never negative. Association in either direction makes it positive. Only individual pointwise terms can be negative.`}
+  ],
+  s2:[
+    {q:R`A binary symmetric channel flips each bit with probability $\varepsilon=0.5$. What is $I(X;Y)$ for any input distribution?`,o:['0','0.5 bits','1 bit',R`It depends on $P(X=1)$`],a:0,w:'With a 50% flip rate the output is a fair coin regardless of the input, so it is independent of the input.'},
+    {q:R`For some pair $(x,y)$, $\mathrm{pmi}(x;y)=-1$ bit. What does that mean?`,o:[R`Seeing $y$ halves the probability of $x$`,R`Seeing $y$ makes $x$ impossible`,R`$X$ and $Y$ are independent`,R`The mutual information is $-1$ bit`],a:0,w:R`$\mathrm{pmi}=\log_2\frac{p(x|y)}{p(x)}=-1$ means $p(x|y)=p(x)/2$. A single pmi value can be negative, though the average $I$ cannot.`},
+    {q:R`$I(X;Y)=0.3$ bits, but you compress the pairs with a code that assumes independence. What is the average waste per pair?`,o:['0 bits','0.3 bits',R`$0.3\cdot H(X)$ bits`,'It depends on the code'],a:1,w:R`$I(X;Y)$ is the KL divergence between the true joint and the independent model. It is exactly the expected extra code length per pair.`}
+  ],
+  s3:[
+    {q:'A word appears in 30% of spam and 30% of ham. What is its mutual information with the spam label?',o:['0 bits, since it carries no information about the label','Small but positive','Exactly H(S)','It cannot be determined without N'],a:0,w:'Equal rates in both classes means the joint factorizes, so every log-ratio is 0.'},
+    {q:'&ldquo;winner&rdquo; appears only in spam, yet it scores lower than &ldquo;free&rdquo;, which appears in both classes. Why?',o:['MI averages over all emails, and &ldquo;winner&rdquo; appears in so few that most emails tell you nothing new','MI penalizes features that never appear in ham','MI only counts positive pointwise terms','There must be a bug'],a:0,w:'Each cell is weighted by its probability. A perfectly informative but rare feature contributes little to the average.'},
+    {q:'In the log-ratio table for &ldquo;free&rdquo;, the (ham, has word) cell is negative. What does that say?',o:['Ham emails contain &ldquo;free&rdquo; less often than independence would predict','Ham emails never contain &ldquo;free&rdquo;','The total MI is negative','The word should be dropped'],a:0,w:'A negative log-ratio means that pair co-occurs less than chance. The total is still positive because the positive cells outweigh it.'}
+  ],
+  s4:[
+    {q:R`$X$ and $Y$ are independent fair coins and $Z=X\oplus Y$ exactly. $I(X;Y)=0$. What is $I(X;Y|Z)$?`,o:['0','0.5 bits','1 bit','Undefined'],a:2,w:'Once you know Z, learning X tells you Y exactly. Conditioning created a full bit of dependence.'},
+    {q:R`$Z$ is a common cause of $X$ and $Y$, which are otherwise unrelated. What happens to their dependence once you condition on $Z$?`,o:[R`It vanishes: $I(X;Y|Z)=0$`,'It doubles','It can only shrink, but it never reaches zero','Nothing, since conditioning never changes MI'],a:0,w:'Their only link was Z, so within each slice Z=z they are independent.'},
+    {q:R`The chain rule says $I(X;Y,Z)=$`,o:[R`$I(X;Y)+I(X;Z)$`,R`$I(X;Z)+I(X;Y|Z)$`,R`$I(X;Y|Z)-I(X;Z)$`,R`$I(X;Y)\cdot I(X;Z)$`],a:1,w:R`First learn what $Z$ says about $X$, then add what $Y$ contributes beyond $Z$. The first option double-counts whenever $Y$ and $Z$ overlap.`}
+  ],
+  s5:[
+    {q:R`$X$ is symmetric about 0 and $Y=X^2$. Which is true?`,o:[R`Pearson $r=0$ but $I(X;Y)>0$`,R`Both $r$ and $I(X;Y)$ are zero`,R`$r=1$`,R`$I(X;Y)=0$ because $Y$ is not linear in $X$`],a:0,w:R`$\mathrm{Cov}(X,X^2)=\mathbb{E}[X^3]=0$ by symmetry, yet $Y$ is a function of $X$, so they are strongly dependent.`},
+    {q:R`$(X,Y)$ is bivariate Gaussian with $\rho=0.8$. Roughly how many bits of mutual information is that?`,o:['0.32','0.74','0.80','1.47'],a:1,w:R`$-\tfrac12\log_2(1-0.64)=-\tfrac12\log_2 0.36\approx 0.74$ bits.`},
+    {q:R`You replace $Y$ by $e^{Y}$. What happens to Pearson's $\rho$ and to the mutual information?`,o:[R`$\rho$ changes, $I$ is unchanged`,'Both are unchanged','Both change',R`$I$ changes, $\rho$ is unchanged`],a:0,w:'MI is invariant under invertible transformations of either variable. Pearson only measures straight-line association, so it changes.'}
+  ],
+  s6:[
+    {q:R`$X_1,\dots,X_n$ are i.i.d. Bernoulli($\theta$). Which statistic is sufficient for $\theta$?`,o:['The number of heads','The first flip','Whether heads are in the majority','The last two flips'],a:0,w:'Given the count, every arrangement is equally likely whatever the value of theta.'},
+    {q:R`$T=T(X)$ is sufficient for $\theta$ exactly when…`,o:[R`$I(\theta;T)=I(\theta;X)$`,R`$I(\theta;T)=0$`,R`$H(T)=H(X)$`,R`$I(X;T)=0$`],a:0,w:R`The data processing inequality gives $I(\theta;T)\le I(\theta;X)$, and sufficiency is the case of equality.`},
+    {q:R`If you summarize $X$ by a non-sufficient $T$, how much information about $\theta$ do you lose?`,o:[R`$I(\theta;X|T)$`,R`$H(X|T)$`,R`$I(X;T)$`,R`$H(\theta)$`],a:0,w:R`The chain rule gives $I(\theta;X)=I(\theta;T)+I(\theta;X|T)$, so the loss is the conditional mutual information.`},
+    {q:R`For $n$ coin flips, which statistic is <em>minimal</em> sufficient?`,o:['The entire sequence','The number of heads plus the last flip','The number of heads','None exists'],a:2,w:'The count is sufficient and takes only n+1 values. The other options are sufficient but can be compressed further.'}
+  ]
+};
+const solved={};
+function buildQuiz(sec){
+  const root=document.getElementById('quiz-'+sec);
+  if(!root)return;
+  root.innerHTML='<h4>Check yourself</h4>'+QUIZ[sec].map((it,qi)=>`<div class="qz" data-q="${qi}"><p class="qq">${qi+1}. ${it.q}</p>${it.o.map((o,oi)=>`<button type="button" class="opt" data-o="${oi}">${o}</button>`).join('')}<div class="try"></div><div class="why"><b>Correct.</b> ${it.w}</div></div>`).join('');
+  root.addEventListener('click',e=>{
+    const b=e.target.closest('.opt');if(!b||b.disabled)return;
+    const qz=b.closest('.qz'),it=QUIZ[sec][+qz.dataset.q],oi=+b.dataset.o;
+    if(oi===it.a){
+      b.classList.add('good');qz.classList.add('solved');
+      $$('.opt',qz).forEach(x=>{x.disabled=true;});
+      qz.querySelector('.try').textContent='';qz.querySelector('.why').style.display='block';
+    }else{b.classList.add('bad');b.disabled=true;qz.querySelector('.try').textContent='Not quite. Try another option.';}
+    solved[sec]=$$('.qz',root).every(x=>x.classList.contains('solved'));
+    progress();
+  });
+}
+function progress(){
+  const total=Object.keys(QUIZ).length,done=Object.keys(QUIZ).filter(k=>solved[k]).length;
+  Object.keys(QUIZ).forEach(k=>{const a=document.querySelector(`.rail a[data-sec="${k}"]`);if(a)a.classList.toggle('done',!!solved[k]);});
+  const p=$('#prog');if(p)p.textContent=`Quizzes completed: ${done} of ${total}`;
+}
+
+/* =====================================================================
+   12. Page chrome
+   ===================================================================== */
+function chrome(){
+  $$('.tabs').forEach(tb=>tb.addEventListener('click',e=>{
+    const b=e.target.closest('.tab');if(!b)return;
+    const set=tb.parentElement;
+    $$('.tab',tb).forEach(x=>x.classList.toggle('on',x===b));
+    $$('.tabpanel',set).forEach(p=>p.classList.toggle('on',p.id===b.dataset.t));
+  }));
+  const th=$('#theme');
+  try{if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.dataset.theme='dark';}catch(_){}
+  if(th)th.addEventListener('click',()=>{document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';});
+  const links=$$('.rail a[data-sec]');
+  if('IntersectionObserver' in window){
+    const io=new IntersectionObserver(es=>{es.forEach(en=>{if(en.isIntersecting){links.forEach(a=>a.classList.toggle('active',a.dataset.sec===en.target.id));}});},{rootMargin:'-25% 0px -65% 0px'});
+    links.forEach(a=>{const s=document.getElementById(a.dataset.sec);if(s)io.observe(s);});
+  }
+}
+
+function init(){
+  hero();lab0();lab1();lab2();lab3();lab4();lab5();lab6();
+  Object.keys(QUIZ).forEach(buildQuiz);
+  typeset($('main'));
+  chrome();progress();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
+</body>
+</html>
