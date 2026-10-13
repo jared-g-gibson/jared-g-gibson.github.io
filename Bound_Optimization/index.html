@@ -1,0 +1,1449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>:root{color-scheme:light}body{margin:0}[hidden]{display:none!important}</style>
+<title>Bound Optimization and EM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+<style>
+/* Layout: one reading column (64rem). The two live demos are full-width panels (plot left, readouts right).
+   Between them the five concepts sit in a two-column grid: concept name | text at the chosen level.
+   Color meaning is fixed across the page: ink = the true function, blue = the lower bound (E-step),
+   orange = the climb to the bound's peak (M-step), magenta/green = the two hidden groups. */
+:root {
+  --bg: #F1F5F7;
+  --surface: #FFFFFF;
+  --surface-2: #E6EDF1;
+  --fg: #0F202B;
+  --muted: #4B606E;
+  --line: #C8D4DB;
+  --ink: #1B3347;
+  --bound: #1C7ED6;
+  --bound-text: #1864AB;
+  --climb: #E8590C;
+  --climb-text: #B03E08;
+  --ca: #D6336C;
+  --cb: #2B9348;
+  --warn: #C92A2A;
+  --good: #2B8A3E;
+  --e-fill: #1864AB;
+  --e-on: #FFFFFF;
+  --m-fill: #C2410C;
+  --m-on: #FFFFFF;
+  --font-display: "Archivo", system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D151B;
+    --surface: #141F27;
+    --surface-2: #1B2A35;
+    --fg: #E4EDF2;
+    --muted: #96AAB7;
+    --line: #2A3C48;
+    --ink: #BCD3E6;
+    --bound: #4DABF7;
+    --bound-text: #74C0FC;
+    --climb: #FF922B;
+    --climb-text: #FFA94D;
+    --ca: #F06595;
+    --cb: #51CF66;
+    --warn: #FF8787;
+    --good: #69DB7C;
+    --e-fill: #4DABF7;
+    --e-on: #08151F;
+    --m-fill: #FF922B;
+    --m-on: #1F0E03;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D151B;
+  --surface: #141F27;
+  --surface-2: #1B2A35;
+  --fg: #E4EDF2;
+  --muted: #96AAB7;
+  --line: #2A3C48;
+  --ink: #BCD3E6;
+  --bound: #4DABF7;
+  --bound-text: #74C0FC;
+  --climb: #FF922B;
+  --climb-text: #FFA94D;
+  --ca: #F06595;
+  --cb: #51CF66;
+  --warn: #FF8787;
+  --good: #69DB7C;
+  --e-fill: #4DABF7;
+  --e-on: #08151F;
+  --m-fill: #FF922B;
+  --m-on: #1F0E03;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  line-height: 1.62;
+  padding-inline: max(1rem, 3vw);
+  padding-block: 1.25rem 4rem;
+}
+.wrap { max-width: 64rem; margin-inline: auto; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.1; }
+h1 { font-weight: 800; font-size: clamp(2.1rem, 6vw, 3.5rem); letter-spacing: -0.025em; }
+h2 { font-weight: 700; font-size: clamp(1.45rem, 3.4vw, 2rem); letter-spacing: -0.015em; }
+h3 { font-weight: 700; font-size: 1.2rem; letter-spacing: -0.005em; }
+p { margin: 0 0 0.9em; }
+a { color: var(--bound-text); }
+var { font-style: italic; font-family: var(--font-body); }
+sub, sup { font-size: 0.72em; line-height: 0; }
+sub { vertical-align: -0.28em; }
+sup { vertical-align: 0.5em; }
+:focus-visible { outline: 3px solid var(--bound); outline-offset: 2px; border-radius: 4px; }
+
+/* ---------- header ---------- */
+.top { display: grid; gap: 1rem; padding-block: 0.5rem 1.5rem; }
+.jump { display: flex; flex-wrap: wrap; gap: 0.35rem 1.4rem; }
+.jump a {
+  font: 600 0.75rem/1 var(--font-display);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--muted);
+  padding-block: 0.4rem;
+}
+.jump a:hover { color: var(--fg); text-decoration: underline; text-underline-offset: 4px; }
+.lede { font-size: clamp(1.1rem, 2.2vw, 1.3rem); max-width: 44rem; margin: 0; color: var(--fg); }
+
+section { scroll-margin-top: 4.5rem; }
+.section-head { display: grid; gap: 0.6rem; margin-block: 3.2rem 1.1rem; max-width: 46rem; }
+.section-head p { color: var(--muted); margin: 0; }
+
+/* ---------- panels and controls ---------- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: clamp(0.75rem, 2vw, 1.25rem);
+}
+.demo-grid { display: grid; grid-template-columns: minmax(0, 1fr) 17rem; gap: 1.25rem; }
+.demo-main { display: grid; gap: 0.9rem; min-width: 0; align-content: start; }
+.side { display: grid; gap: 0.9rem; min-width: 0; align-content: start; }
+@media (max-width: 58rem) { .demo-grid { grid-template-columns: minmax(0, 1fr); } }
+
+.how { color: var(--muted); font-size: 0.97rem; margin: 0 0 0.9rem; max-width: 52rem; }
+.how b { color: var(--fg); font-weight: 600; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.btn {
+  font: 600 0.875rem/1 var(--font-display);
+  padding: 0.7rem 1rem;
+  min-height: 2.6rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+}
+.btn:hover:not([disabled]) { border-color: var(--muted); }
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.btn.e { border-color: var(--bound); color: var(--bound-text); }
+.btn.m { border-color: var(--climb); color: var(--climb-text); }
+.btn.e.next { background: var(--e-fill); border-color: var(--e-fill); color: var(--e-on); }
+.btn.m.next { background: var(--m-fill); border-color: var(--m-fill); color: var(--m-on); }
+.btn.quiet { color: var(--muted); }
+.btn.on { background: var(--surface-2); border-color: var(--muted); color: var(--fg); }
+
+.sliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0.8rem 1.5rem; }
+.field { display: grid; gap: 0.2rem; min-width: 0; }
+.field label, .field .lab {
+  font: 600 0.8rem/1.3 var(--font-display);
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.field output { font: 500 0.82rem/1.3 var(--font-mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: var(--bound); margin: 0.3rem 0; }
+select {
+  font: 600 0.85rem/1.2 var(--font-display);
+  padding: 0.6rem 0.7rem;
+  min-height: 2.6rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  max-width: 100%;
+}
+.note { font-size: 0.85rem; color: var(--muted); margin: 0; line-height: 1.45; }
+
+.status {
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  min-height: 3.6rem;
+}
+.status.bad { color: var(--warn); }
+
+/* ---------- charts ---------- */
+.chart { min-width: 0; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart figcaption, figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 0.4rem; line-height: 1.45; }
+figure { margin: 0; min-width: 0; }
+.ax text { font: 500 11px var(--font-mono); fill: var(--muted); }
+.ax .ttl { font: 600 11px var(--font-display); letter-spacing: 0.03em; }
+.ax line { stroke: var(--line); stroke-width: 1; }
+.ax .base { stroke: var(--muted); }
+.curve-f { fill: none; stroke: var(--ink); stroke-width: 2.6; stroke-linejoin: round; }
+.curve-q { fill: none; stroke: var(--bound); stroke-width: 2.6; }
+.curve-q.bad { stroke: var(--warn); stroke-dasharray: 6 4; }
+.climb { fill: none; stroke: var(--climb); stroke-width: 4.5; stroke-linecap: round; }
+.guide { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 3 4; fill: none; }
+.gapline { stroke: var(--ink); stroke-width: 2; fill: none; }
+.mk-ink { fill: var(--ink); stroke: var(--surface); stroke-width: 2; }
+.mk-hollow { fill: var(--surface); stroke: var(--ink); stroke-width: 2.4; }
+.mk-bound { fill: var(--bound); stroke: var(--surface); stroke-width: 2; }
+.mk-climb { fill: var(--climb); stroke: var(--surface); stroke-width: 2; }
+.mk-warn { fill: var(--warn); }
+.lbl { font: 600 12px var(--font-body); font-style: italic; fill: var(--fg); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+.lbl.b { fill: var(--bound-text); }
+.lbl.o { fill: var(--climb-text); }
+.lbl.w { fill: var(--warn); }
+.lbl.m { fill: var(--muted); }
+.comp-a { stroke: var(--ca); fill: var(--ca); }
+.comp-b { stroke: var(--cb); fill: var(--cb); }
+.dens { fill-opacity: 0.12; stroke-width: 2; }
+.mixture { fill: none; stroke: var(--ink); stroke-width: 2.4; }
+.mu-line { stroke-width: 1.4; stroke-dasharray: 2 4; fill: none; }
+.darea { stroke: none; fill-opacity: 0.12; }
+.dline { fill: none; stroke-width: 2.2; }
+.dot {
+  fill: var(--muted);
+  fill: color-mix(in srgb, var(--cb) calc(var(--g, 0.5) * 100%), var(--ca));
+  stroke: var(--surface);
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+.dot.sel { stroke: var(--fg); stroke-width: 3; }
+.spark { display: block; width: 100%; height: auto; overflow: visible; }
+.spark .ln { fill: none; stroke: var(--ink); stroke-width: 2; }
+.spark .pt { fill: var(--ink); }
+.spark .last { fill: var(--climb); stroke: var(--surface); stroke-width: 1.5; }
+.spark text { font: 500 10px var(--font-mono); fill: var(--muted); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 0.35rem 1.2rem; font-size: 0.85rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+.sw { display: inline-block; width: 1.4rem; height: 0; border-top: 3px solid var(--ink); }
+.sw.b { border-top-color: var(--bound); }
+.sw.o { border-top-color: var(--climb); border-top-width: 5px; }
+.sw.a { border-top-color: var(--ca); }
+.sw.g { border-top-color: var(--cb); }
+.sw.i { border-top-color: var(--ink); }
+.sw.w { border-top-color: var(--warn); border-top-style: dashed; }
+
+/* ---------- readouts ---------- */
+.stats { margin: 0; display: grid; }
+.stat { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; padding: 0.38rem 0; border-bottom: 1px solid var(--line); }
+.stat dt { font: 500 0.85rem/1.3 var(--font-body); color: var(--muted); }
+.stat dd { margin: 0; font: 500 0.9rem/1.3 var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.stat.sum dd { font-weight: 500; color: var(--fg); }
+.side h4 { margin: 0 0 0.2rem; font: 700 0.72rem/1.2 var(--font-display); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.badge {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font: 600 0.82rem/1.2 var(--font-display);
+  padding: 0.45rem 0.7rem; border-radius: 999px;
+  border: 1.5px solid var(--line);
+}
+.badge.ok { color: var(--good); border-color: var(--good); }
+.badge.bad { color: var(--warn); border-color: var(--warn); }
+table.params { width: 100%; border-collapse: collapse; font: 500 0.85rem/1.3 var(--font-mono); font-variant-numeric: tabular-nums; }
+table.params th { font: 700 0.7rem/1.2 var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); text-align: right; padding: 0.3rem 0.2rem; }
+table.params th:first-child, table.params td:first-child { text-align: left; }
+table.params td { text-align: right; padding: 0.35rem 0.2rem; border-top: 1px solid var(--line); }
+.gdot { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.4rem; vertical-align: -0.05rem; }
+.gdot.a { background: var(--ca); }
+.gdot.b { background: var(--cb); }
+.pointbox { font: 500 0.82rem/1.55 var(--font-mono); font-variant-numeric: tabular-nums; background: var(--surface-2); border-radius: 8px; padding: 0.6rem 0.7rem; overflow-x: auto; }
+.pointbox .row { white-space: nowrap; }
+
+/* ---------- concepts ---------- */
+.levelbar {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 10;
+  background: var(--bg);
+  padding-block: 0.7rem;
+  border-bottom: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
+}
+.levelbar .lab { font: 700 0.72rem/1.2 var(--font-display); letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+.seg { display: inline-flex; border: 1.5px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--surface); max-width: 100%; }
+.seg button {
+  font: 600 0.85rem/1.1 var(--font-display);
+  padding: 0.65rem 0.95rem;
+  min-height: 2.6rem;
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
+}
+.seg button + button { border-left: 1.5px solid var(--line); }
+.seg button[aria-checked="true"] { background: var(--ink); color: var(--bg); }
+.seg button:hover[aria-checked="false"] { background: var(--surface-2); color: var(--fg); }
+@media (max-width: 30rem) { .seg { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; } .seg button { padding-inline: 0.3rem; font-size: 0.8rem; } }
+
+.concept { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.6rem; padding-block: 1.6rem; border-bottom: 1px solid var(--line); scroll-margin-top: 5rem; }
+@media (min-width: 52rem) { .concept { grid-template-columns: 14rem minmax(0, 1fr); gap: 2rem; } }
+.c-name { align-self: start; }
+.c-name p { font-size: 0.9rem; color: var(--muted); margin: 0.4rem 0 0; line-height: 1.45; }
+.c-body { min-width: 0; max-width: 44rem; }
+.c-body p:last-child { margin-bottom: 0; }
+.lv { display: none; }
+#concepts[data-level="elem"] .lv-elem,
+#concepts[data-level="hs"] .lv-hs,
+#concepts[data-level="ug"] .lv-ug { display: block; }
+.lv-elem { font-size: 1.12rem; }
+
+.eq {
+  margin: 0.9rem 0;
+  padding: 0.7rem 1rem;
+  background: var(--surface-2);
+  border-radius: 6px;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-size: 1.08rem;
+  line-height: 1.9;
+}
+.eq.small { font-size: 1rem; }
+.frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; margin-inline: 0.2em; line-height: 1.4; }
+.frac > span:first-child { border-bottom: 1px solid currentColor; padding: 0 0.25em 0.1em; }
+.frac > span:last-child { padding: 0.1em 0.25em 0; }
+.ss { display: inline-flex; flex-direction: column; vertical-align: -0.55em; font-size: 0.72em; line-height: 1.05; margin-left: 0.08em; }
+.eq .lbl-note { font: 500 0.78rem/1 var(--font-display); color: var(--muted); letter-spacing: 0.02em; margin-left: 1.2rem; }
+.mono { font-family: var(--font-mono); font-size: 0.88em; }
+
+/* ---------- why / refs ---------- */
+.why { display: grid; gap: 0.2rem; max-width: 46rem; }
+.why h3 { margin-top: 1.2rem; }
+.refs { max-width: 46rem; font-size: 0.93rem; color: var(--muted); padding-left: 1.1rem; margin: 0.6rem 0 0; }
+.refs li { margin-bottom: 0.35rem; }
+.refs cite { font-style: normal; color: var(--fg); }
+footer { margin-top: 3rem; font-size: 0.85rem; color: var(--muted); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .btn, .seg button { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <nav class="jump" aria-label="Sections">
+    <a href="#mm">Live demo</a>
+    <a href="#concepts">Five ideas, three levels</a>
+    <a href="#em">EM on data</a>
+    <a href="#why">Why it works</a>
+  </nav>
+  <h1>Bound optimization and EM</h1>
+  <p class="lede">To maximize a hard function, build an easy one that sits underneath it and touches it where you stand, then jump to the easy one's peak. Repeat. The hard function can only go up.</p>
+</header>
+
+<!-- ============ DEMO A: general bound optimization ============ -->
+<section id="mm" aria-labelledby="mm-h">
+  <h2 id="mm-h" class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">Bound optimization in one dimension</h2>
+  <p class="how">The black curve is <b><var>f</var>(<var>θ</var>)</b>, the function to maximize. The <b style="color:var(--bound-text)">blue parabola <var>Q</var></b> is a lower bound built at your position <var>θ</var><sub><var>t</var></sub>. Press the two buttons in turn: build the bound, then <b style="color:var(--climb-text)">climb to its peak</b>. Click the plot, or use the sliders, to start somewhere else.</p>
+  <div class="panel">
+    <div class="demo-grid">
+      <div class="demo-main">
+        <figure class="chart" id="a-wrap">
+          <svg id="a-chart" role="img" aria-label="Plot of the function f with a quadratic lower bound"></svg>
+        </figure>
+        <div class="legend">
+          <span><i class="sw i"></i><var>f</var>(<var>θ</var>), the function</span>
+          <span><i class="sw b"></i><var>Q</var>(<var>θ</var> | <var>θ</var><sub><var>t</var></sub>), the lower bound</span>
+          <span><i class="sw o"></i>climb along the bound</span>
+        </div>
+        <p class="status" id="a-status" role="status" aria-live="polite"></p>
+        <div class="controls">
+          <button class="btn e" id="a-build" type="button">Build bound</button>
+          <button class="btn m" id="a-climb" type="button">Climb to its peak</button>
+          <button class="btn quiet" id="a-auto" type="button" aria-pressed="false">Auto-run</button>
+          <button class="btn quiet" id="a-reset" type="button">Reset</button>
+        </div>
+        <div class="sliders">
+          <div class="field">
+            <label for="a-L"><span>Bound curvature <var>L</var></span><output id="a-L-out" for="a-L"></output></label>
+            <input type="range" id="a-L" min="0.5" max="14" step="0.1" value="6">
+            <p class="note" id="a-Lnote"></p>
+          </div>
+          <div class="field">
+            <label for="a-start"><span>Start position <var>θ</var><sub>0</sub></span><output id="a-start-out" for="a-start"></output></label>
+            <input type="range" id="a-start" min="0" max="10" step="0.05" value="3.6">
+            <p class="note">Different starts climb to different peaks. Try 1.5, then 4.6.</p>
+          </div>
+        </div>
+      </div>
+      <aside class="side" aria-label="Readouts for the one-dimensional demo">
+        <div>
+          <h4>Where you are</h4>
+          <dl class="stats">
+            <div class="stat"><dt>Step <var>t</var></dt><dd id="a-t">0</dd></div>
+            <div class="stat"><dt><var>θ</var><sub><var>t</var></sub></dt><dd id="a-theta">–</dd></div>
+            <div class="stat"><dt><var>f</var>(<var>θ</var><sub><var>t</var></sub>)</dt><dd id="a-f">–</dd></div>
+          </dl>
+        </div>
+        <div>
+          <h4>Last climb</h4>
+          <dl class="stats">
+            <div class="stat"><dt>Bound promised</dt><dd id="a-promise">–</dd></div>
+            <div class="stat"><dt><var>f</var> actually rose</dt><dd id="a-actual">–</dd></div>
+          </dl>
+        </div>
+        <div><span class="badge ok" id="a-badge"></span></div>
+        <figure>
+          <svg id="a-spark" class="spark" viewBox="0 0 240 80" role="img" aria-label="f at each step"></svg>
+          <figcaption><var>f</var>(<var>θ</var><sub><var>t</var></sub>) after each climb. It rises every step while the bound stays below <var>f</var>.</figcaption>
+        </figure>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONCEPTS ============ -->
+<section id="concepts" data-level="ug" aria-labelledby="concepts-h">
+  <div class="section-head">
+    <h2 id="concepts-h">Five ideas, three levels</h2>
+    <p>Pick how much math you want. The five ideas stay the same; the language changes.</p>
+  </div>
+
+  <div class="levelbar">
+    <span class="lab" id="lvl-lab">Explain it at the level of</span>
+    <div class="seg" role="radiogroup" aria-labelledby="lvl-lab" id="lvl-seg">
+      <button type="button" role="radio" aria-checked="false" data-level="elem">Elementary</button>
+      <button type="button" role="radio" aria-checked="false" data-level="hs">High school</button>
+      <button type="button" role="radio" aria-checked="true" data-level="ug">Undergrad</button>
+    </div>
+  </div>
+
+  <!-- 1. bound optimization -->
+  <article class="concept" id="c-mm">
+    <div class="c-name"><h3>Bound optimization</h3><p>The general recipe. Also called MM: minorize, then maximize.</p></div>
+    <div class="c-body">
+      <div class="lv lv-elem">
+        <p>Imagine you are walking in thick fog, trying to find the very top of a bumpy hill. The ground is too lumpy to work out where the top is.</p>
+        <p>Here is a trick. Slide a smooth, round hill underneath the bumpy one, so it touches the bumpy hill only where you are standing. It never pokes above the real ground. The top of a smooth hill is easy to find, so walk there.</p>
+        <p>The smooth hill was never higher than the real one, so the real ground where you landed is at least that high. You went up for real. Now tuck a new smooth hill under your new spot and do it again. Keep going until you can't climb any higher.</p>
+      </div>
+      <div class="lv lv-hs">
+        <p>Say you want the maximum of a function <var>f</var>(<var>θ</var>), but setting its derivative to zero gives an algebra mess. Bound optimization trades that one hard problem for a series of easy ones.</p>
+        <p>At your current guess <var>θ</var><sub><var>t</var></sub>, build a simple stand-in function <var>Q</var>(<var>θ</var> | <var>θ</var><sub><var>t</var></sub>), often a parabola, that follows two rules. It never goes above <var>f</var>, and it equals <var>f</var> at <var>θ</var><sub><var>t</var></sub>. Find the peak of <var>Q</var> with ordinary algebra and jump there. Call that spot <var>θ</var><sub><var>t</var>+1</sub>.</p>
+        <p>Then <var>f</var> can't have gone down. At the new spot <var>f</var> is at least as high as <var>Q</var>. The peak of <var>Q</var> is at least as high as <var>Q</var> was where you started. And <var>Q</var> equals <var>f</var> at the start:</p>
+        <div class="eq small"><var>f</var>(<var>θ</var><sub><var>t</var>+1</sub>) ≥ <var>Q</var>(<var>θ</var><sub><var>t</var>+1</sub> | <var>θ</var><sub><var>t</var></sub>) ≥ <var>Q</var>(<var>θ</var><sub><var>t</var></sub> | <var>θ</var><sub><var>t</var></sub>) = <var>f</var>(<var>θ</var><sub><var>t</var></sub>)</div>
+        <p>Build a fresh <var>Q</var> at the new spot and repeat. Each round either improves <var>f</var> or stays put.</p>
+      </div>
+      <div class="lv lv-ug">
+        <p>Bound optimization, also called minorize–maximize (MM), maximizes an objective <var>f</var>(<var>θ</var>) by iterating over surrogates. At the current iterate <var>θ</var><sub><var>t</var></sub>, choose a surrogate <var>Q</var>(<var>θ</var> | <var>θ</var><sub><var>t</var></sub>) with two properties, then maximize it:</p>
+        <div class="eq"><var>Q</var>(<var>θ</var> | <var>θ</var><sub><var>t</var></sub>) ≤ <var>f</var>(<var>θ</var>) for all <var>θ</var>, &nbsp;&nbsp; <var>Q</var>(<var>θ</var><sub><var>t</var></sub> | <var>θ</var><sub><var>t</var></sub>) = <var>f</var>(<var>θ</var><sub><var>t</var></sub>), &nbsp;&nbsp; <var>θ</var><sub><var>t</var>+1</sub> = argmax<sub><var>θ</var></sub> <var>Q</var>(<var>θ</var> | <var>θ</var><sub><var>t</var></sub>)</div>
+        <p>Monotone ascent follows from a three-term chain:</p>
+        <div class="eq"><var>f</var>(<var>θ</var><sub><var>t</var>+1</sub>) ≥ <var>Q</var>(<var>θ</var><sub><var>t</var>+1</sub> | <var>θ</var><sub><var>t</var></sub>) ≥ <var>Q</var>(<var>θ</var><sub><var>t</var></sub> | <var>θ</var><sub><var>t</var></sub>) = <var>f</var>(<var>θ</var><sub><var>t</var></sub>)</div>
+        <p>Since <var>f</var> − <var>Q</var> ≥ 0 and equals zero at <var>θ</var><sub><var>t</var></sub>, it is minimized there. If both functions are differentiable, that forces ∇<var>Q</var>(<var>θ</var><sub><var>t</var></sub> | <var>θ</var><sub><var>t</var></sub>) = ∇<var>f</var>(<var>θ</var><sub><var>t</var></sub>), so a fixed point of the iteration is a stationary point of <var>f</var>.</p>
+        <p>The craft is choosing <var>Q</var> so the argmax is cheap. An <var>L</var>-smoothness bound gives a quadratic <var>Q</var> and the update <var>θ</var> + ∇<var>f</var>(<var>θ</var>)/<var>L</var>, which is gradient ascent with step size 1/<var>L</var> (the demo above). Jensen's inequality gives EM. Convexity and tangent-line bounds give iterative scaling, the convex–concave procedure, and more. A tighter bound allows bigger steps; a looser one is safer but slower. For minimization the same idea is called majorize–minimize.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- 2. lower bound -->
+  <article class="concept" id="c-lb">
+    <div class="c-name"><h3>Lower bound</h3><p>A stand-in that is never too high and touches the truth at one point.</p></div>
+    <div class="c-body">
+      <div class="lv lv-elem">
+        <p>A lower bound is a promise that the real answer is <em>at least</em> this much. If I tell you "I have at least 5 stickers," I might have 5, or 6, or 20, but never 4.</p>
+        <p>In our hill trick, the smooth hill is a lower bound for the bumpy hill: wherever you look, the real hill is the same height or taller. The smooth hill also has to touch the real hill at the spot where you're standing. That touching keeps the trick honest.</p>
+      </div>
+      <div class="lv lv-hs">
+        <p>A function <var>Q</var> is a lower bound for <var>f</var> if <var>Q</var>(<var>θ</var>) ≤ <var>f</var>(<var>θ</var>) for every <var>θ</var>. For bound optimization we also want it to touch <var>f</var> at the current guess, <var>Q</var>(<var>θ</var><sub><var>t</var></sub>) = <var>f</var>(<var>θ</var><sub><var>t</var></sub>). Picture a parabola pressed against the underside of a bumpy curve: exact at one point, an underestimate everywhere else.</p>
+        <p>The gap <var>f</var> − <var>Q</var> is never negative and is zero at the touch point. A bound that hugs the curve closely (a tight bound) allows big steps. A loose bound forces small, safe steps. In the demo above, drag the curvature slider down until the bound pokes above <var>f</var>. The guarantee breaks, and <var>f</var> can drop.</p>
+      </div>
+      <div class="lv lv-ug">
+        <p>In EM, the lower bound comes from Jensen's inequality. For any distribution <var>q</var>(<var>z</var>) over the latent variables, concavity of log gives</p>
+        <div class="eq"><var>ℓ</var>(<var>θ</var>) = log Σ<sub><var>z</var></sub> <var>q</var>(<var>z</var>) <span class="frac"><span><var>p</var>(<var>x</var>, <var>z</var> | <var>θ</var>)</span><span><var>q</var>(<var>z</var>)</span></span> ≥ Σ<sub><var>z</var></sub> <var>q</var>(<var>z</var>) log <span class="frac"><span><var>p</var>(<var>x</var>, <var>z</var> | <var>θ</var>)</span><span><var>q</var>(<var>z</var>)</span></span> = <var>F</var>(<var>q</var>, <var>θ</var>)</div>
+        <p>Here <var>ℓ</var>(<var>θ</var>) = log <var>p</var>(<var>x</var> | <var>θ</var>) is the log-likelihood, the particular <var>f</var> that EM maximizes. The right side <var>F</var>(<var>q</var>, <var>θ</var>) is the evidence lower bound (ELBO), and the gap is exactly a KL divergence:</p>
+        <div class="eq"><var>ℓ</var>(<var>θ</var>) = <var>F</var>(<var>q</var>, <var>θ</var>) + KL( <var>q</var>(<var>z</var>) ‖ <var>p</var>(<var>z</var> | <var>x</var>, <var>θ</var>) )</div>
+        <p>So <var>F</var> ≤ <var>ℓ</var> because KL ≥ 0, with equality exactly when <var>q</var>(<var>z</var>) = <var>p</var>(<var>z</var> | <var>x</var>, <var>θ</var>). Setting <var>q</var> to the posterior at <var>θ</var><sub><var>t</var></sub> gives a bound in <var>θ</var> that touches <var>ℓ</var> at <var>θ</var><sub><var>t</var></sub>. That bound equals <var>Q</var>(<var>θ</var> | <var>θ</var><sub><var>t</var></sub>) + <var>H</var>(<var>q</var>), where <var>Q</var>(<var>θ</var> | <var>θ</var><sub><var>t</var></sub>) = E<sub><var>z</var> | <var>x</var>, <var>θ</var><sub><var>t</var></sub></sub>[log <var>p</var>(<var>x</var>, <var>z</var> | <var>θ</var>)] is the usual EM surrogate. The entropy <var>H</var>(<var>q</var>) doesn't depend on <var>θ</var>, so both have the same maximizer.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- 3. EM -->
+  <article class="concept" id="c-em">
+    <div class="c-name"><h3>The EM algorithm</h3><p>Bound optimization for models with hidden variables. Expectation, then maximization, repeated.</p></div>
+    <div class="c-body">
+      <div class="lv lv-elem">
+        <p>Imagine a pile of dots from two groups, but the labels fell off, and nobody knows where each group's middle is. EM is a two-step dance.</p>
+        <p>Step one: guess how much each dot belongs to each group. Step two: move each group's middle to where its dots say it should be. Then dance again with the new middles.</p>
+        <p>Every round the groups fit the dots a little better, or at least no worse. Stop when the dance stops changing anything.</p>
+      </div>
+      <div class="lv lv-hs">
+        <p>EM stands for Expectation–Maximization. It finds the best settings (parameters) for a model when part of the story is hidden, like which of two groups each data point came from. You can't find the best group centers without knowing who belongs where, and you can't tell who belongs where without knowing the centers.</p>
+        <p>EM breaks that circle. Pretend the current parameters are right and work out soft group memberships (the E-step). Then pretend the memberships are right and refit the parameters (the M-step). Repeat. The probability of your data goes up or stays the same on every loop.</p>
+        <p>EM is bound optimization where the lower bound is built from the memberships. One catch: it can settle on a good answer that isn't the best one, so people try several starting points. The demo further down lets you see that happen.</p>
+      </div>
+      <div class="lv lv-ug">
+        <p>EM maximizes the marginal log-likelihood <var>ℓ</var>(<var>θ</var>) = log Σ<sub><var>z</var></sub> <var>p</var>(<var>x</var>, <var>z</var> | <var>θ</var>) when the sum over latent <var>z</var> makes direct optimization hard. It alternates exact coordinate ascent on the ELBO <var>F</var>(<var>q</var>, <var>θ</var>): the E-step maximizes over <var>q</var> with <var>θ</var> fixed, and the M-step maximizes over <var>θ</var> with <var>q</var> fixed (Neal and Hinton, 1998). In the language of bound optimization, the surrogate is <var>F</var>(<var>q</var><sub><var>t</var></sub>, ·). Monotonicity is the three-term chain again:</p>
+        <div class="eq"><var>ℓ</var>(<var>θ</var><sub><var>t</var>+1</sub>) ≥ <var>F</var>(<var>q</var><sub><var>t</var></sub>, <var>θ</var><sub><var>t</var>+1</sub>) ≥ <var>F</var>(<var>q</var><sub><var>t</var></sub>, <var>θ</var><sub><var>t</var></sub>) = <var>ℓ</var>(<var>θ</var><sub><var>t</var></sub>)</div>
+        <p>Under regularity conditions the iterates converge to a stationary point of <var>ℓ</var> (Wu, 1983), usually a local maximum, at a linear rate set by the fraction of missing information. In practice, watch for three things: sensitivity to initialization (use restarts or k-means); degenerate Gaussian-mixture solutions where a component collapses onto one point (<var>σ</var> → 0 sends <var>ℓ</var> → ∞); and an intractable E-step, which calls for variational or Monte Carlo EM.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- 4. E-step -->
+  <article class="concept" id="c-e">
+    <div class="c-name"><h3>The E-step</h3><p>Guess the hidden labels. This builds the lower bound.</p></div>
+    <div class="c-body">
+      <div class="lv lv-elem">
+        <p>The E-step is the guessing step. Each dot gets a score for each group, like "this dot is 80% group A and 20% group B." Dots close to a group's middle get a high score for that group. Dots in between get split scores.</p>
+        <p>You don't force a dot into one group yet. Partial credit is fine. These guesses are what let us build the smooth hill that touches the real one.</p>
+      </div>
+      <div class="lv lv-hs">
+        <p>E stands for Expectation. For every data point and every group, use the current parameters and Bayes' rule to compute the probability that the point came from that group. For a mixture of bell curves, the responsibility of group <var>k</var> for point <var>x</var><sub><var>i</var></sub> is:</p>
+        <div class="eq small"><var>γ</var><sub><var>ik</var></sub> = <span class="frac"><span>(size of group <var>k</var>) × (how well group <var>k</var>'s bell curve explains <var>x</var><sub><var>i</var></sub>)</span><span>the same quantity added up over all groups</span></span></div>
+        <p>Each responsibility is between 0 and 1, and the responsibilities for one point add up to 1. The E-step changes no parameters. It only turns the current parameters into soft labels, and those soft labels define the lower bound.</p>
+      </div>
+      <div class="lv lv-ug">
+        <p>The E-step sets <var>q</var><sub><var>t</var></sub>(<var>z</var>) = <var>p</var>(<var>z</var> | <var>x</var>, <var>θ</var><sub><var>t</var></sub>), the unique maximizer of <var>F</var>(·, <var>θ</var><sub><var>t</var></sub>). This closes the gap, KL = 0, so the bound touches <var>ℓ</var> at <var>θ</var><sub><var>t</var></sub>. It is called "E" because it computes the expectation <var>Q</var>(<var>θ</var> | <var>θ</var><sub><var>t</var></sub>) = E<sub><var>z</var> | <var>x</var>, <var>θ</var><sub><var>t</var></sub></sub>[log <var>p</var>(<var>x</var>, <var>z</var> | <var>θ</var>)]; in practice you only need the expected sufficient statistics. For a Gaussian mixture the posterior is the responsibility:</p>
+        <div class="eq"><var>γ</var><sub><var>ik</var></sub> = <span class="frac"><span><var>π</var><sub><var>k</var></sub> <var>N</var>(<var>x</var><sub><var>i</var></sub> | <var>μ</var><sub><var>k</var></sub>, <var>σ</var><span class="ss"><span>2</span><span><var>k</var></span></span>)</span><span>Σ<sub><var>j</var></sub> <var>π</var><sub><var>j</var></sub> <var>N</var>(<var>x</var><sub><var>i</var></sub> | <var>μ</var><sub><var>j</var></sub>, <var>σ</var><span class="ss"><span>2</span><span><var>j</var></span></span>)</span></span></div>
+        <p>When the posterior is intractable, restrict <var>q</var> to a tractable family and maximize <var>F</var> over that family (variational EM). The bound then no longer touches <var>ℓ</var>, so <var>F</var> still increases monotonically but <var>ℓ</var> is no longer guaranteed to.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- 5. M-step -->
+  <article class="concept" id="c-m">
+    <div class="c-name"><h3>The M-step</h3><p>Refit the parameters using the guesses. This climbs the bound.</p></div>
+    <div class="c-body">
+      <div class="lv lv-elem">
+        <p>The M-step is the improving step. Now treat the guesses as if they were true and slide each group's middle to its best spot: the average of its dots, where a dot with a bigger score counts for more. Also adjust how wide each group is, and how many dots it seems to own.</p>
+        <p>Finding the best spot for the smooth hill is the climb to its top. Because the smooth hill sits under the real one, the real hill goes up too.</p>
+      </div>
+      <div class="lv lv-hs">
+        <p>M stands for Maximization. Treat the responsibilities as fixed weights and find the parameters that fit the data best given those weights. For a bell-curve group the best answers are weighted averages. With weights <var>w</var><sub><var>i</var></sub> = <var>γ</var><sub><var>ik</var></sub>, the new center is:</p>
+        <div class="eq small"><var>μ</var><sub><var>k</var></sub> = <span class="frac"><span>Σ <var>w</var><sub><var>i</var></sub> <var>x</var><sub><var>i</var></sub></span><span>Σ <var>w</var><sub><var>i</var></sub></span></span></div>
+        <p>The new spread comes from the weighted average of squared distances to that center, and the new group size is the group's total weight divided by the number of points. Because the weights are fixed, this is the easy problem and it has a formula. It is the jump to the peak of the easy hill, so the real function can't go down.</p>
+      </div>
+      <div class="lv lv-ug">
+        <p>The M-step sets <var>θ</var><sub><var>t</var>+1</sub> = argmax<sub><var>θ</var></sub> <var>Q</var>(<var>θ</var> | <var>θ</var><sub><var>t</var></sub>). With <var>γ</var> held fixed, the expected complete-data log-likelihood separates across components, and each component is a weighted maximum-likelihood problem. For a Gaussian mixture with <var>n</var> points and <var>n</var><sub><var>k</var></sub> = Σ<sub><var>i</var></sub> <var>γ</var><sub><var>ik</var></sub>:</p>
+        <div class="eq small"><var>π</var><sub><var>k</var></sub> = <span class="frac"><span><var>n</var><sub><var>k</var></sub></span><span><var>n</var></span></span> &nbsp;&nbsp;&nbsp; <var>μ</var><sub><var>k</var></sub> = <span class="frac"><span>Σ<sub><var>i</var></sub> <var>γ</var><sub><var>ik</var></sub> <var>x</var><sub><var>i</var></sub></span><span><var>n</var><sub><var>k</var></sub></span></span> &nbsp;&nbsp;&nbsp; <var>σ</var><span class="ss"><span>2</span><span><var>k</var></span></span> = <span class="frac"><span>Σ<sub><var>i</var></sub> <var>γ</var><sub><var>ik</var></sub> (<var>x</var><sub><var>i</var></sub> − <var>μ</var><sub><var>k</var></sub>)<sup>2</sup></span><span><var>n</var><sub><var>k</var></sub></span></span></div>
+        <p>For exponential-family complete-data models, the M-step touches the data only through expected sufficient statistics, so it is the ordinary maximum-likelihood estimate with counts replaced by expected counts. Generalized EM only asks for <var>Q</var>(<var>θ</var><sub><var>t</var>+1</sub> | <var>θ</var><sub><var>t</var></sub>) ≥ <var>Q</var>(<var>θ</var><sub><var>t</var></sub> | <var>θ</var><sub><var>t</var></sub>), for example one gradient step on <var>Q</var>, and keeps the monotone guarantee.</p>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ============ DEMO B: EM ============ -->
+<section id="em" aria-labelledby="em-h">
+  <div class="section-head">
+    <h2 id="em-h">EM on a two-group mixture</h2>
+    <p>Sixty numbers came from two overlapping groups, A and B, and the group labels are hidden. EM has to recover each group's share, center and spread.</p>
+  </div>
+  <p class="how">Press <b style="color:var(--bound-text)">E-step</b>, then <b style="color:var(--climb-text)">M-step</b>. Each dot's color is its responsibilities: magenta leans group A, green leans group B, in between means unsure. The lower plot slices the log-likelihood <var>ℓ</var> along the straight line from the current parameters (<var>s</var> = 0) to where the M-step lands (<var>s</var> = 1). To see a local maximum, pick "Both start on the right" and press Auto-run.</p>
+
+  <div class="panel">
+    <div class="controls">
+      <div class="field" style="min-width:0">
+        <label for="b-preset" class="lab" style="display:block"><span>Starting guess</span></label>
+        <select id="b-preset">
+          <option value="middle">Both start near the middle</option>
+          <option value="swapped">Groups start swapped</option>
+          <option value="right">Both start on the right</option>
+        </select>
+      </div>
+      <button class="btn e" id="b-e" type="button">E-step</button>
+      <button class="btn m" id="b-m" type="button">M-step</button>
+      <button class="btn quiet" id="b-auto" type="button" aria-pressed="false">Auto-run</button>
+      <button class="btn quiet" id="b-reset" type="button">Reset</button>
+    </div>
+    <p class="status" id="b-status" role="status" aria-live="polite" style="margin-block:0.9rem"></p>
+
+    <div class="demo-grid">
+      <div class="demo-main">
+        <figure class="chart" id="b-fit-wrap">
+          <svg id="b-fit" role="img" aria-label="Data points on a number line with the fitted two-group mixture"></svg>
+          <figcaption>Current fit. Dot colors come from the last E-step. Click a dot to inspect it.</figcaption>
+        </figure>
+        <div class="legend">
+          <span><i class="sw a"></i>group A</span>
+          <span><i class="sw g"></i>group B</span>
+          <span><i class="sw i"></i>mixture (A + B)</span>
+        </div>
+        <figure class="chart" id="b-line-wrap">
+          <svg id="b-line" role="img" aria-label="Log-likelihood and lower bound along the update direction"></svg>
+          <figcaption>Along the update direction: the true log-likelihood <var>ℓ</var> (black) and the E-step bound <var>F</var> (blue). The bound touches <var>ℓ</var> at <var>s</var> = 0 and peaks at <var>s</var> = 1, which is the M-step.</figcaption>
+        </figure>
+      </div>
+
+      <aside class="side" aria-label="Readouts for the EM demo">
+        <div>
+          <h4>Now</h4>
+          <dl class="stats">
+            <div class="stat"><dt>Iteration</dt><dd id="b-iter">0</dd></div>
+            <div class="stat"><dt>Log-likelihood <var>ℓ</var></dt><dd id="b-ll">–</dd></div>
+            <div class="stat"><dt>Bound <var>F</var></dt><dd id="b-F">–</dd></div>
+            <div class="stat"><dt>Gap <var>ℓ</var> − <var>F</var></dt><dd id="b-gap">–</dd></div>
+          </dl>
+        </div>
+        <div>
+          <h4>Last M-step</h4>
+          <dl class="stats">
+            <div class="stat"><dt>Bound gained</dt><dd id="b-dF">–</dd></div>
+            <div class="stat"><dt>+ gap opened (KL)</dt><dd id="b-dGap">–</dd></div>
+            <div class="stat sum"><dt><var>ℓ</var> gained</dt><dd id="b-dLL">–</dd></div>
+          </dl>
+        </div>
+        <div>
+          <h4>Parameters</h4>
+          <table class="params">
+            <thead><tr><th scope="col">Group</th><th scope="col"><var>π</var></th><th scope="col"><var>μ</var></th><th scope="col"><var>σ</var></th></tr></thead>
+            <tbody>
+              <tr><td><i class="gdot a"></i>A</td><td id="b-pi0"></td><td id="b-mu0"></td><td id="b-sd0"></td></tr>
+              <tr><td><i class="gdot b"></i>B</td><td id="b-pi1"></td><td id="b-mu1"></td><td id="b-sd1"></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h4>Inspect a point</h4>
+          <div class="field">
+            <label for="b-sel"><span>Data point</span><output id="b-sel-out" for="b-sel"></output></label>
+            <input type="range" id="b-sel" min="0" max="59" step="1" value="0">
+          </div>
+          <div class="pointbox" id="b-point" aria-live="polite"></div>
+        </div>
+        <figure>
+          <svg id="b-spark" class="spark" viewBox="0 0 240 80" role="img" aria-label="Log-likelihood at each iteration"></svg>
+          <figcaption>Log-likelihood <var>ℓ</var> after each M-step.</figcaption>
+        </figure>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WHY IT WORKS ============ -->
+<section id="why" aria-labelledby="why-h">
+  <div class="section-head">
+    <h2 id="why-h">Why the likelihood never goes down</h2>
+    <p>Three facts carry the whole argument. This part is written at the undergraduate level.</p>
+  </div>
+  <div class="why">
+    <h3>The bound sits under <var>ℓ</var> and has a known gap</h3>
+    <div class="eq"><var>ℓ</var>(<var>θ</var>) = <var>F</var>(<var>q</var>, <var>θ</var>) + KL( <var>q</var>(<var>z</var>) ‖ <var>p</var>(<var>z</var> | <var>x</var>, <var>θ</var>) ) &nbsp; ≥ &nbsp; <var>F</var>(<var>q</var>, <var>θ</var>)</div>
+
+    <h3>E-step: make the bound touch</h3>
+    <p>Choose <var>q</var><sub><var>t</var></sub>(<var>z</var>) = <var>p</var>(<var>z</var> | <var>x</var>, <var>θ</var><sub><var>t</var></sub>). The KL term is zero at <var>θ</var><sub><var>t</var></sub>, so <var>F</var>(<var>q</var><sub><var>t</var></sub>, <var>θ</var><sub><var>t</var></sub>) = <var>ℓ</var>(<var>θ</var><sub><var>t</var></sub>). In the demo, this is why the blue curve meets the black one at <var>s</var> = 0.</p>
+
+    <h3>M-step: climb the bound</h3>
+    <p>Choose <var>θ</var><sub><var>t</var>+1</sub> to maximize <var>F</var>(<var>q</var><sub><var>t</var></sub>, ·). Then <var>F</var>(<var>q</var><sub><var>t</var></sub>, <var>θ</var><sub><var>t</var>+1</sub>) ≥ <var>F</var>(<var>q</var><sub><var>t</var></sub>, <var>θ</var><sub><var>t</var></sub>). In the demo, this is the peak of the blue curve at <var>s</var> = 1.</p>
+
+    <h3>Put them together</h3>
+    <div class="eq"><var>ℓ</var>(<var>θ</var><sub><var>t</var>+1</sub>) ≥ <var>F</var>(<var>q</var><sub><var>t</var></sub>, <var>θ</var><sub><var>t</var>+1</sub>) ≥ <var>F</var>(<var>q</var><sub><var>t</var></sub>, <var>θ</var><sub><var>t</var></sub>) = <var>ℓ</var>(<var>θ</var><sub><var>t</var></sub>)</div>
+    <p>The readouts in the EM demo track the exact bookkeeping. Subtracting <var>ℓ</var>(<var>θ</var><sub><var>t</var></sub>) = <var>F</var>(<var>q</var><sub><var>t</var></sub>, <var>θ</var><sub><var>t</var></sub>) from the decomposition at <var>θ</var><sub><var>t</var>+1</sub> gives:</p>
+    <div class="eq"><var>ℓ</var>(<var>θ</var><sub><var>t</var>+1</sub>) − <var>ℓ</var>(<var>θ</var><sub><var>t</var></sub>) = [ <var>F</var>(<var>q</var><sub><var>t</var></sub>, <var>θ</var><sub><var>t</var>+1</sub>) − <var>F</var>(<var>q</var><sub><var>t</var></sub>, <var>θ</var><sub><var>t</var></sub>) ] + KL( <var>q</var><sub><var>t</var></sub> ‖ <var>p</var>(<var>z</var> | <var>x</var>, <var>θ</var><sub><var>t</var>+1</sub>) )</div>
+    <p>That is "<var>ℓ</var> gained = bound gained + gap opened." Both terms are nonnegative, which is the monotone guarantee. The next E-step closes the new gap and the cycle repeats.</p>
+
+    <h3>Where to read more</h3>
+    <ul class="refs">
+      <li><cite>Hunter and Lange (2004).</cite> A tutorial on MM algorithms. <i>The American Statistician</i> 58(1).</li>
+      <li><cite>Dempster, Laird and Rubin (1977).</cite> Maximum likelihood from incomplete data via the EM algorithm. <i>Journal of the Royal Statistical Society B</i> 39(1).</li>
+      <li><cite>Wu (1983).</cite> On the convergence properties of the EM algorithm. <i>The Annals of Statistics</i> 11(1).</li>
+      <li><cite>Neal and Hinton (1998).</cite> A view of the EM algorithm that justifies incremental, sparse, and other variants. In <i>Learning in Graphical Models</i>.</li>
+      <li><cite>Bishop (2006).</cite> <i>Pattern Recognition and Machine Learning</i>, chapter 9, Mixture models and EM.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>Both demos run in your browser and compute every number live. The EM data are 60 synthetic points from a seeded random generator, so everyone sees the same dots.</footer>
+</div>
+<script>
+// Pure math for both demos. No DOM access, so it can be tested in Node.
+const Core = (function () {
+  'use strict';
+
+  // ------------------------------------------------------------------
+  // Demo A: bound optimization on a bumpy 1-D function
+  // ------------------------------------------------------------------
+  const DOMAIN = [0, 10];
+  // f(x) = sum of a*sin(w*x + p): bumpy, several local maxima, bounded curvature
+  const COMPS = [[1.0, 1.0, 0.0], [0.55, 2.3, 0.8], [0.3, 0.45, 1.2]];
+
+  const f = (x) => COMPS.reduce((s, c) => s + c[0] * Math.sin(c[1] * x + c[2]), 0);
+  const df = (x) => COMPS.reduce((s, c) => s + c[0] * c[1] * Math.cos(c[1] * x + c[2]), 0);
+  const d2f = (x) => COMPS.reduce((s, c) => s - c[0] * c[1] * c[1] * Math.sin(c[1] * x + c[2]), 0);
+
+  // Smallest L such that f'' >= -L everywhere on the domain.
+  function minCurvature(n) {
+    n = n || 4000;
+    let L = 0;
+    for (let i = 0; i <= n; i++) {
+      const x = DOMAIN[0] + ((DOMAIN[1] - DOMAIN[0]) * i) / n;
+      L = Math.max(L, -d2f(x));
+    }
+    return L;
+  }
+
+  // Quadratic lower bound built at t:  Q(x | t) = f(t) + f'(t)(x - t) - (L/2)(x - t)^2
+  const boundQ = (x, t, L) => f(t) + df(t) * (x - t) - 0.5 * L * (x - t) * (x - t);
+
+  const clampDomain = (x) => Math.min(DOMAIN[1], Math.max(DOMAIN[0], x));
+
+  // Peak of Q over the domain (Q is a concave parabola, so this is the clamped vertex).
+  const boundPeak = (t, L) => clampDomain(t + df(t) / L);
+
+  // Is Q(. | t) at or below f everywhere on the domain?
+  function boundCheck(t, L, n) {
+    n = n || 800;
+    let worst = -Infinity, at = t;
+    for (let i = 0; i <= n; i++) {
+      const x = DOMAIN[0] + ((DOMAIN[1] - DOMAIN[0]) * i) / n;
+      const d = boundQ(x, t, L) - f(x);
+      if (d > worst) { worst = d; at = x; }
+    }
+    return { valid: worst <= 1e-9, worst: worst, at: at };
+  }
+
+  // ------------------------------------------------------------------
+  // Demo B: EM for a two-component 1-D Gaussian mixture
+  // theta = { pi:[a,b], mu:[a,b], v:[a,b] }   (v = variance)
+  // ------------------------------------------------------------------
+  const LOG2PI = Math.log(2 * Math.PI);
+  const VAR_FLOOR = 0.02;
+
+  function mulberry32(seed) {
+    let a = seed | 0;
+    return function () {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function makeData(seed, n, truth) {
+    const rng = mulberry32(seed);
+    const gauss = () => {
+      const u = Math.max(rng(), 1e-12), v = rng();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    };
+    const xs = [];
+    for (let i = 0; i < n; i++) {
+      const k = rng() < truth.pi[0] ? 0 : 1;
+      xs.push(truth.mu[k] + Math.sqrt(truth.v[k]) * gauss());
+    }
+    return xs;
+  }
+
+  const logNormal = (x, mu, v) => -0.5 * (LOG2PI + Math.log(v) + ((x - mu) * (x - mu)) / v);
+
+  function logJoint(x, th) {
+    return [0, 1].map((k) => Math.log(th.pi[k]) + logNormal(x, th.mu[k], th.v[k]));
+  }
+
+  function logSumExp(a) {
+    const m = Math.max.apply(null, a);
+    return m + Math.log(a.reduce((s, v) => s + Math.exp(v - m), 0));
+  }
+
+  function logLik(xs, th) {
+    let s = 0;
+    for (let i = 0; i < xs.length; i++) s += logSumExp(logJoint(xs[i], th));
+    return s;
+  }
+
+  // E-step: responsibilities gamma[i] = [P(z=A | x_i), P(z=B | x_i)]
+  function eStep(xs, th) {
+    return xs.map((x) => {
+      const lj = logJoint(x, th);
+      const z = logSumExp(lj);
+      return [Math.exp(lj[0] - z), Math.exp(lj[1] - z)];
+    });
+  }
+
+  // M-step: weighted maximum likelihood given responsibilities
+  function mStep(xs, gamma) {
+    const n = xs.length;
+    const Nk = [0, 0], mu = [0, 0], v = [0, 0];
+    for (let k = 0; k < 2; k++) {
+      let sw = 0, swx = 0;
+      for (let i = 0; i < n; i++) { sw += gamma[i][k]; swx += gamma[i][k] * xs[i]; }
+      Nk[k] = sw;
+      mu[k] = swx / sw;
+      let sv = 0;
+      for (let i = 0; i < n; i++) sv += gamma[i][k] * (xs[i] - mu[k]) * (xs[i] - mu[k]);
+      v[k] = Math.max(VAR_FLOOR, sv / sw);
+    }
+    return { pi: [Nk[0] / n, Nk[1] / n], mu: mu, v: v };
+  }
+
+  // Lower bound F(q, theta) = sum_i sum_k q_ik [ log pi_k + log N(x_i | mu_k, v_k) - log q_ik ]
+  function boundF(xs, gamma, th) {
+    let s = 0;
+    for (let i = 0; i < xs.length; i++) {
+      const lj = logJoint(xs[i], th);
+      for (let k = 0; k < 2; k++) {
+        const q = gamma[i][k];
+        if (q > 0) s += q * (lj[k] - Math.log(q));
+      }
+    }
+    return s;
+  }
+
+  // Straight line in parameter space from th0 to th1 (s = 0 is th0, s = 1 is th1)
+  function lineParams(th0, th1, s) {
+    const pA = th0.pi[0] + s * (th1.pi[0] - th0.pi[0]);
+    return {
+      pi: [pA, 1 - pA],
+      mu: [th0.mu[0] + s * (th1.mu[0] - th0.mu[0]), th0.mu[1] + s * (th1.mu[1] - th0.mu[1])],
+      v: [th0.v[0] + s * (th1.v[0] - th0.v[0]), th0.v[1] + s * (th1.v[1] - th0.v[1])],
+    };
+  }
+
+  // Range of s keeping variances and mixing weights in a valid region
+  function lineRange(th0, th1, wantLo, wantHi) {
+    let lo = wantLo, hi = wantHi;
+    const limit = (g0, g1, bound, isLower) => {
+      const d = g1 - g0;
+      if (Math.abs(d) < 1e-14) return;
+      const s = (bound - g0) / d;
+      if ((d > 0) === isLower) lo = Math.max(lo, s); else hi = Math.min(hi, s);
+    };
+    const pmin = 0.01, vmin = VAR_FLOOR;
+    for (let k = 0; k < 2; k++) limit(th0.v[k], th1.v[k], vmin, true);
+    limit(th0.pi[0], th1.pi[0], pmin, true);
+    limit(th0.pi[0], th1.pi[0], 1 - pmin, false);
+    return [Math.min(lo, 0), Math.max(hi, 1)];
+  }
+
+  const cloneTheta = (th) => ({ pi: th.pi.slice(), mu: th.mu.slice(), v: th.v.slice() });
+
+  const maxParamChange = (a, b) =>
+    Math.max(
+      Math.abs(a.pi[0] - b.pi[0]),
+      Math.abs(a.mu[0] - b.mu[0]), Math.abs(a.mu[1] - b.mu[1]),
+      Math.abs(a.v[0] - b.v[0]), Math.abs(a.v[1] - b.v[1])
+    );
+
+  const normalPdf = (x, mu, v) => Math.exp(logNormal(x, mu, v));
+
+  return {
+    DOMAIN, f, df, d2f, minCurvature, boundQ, boundPeak, boundCheck, clampDomain,
+    VAR_FLOOR, makeData, logNormal, logJoint, logSumExp, logLik, eStep, mStep, boundF,
+    lineParams, lineRange, cloneTheta, maxParamChange, normalPdf,
+  };
+})();
+
+if (typeof module !== 'undefined' && module.exports) module.exports = Core;
+</script>
+<script>
+// DOM, drawing and interaction for both demos. All math lives in core.js (Core).
+(function () {
+  'use strict';
+  const C = Core;
+  const $ = (id) => document.getElementById(id);
+
+  // ---------------------------------------------------------------- helpers
+  function fmt(v, d) {
+    let s = v.toFixed(d);
+    if (/^-0(\.0+)?$/.test(s)) s = s.slice(1);
+    return s.replace('-', '−');
+  }
+  const signed = (v, d) => (v < 0 ? '−' : '+') + Math.abs(v).toFixed(d);
+
+  function niceTicks(lo, hi, target) {
+    const raw = (hi - lo) / target;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw / mag;
+    const step = (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag;
+    const ticks = [];
+    for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + step * 1e-9; v += step) ticks.push(+v.toPrecision(12));
+    const dec = Math.max(0, Math.min(8, -Math.floor(Math.log10(step) + 1e-9)));
+    return { ticks: ticks, step: step, dec: dec };
+  }
+  function chartWidth(el) {
+    return Math.max(300, Math.floor(el.getBoundingClientRect().width || 600));
+  }
+  function setupSvg(svg, W, H) {
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('width', W);
+    svg.setAttribute('height', H);
+  }
+  const thLabel = (sub) => 'θ<tspan dy="3" font-size="9">' + sub + '</tspan>';
+
+  function sparkline(svg, ys, decimals) {
+    const W = 240, H = 80, m = { l: 34, r: 8, t: 8, b: 18 };
+    const n = Math.max(6, ys.length - 1);
+    let lo = Math.min.apply(null, ys), hi = Math.max.apply(null, ys);
+    const pad = Math.max((hi - lo) * 0.2, decimals >= 2 ? 0.05 : 0.5);
+    lo -= pad; hi += pad;
+    const X = (i) => m.l + (i / n) * (W - m.l - m.r);
+    const Y = (v) => H - m.b - ((v - lo) / (hi - lo)) * (H - m.t - m.b);
+    let s = '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + (H - m.b) + '" y2="' + (H - m.b) + '" stroke="var(--line)"/>';
+    s += '<text x="' + (m.l - 4) + '" y="' + (m.t + 4) + '" text-anchor="end">' + fmt(hi, decimals) + '</text>';
+    s += '<text x="' + (m.l - 4) + '" y="' + (H - m.b) + '" text-anchor="end">' + fmt(lo, decimals) + '</text>';
+    s += '<text x="' + m.l + '" y="' + (H - 4) + '">0</text>';
+    s += '<text x="' + (W - m.r) + '" y="' + (H - 4) + '" text-anchor="end">' + n + '</text>';
+    s += '<text x="' + ((m.l + W - m.r) / 2) + '" y="' + (H - 4) + '" text-anchor="middle">step</text>';
+    let d = '';
+    ys.forEach((v, i) => { d += (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1); });
+    s += '<path class="ln" d="' + d + '"/>';
+    ys.forEach((v, i) => {
+      const last = i === ys.length - 1;
+      s += '<circle class="' + (last ? 'last' : 'pt') + '" cx="' + X(i).toFixed(1) + '" cy="' + Y(v).toFixed(1) + '" r="' + (last ? 4.5 : 2.4) + '"/>';
+    });
+    svg.innerHTML = s;
+  }
+
+  // ====================================================================
+  // Demo A: bound optimization in one dimension
+  // ====================================================================
+  const A = {
+    L: 6, start: 3.6, theta: 3.6, bFrom: 3.6, phase: 'bound',
+    hist: [], last: null, timer: null, Lmin: C.minCurvature(), geom: null,
+  };
+  let FMAX = -Infinity;
+  for (let i = 0; i <= 4000; i++) FMAX = Math.max(FMAX, C.f(C.DOMAIN[0] + (C.DOMAIN[1] - C.DOMAIN[0]) * i / 4000));
+
+  function aReset(start) {
+    aAuto(false);
+    A.start = start; A.theta = start; A.bFrom = start; A.phase = 'bound';
+    A.hist = [C.f(start)]; A.last = null;
+    updateA();
+  }
+  function aBuild() {
+    if (A.phase !== 'moved') return;
+    A.bFrom = A.theta; A.phase = 'bound';
+    updateA();
+  }
+  function aClimb() {
+    if (A.phase !== 'bound') return;
+    const from = A.theta, to = C.boundPeak(from, A.L);
+    A.last = {
+      from: from, to: to, fFrom: C.f(from), fTo: C.f(to), qTo: C.boundQ(to, from, A.L),
+      valid: C.boundCheck(from, A.L).valid,
+    };
+    A.theta = to; A.hist.push(A.last.fTo); A.phase = 'moved';
+    updateA();
+  }
+  function aConverged() { return A.phase === 'moved' && A.last && Math.abs(A.last.to - A.last.from) < 1e-3; }
+  function aTick() {
+    if (A.phase === 'bound') {
+      aClimb();
+      if (aConverged() || A.hist.length > 70) aAuto(false);
+    } else {
+      aBuild();
+    }
+  }
+  function aAuto(on) {
+    if (on && !A.timer) A.timer = setInterval(aTick, 520);
+    if (!on && A.timer) { clearInterval(A.timer); A.timer = null; }
+    const b = $('a-auto');
+    b.setAttribute('aria-pressed', A.timer ? 'true' : 'false');
+    b.classList.toggle('on', !!A.timer);
+    b.textContent = A.timer ? 'Pause' : 'Auto-run';
+  }
+
+  function renderA() {
+    const svg = $('a-chart');
+    const W = chartWidth($('a-wrap'));
+    const H = Math.round(Math.min(380, Math.max(250, W * 0.48)));
+    const m = { l: 40, r: 14, t: 14, b: 32 };
+    const x0 = C.DOMAIN[0], x1 = C.DOMAIN[1], yLo = -2, yHi = 2;
+    const X = (x) => m.l + ((x - x0) / (x1 - x0)) * (W - m.l - m.r);
+    const Y = (y) => H - m.b - ((y - yLo) / (yHi - yLo)) * (H - m.t - m.b);
+    A.geom = { W: W, m: m, x0: x0, x1: x1 };
+    setupSvg(svg, W, H);
+
+    const path = (fn, a, b, n) => {
+      let d = '';
+      for (let i = 0; i <= n; i++) {
+        const x = a + ((b - a) * i) / n;
+        d += (i ? 'L' : 'M') + X(x).toFixed(1) + ' ' + Y(fn(x)).toFixed(1);
+      }
+      return d;
+    };
+
+    const tb = A.bFrom;
+    const chk = C.boundCheck(tb, A.L);
+    const Q = (x) => C.boundQ(x, tb, A.L);
+    let s = '<defs><clipPath id="a-clip"><rect x="' + m.l + '" y="' + m.t + '" width="' + (W - m.l - m.r) + '" height="' + (H - m.t - m.b) + '"/></clipPath></defs>';
+
+    // axes
+    s += '<g class="ax">';
+    for (let v = yLo; v <= yHi; v += 1) {
+      s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/>';
+      s += '<text x="' + (m.l - 7) + '" y="' + (Y(v) + 4) + '" text-anchor="end">' + fmt(v, 0) + '</text>';
+    }
+    for (let v = 0; v <= 10; v += 2) {
+      s += '<text x="' + X(v) + '" y="' + (H - m.b + 17) + '" text-anchor="middle">' + v + '</text>';
+      s += '<line x1="' + X(v) + '" x2="' + X(v) + '" y1="' + (H - m.b) + '" y2="' + (H - m.b + 4) + '" class="base"/>';
+    }
+    s += '<line class="base" x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + (H - m.b) + '" y2="' + (H - m.b) + '"/>';
+    s += '<text class="ttl" x="' + (W - m.r) + '" y="' + (H - 4) + '" text-anchor="end">θ</text>';
+    s += '</g>';
+
+    // curves
+    s += '<g clip-path="url(#a-clip)">';
+    s += '<path class="curve-q' + (chk.valid ? '' : ' bad') + '" d="' + path(Q, x0, x1, 240) + '"/>';
+    s += '</g>';
+    s += '<path class="curve-f" d="' + path(C.f, x0, x1, 300) + '"/>';
+
+    // guides and markers
+    const fy = (x) => Y(C.f(x));
+    s += '<line class="guide" x1="' + X(tb) + '" x2="' + X(tb) + '" y1="' + (H - m.b) + '" y2="' + fy(tb) + '"/>';
+    if (A.phase === 'moved') {
+      const to = A.theta;
+      s += '<g clip-path="url(#a-clip)"><path class="climb" d="' + path(Q, Math.min(tb, to), Math.max(tb, to), 60) + '"/></g>';
+      s += '<line class="guide" x1="' + X(to) + '" x2="' + X(to) + '" y1="' + (H - m.b) + '" y2="' + fy(to) + '"/>';
+      const yq = Y(Q(to)), yf = fy(to);
+      if (Math.abs(yq - yf) > 1) s += '<line class="gapline" x1="' + X(to) + '" x2="' + X(to) + '" y1="' + yq + '" y2="' + yf + '"/>';
+      s += '<circle class="mk-hollow" cx="' + X(tb) + '" cy="' + fy(tb) + '" r="5.5"/>';
+      s += '<circle class="mk-climb" cx="' + X(to) + '" cy="' + yq + '" r="5.5"/>';
+      s += '<circle class="mk-ink" cx="' + X(to) + '" cy="' + yf + '" r="6"/>';
+      s += '<text class="lbl" x="' + X(tb) + '" y="' + (fy(tb) - 12) + '" text-anchor="middle">' + thLabel('t') + '</text>';
+      s += '<text class="lbl" x="' + X(to) + '" y="' + (yf - 12) + '" text-anchor="middle">' + thLabel('t+1') + '</text>';
+      if (Math.abs(yq - yf) > 16) s += '<text class="lbl o" x="' + (X(to) + 9) + '" y="' + (yq + 4) + '">peak of Q</text>';
+    } else {
+      s += '<circle class="mk-ink" cx="' + X(tb) + '" cy="' + fy(tb) + '" r="6"/>';
+      s += '<text class="lbl" x="' + X(tb) + '" y="' + (fy(tb) - 12) + '" text-anchor="middle">' + thLabel('t') + '</text>';
+    }
+    if (!chk.valid) {
+      const wx = chk.at, wy = Math.min(Y(Q(wx)), Y(C.f(wx)));
+      s += '<circle class="mk-warn" cx="' + X(wx) + '" cy="' + Math.max(m.t + 6, Math.min(H - m.b - 6, Y(Q(wx)))) + '" r="5"/>';
+      s += '<text class="lbl w" x="' + X(wx) + '" y="' + Math.max(m.t + 10, wy - 12) + '" text-anchor="middle">bound above f</text>';
+    }
+    svg.innerHTML = s;
+    svg.setAttribute('aria-label',
+      'Plot of f(θ) with a quadratic lower bound built at θ = ' + fmt(tb, 2) +
+      (A.phase === 'moved' ? ', and a climb to θ = ' + fmt(A.theta, 2) : '') + '.');
+  }
+
+  function updateA() {
+    const chk = C.boundCheck(A.bFrom, A.L);
+    const fNow = C.f(A.theta);
+    $('a-t').textContent = String(A.hist.length - 1);
+    $('a-theta').textContent = fmt(A.theta, 3);
+    $('a-f').textContent = fmt(fNow, 3);
+    if (A.last) {
+      $('a-promise').textContent = signed(A.last.qTo - A.last.fFrom, 3);
+      $('a-actual').textContent = signed(A.last.fTo - A.last.fFrom, 3);
+    } else {
+      $('a-promise').textContent = '–';
+      $('a-actual').textContent = '–';
+    }
+    const badge = $('a-badge');
+    badge.className = 'badge ' + (chk.valid ? 'ok' : 'bad');
+    badge.textContent = chk.valid ? '✓ Bound stays below f' : '✕ Bound pokes above f';
+
+    $('a-L-out').textContent = fmt(A.L, 1);
+    $('a-start-out').textContent = fmt(A.start, 2);
+    $('a-Lnote').textContent = 'Smallest safe L for this f is ' + fmt(A.Lmin, 2) + '. ' +
+      (A.L < A.Lmin ? 'Below that, some bounds poke above f.' : 'At or above that, every bound stays below f.');
+
+    const bb = $('a-build'), bc = $('a-climb');
+    bb.disabled = A.phase !== 'moved';
+    bc.disabled = A.phase !== 'bound';
+    bb.classList.toggle('next', A.phase === 'moved');
+    bc.classList.toggle('next', A.phase === 'bound');
+    $('a-auto').disabled = aConverged();
+
+    const st = $('a-status');
+    let msg, bad = false;
+    if (A.phase === 'bound') {
+      if (chk.valid) {
+        msg = 'Bound built at θ = ' + fmt(A.bFrom, 2) + '. It touches f here and stays below f everywhere else. Next: climb to its peak.';
+      } else {
+        bad = true;
+        msg = 'With L = ' + fmt(A.L, 1) + ' the bound pokes above f near θ = ' + fmt(chk.at, 1) +
+          ', so the guarantee is off. Raise L to at least ' + fmt(A.Lmin, 2) + ' to make every bound safe.';
+      }
+    } else {
+      const L = A.last, gain = L.fTo - L.fFrom, promise = L.qTo - L.fFrom;
+      if (aConverged()) {
+        msg = 'Converged at θ = ' + fmt(L.to, 2) + ' with f = ' + fmt(L.fTo, 2) + '. The bound’s peak is where you already stand. ' +
+          (L.fTo < FMAX - 0.01 ? 'This is a local maximum; the highest peak reaches f = ' + fmt(FMAX, 2) + '. Try another start.' : 'This is the highest peak.');
+      } else if (gain < -1e-9) {
+        bad = true;
+        msg = 'f went down by ' + fmt(-gain, 3) + '. This bound was not below f, so nothing guaranteed an increase.';
+      } else {
+        msg = 'Climbed from θ = ' + fmt(L.from, 2) + ' to ' + fmt(L.to, 2) + '. The bound promised f would rise by at least ' + fmt(promise, 3) +
+          '; f actually rose by ' + fmt(gain, 3) + '. Next: build a new bound here.';
+      }
+    }
+    st.textContent = msg;
+    st.classList.toggle('bad', bad);
+
+    renderA();
+    sparkline($('a-spark'), A.hist, 2);
+  }
+
+  // controls A
+  $('a-build').addEventListener('click', () => { aAuto(false); aBuild(); });
+  $('a-climb').addEventListener('click', () => { aAuto(false); aClimb(); });
+  $('a-auto').addEventListener('click', () => {
+    if (A.timer) { aAuto(false); return; }
+    if (aConverged()) return;
+    aAuto(true); aTick();
+  });
+  $('a-reset').addEventListener('click', () => {
+    const v = 3.6;
+    $('a-start').value = v; $('a-L').value = 6; A.L = 6;
+    aReset(v);
+  });
+  $('a-L').addEventListener('input', (e) => {
+    A.L = parseFloat(e.target.value);
+    A.bFrom = A.theta; A.phase = 'bound';
+    updateA();
+  });
+  $('a-start').addEventListener('input', (e) => aReset(parseFloat(e.target.value)));
+  $('a-chart').addEventListener('click', (e) => {
+    const g = A.geom; if (!g) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - r.left) / r.width) * g.W;
+    if (px < g.m.l || px > g.W - g.m.r) return;
+    const th = Math.round((g.x0 + ((px - g.m.l) / (g.W - g.m.l - g.m.r)) * (g.x1 - g.x0)) * 20) / 20;
+    const v = Math.min(g.x1, Math.max(g.x0, th));
+    $('a-start').value = v;
+    aReset(v);
+  });
+
+  // ====================================================================
+  // Demo B: EM on a two-group mixture
+  // ====================================================================
+  const TRUTH = { pi: [0.35, 0.65], mu: [-2.4, 2.0], v: [0.5, 1.2] };
+  const XS = C.makeData(21, 60, TRUTH);
+  const PRESETS = {
+    middle: { pi: [0.5, 0.5], mu: [-0.4, 0.5], v: [2.5, 2.5] },
+    swapped: { pi: [0.5, 0.5], mu: [3, -3], v: [1, 1] },
+    right: { pi: [0.5, 0.5], mu: [2.0, 3.5], v: [0.3, 0.3] },
+  };
+  // Best log-likelihood reached from any preset: the reference for spotting a local maximum.
+  let REF_LL = -Infinity;
+  Object.keys(PRESETS).forEach((k) => {
+    let th = C.cloneTheta(PRESETS[k]), ll = C.logLik(XS, th);
+    for (let it = 0; it < 600; it++) {
+      th = C.mStep(XS, C.eStep(XS, th));
+      const l1 = C.logLik(XS, th);
+      const done = l1 - ll < 1e-9; ll = l1; if (done) break;
+    }
+    REF_LL = Math.max(REF_LL, ll);
+  });
+
+  const B = {
+    th: null, gamma: null, gammaTh: null, target: null, line: null, s: 0, phase: 'M',
+    iter: 0, llHist: [], last: null, converged: false, sel: 0, timer: null, preset: 'middle',
+  };
+  {
+    let best = Infinity; // default inspected point: closest to the gap between the two groups
+    XS.forEach((x, i) => { const d = Math.abs(x + 0.2); if (d < best) { best = d; B.sel = i; } });
+  }
+
+  function bE() {
+    B.gamma = C.eStep(XS, B.th);
+    B.gammaTh = C.cloneTheta(B.th);
+    B.target = C.mStep(XS, B.gamma);
+    B.line = { th0: C.cloneTheta(B.th), th1: C.cloneTheta(B.target), gamma: B.gamma };
+    B.s = 0; B.phase = 'M';
+  }
+  function bM() {
+    const llOld = C.logLik(XS, B.th);
+    const fOld = C.boundF(XS, B.gamma, B.th);
+    const th1 = B.target;
+    const fNew = C.boundF(XS, B.gamma, th1);
+    const llNew = C.logLik(XS, th1);
+    B.last = { dF: fNew - fOld, gap: llNew - fNew, dLL: llNew - llOld };
+    B.th = C.cloneTheta(th1); B.iter += 1; B.llHist.push(llNew);
+    B.s = 1; B.phase = 'E';
+    B.converged = B.last.dLL < 1e-4;
+  }
+  function bReset(key) {
+    bAuto(false);
+    B.preset = key;
+    B.th = C.cloneTheta(PRESETS[key]);
+    B.iter = 0; B.last = null; B.converged = false;
+    B.llHist = [C.logLik(XS, B.th)];
+    bE();
+    updateB();
+  }
+  function bTick() {
+    if (B.phase === 'E') { bE(); updateB(); return; }
+    bM(); updateB();
+    if (B.converged || B.iter >= 80) bAuto(false);
+  }
+  function bAuto(on) {
+    if (on && !B.timer) B.timer = setInterval(bTick, 650);
+    if (!on && B.timer) { clearInterval(B.timer); B.timer = null; }
+    const b = $('b-auto');
+    b.setAttribute('aria-pressed', B.timer ? 'true' : 'false');
+    b.classList.toggle('on', !!B.timer);
+    b.textContent = B.timer ? 'Pause' : 'Auto-run';
+  }
+
+  function renderBFit() {
+    const svg = $('b-fit');
+    const W = chartWidth($('b-fit-wrap'));
+    const H = Math.round(Math.min(340, Math.max(260, W * 0.42)));
+    const m = { l: 40, r: 14, t: 12, b: 26 };
+    const band = 50;
+    const x0 = -6, x1 = 7, yMax = 0.5;
+    const base = H - m.b - band;
+    const X = (x) => m.l + ((x - x0) / (x1 - x0)) * (W - m.l - m.r);
+    const Y = (d) => base - (d / yMax) * (base - m.t);
+    setupSvg(svg, W, H);
+
+    const th = B.th;
+    const comp = (k) => (x) => th.pi[k] * C.normalPdf(x, th.mu[k], th.v[k]);
+    const total = (x) => comp(0)(x) + comp(1)(x);
+    const curve = (fn, close) => {
+      let d = '';
+      const n = 260;
+      for (let i = 0; i <= n; i++) {
+        const x = x0 + ((x1 - x0) * i) / n;
+        d += (i ? 'L' : 'M') + X(x).toFixed(1) + ' ' + Y(fn(x)).toFixed(1);
+      }
+      if (close) d += 'L' + X(x1).toFixed(1) + ' ' + Y(0).toFixed(1) + 'L' + X(x0).toFixed(1) + ' ' + Y(0).toFixed(1) + 'Z';
+      return d;
+    };
+
+    let s = '<defs><clipPath id="b-clip"><rect x="' + m.l + '" y="' + m.t + '" width="' + (W - m.l - m.r) + '" height="' + (base - m.t + 1) + '"/></clipPath></defs>';
+    s += '<g class="ax">';
+    [0, 0.2, 0.4].forEach((v) => {
+      s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/>';
+      s += '<text x="' + (m.l - 7) + '" y="' + (Y(v) + 4) + '" text-anchor="end">' + v.toFixed(1) + '</text>';
+    });
+    for (let v = -6; v <= 6; v += 2) {
+      s += '<line x1="' + X(v) + '" x2="' + X(v) + '" y1="' + m.t + '" y2="' + (H - m.b) + '"/>';
+      s += '<text x="' + X(v) + '" y="' + (H - 8) + '" text-anchor="middle">' + fmt(v, 0) + '</text>';
+    }
+    s += '<line class="base" x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + base + '" y2="' + base + '"/>';
+    s += '<text class="ttl" x="' + m.l + '" y="' + (m.t - 1) + '">density</text>';
+    s += '</g>';
+
+    s += '<g clip-path="url(#b-clip)">';
+    ['a', 'b'].forEach((c, k) => {
+      s += '<path class="darea comp-' + c + '" d="' + curve(comp(k), true) + '"/>';
+      s += '<path class="dline comp-' + c + '" d="' + curve(comp(k), false) + '"/>';
+    });
+    s += '<path class="mixture" d="' + curve(total, false) + '"/>';
+    s += '</g>';
+    ['a', 'b'].forEach((c, k) => {
+      const mu = th.mu[k];
+      if (mu > x0 && mu < x1) s += '<line class="mu-line comp-' + c + '" x1="' + X(mu) + '" x2="' + X(mu) + '" y1="' + base + '" y2="' + Math.max(m.t, Y(comp(k)(mu))) + '"/>';
+    });
+
+    // data dots, colored by responsibility for group B
+    const y0 = base + 14;
+    XS.forEach((x, i) => {
+      const g = B.gamma ? B.gamma[i][1] : 0.5;
+      s += '<circle class="dot' + (i === B.sel ? ' sel' : '') + '" data-i="' + i + '" cx="' + X(x).toFixed(1) + '" cy="' + (y0 + (i % 4) * 9) + '" r="5.5" style="--g:' + g.toFixed(3) + '"/>';
+    });
+    svg.innerHTML = s;
+  }
+
+  function renderBLine() {
+    const svg = $('b-line');
+    const W = chartWidth($('b-line-wrap'));
+    const H = Math.round(Math.min(310, Math.max(240, W * 0.38)));
+    const m = { l: 62, r: 14, t: 22, b: 44 };
+    setupSvg(svg, W, H);
+    const L = B.line;
+    if (C.maxParamChange(L.th0, L.th1) < 1e-4) {
+      svg.innerHTML = '<text class="lbl m" x="' + (W / 2) + '" y="' + (H / 2) + '" text-anchor="middle" style="stroke:none">Converged: the bound’s peak sits on the current parameters.</text>';
+      return;
+    }
+    const rng = C.lineRange(L.th0, L.th1, -0.3, 1.55);
+    const n = 160, ss = [], ll = [], ff = [];
+    for (let i = 0; i <= n; i++) {
+      const sv = rng[0] + ((rng[1] - rng[0]) * i) / n;
+      const p = C.lineParams(L.th0, L.th1, sv);
+      ss.push(sv); ll.push(C.logLik(XS, p)); ff.push(C.boundF(XS, L.gamma, p));
+    }
+    let lo = Math.min.apply(null, ff.concat(ll)), hi = Math.max.apply(null, ff.concat(ll));
+    const pad = Math.max((hi - lo) * 0.07, 1e-6);
+    lo -= pad; hi += pad;
+    const X = (v) => m.l + ((v - rng[0]) / (rng[1] - rng[0])) * (W - m.l - m.r);
+    const Y = (v) => H - m.b - ((v - lo) / (hi - lo)) * (H - m.t - m.b);
+    const path = (arr) => arr.map((v, i) => (i ? 'L' : 'M') + X(ss[i]).toFixed(1) + ' ' + Y(v).toFixed(1)).join('');
+    const nt = niceTicks(lo, hi, 4);
+
+    let s = '<g class="ax">';
+    nt.ticks.forEach((v) => {
+      s += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + Y(v) + '" y2="' + Y(v) + '"/>';
+      s += '<text x="' + (m.l - 7) + '" y="' + (Y(v) + 4) + '" text-anchor="end">' + fmt(v, nt.dec) + '</text>';
+    });
+    s += '<line class="base" x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + (H - m.b) + '" y2="' + (H - m.b) + '"/>';
+    [0, 1].forEach((v) => {
+      s += '<line class="base" x1="' + X(v) + '" x2="' + X(v) + '" y1="' + (H - m.b) + '" y2="' + (H - m.b + 5) + '"/>';
+      s += '<text x="' + X(v) + '" y="' + (H - m.b + 18) + '" text-anchor="middle">s = ' + v + '</text>';
+      s += '<text x="' + X(v) + '" y="' + (H - m.b + 33) + '" text-anchor="middle" style="font-family:var(--font-body);font-style:italic">' + (v === 0 ? 'current parameters' : 'after the M-step') + '</text>';
+    });
+    s += '<text class="ttl" x="' + m.l + '" y="' + (m.t - 8) + '">log-likelihood</text>';
+    s += '</g>';
+    s += '<line class="guide" x1="' + X(0) + '" x2="' + X(0) + '" y1="' + m.t + '" y2="' + (H - m.b) + '"/>';
+    s += '<line class="guide" x1="' + X(1) + '" x2="' + X(1) + '" y1="' + m.t + '" y2="' + (H - m.b) + '"/>';
+    s += '<path class="curve-q" d="' + path(ff) + '"/>';
+    s += '<path class="curve-f" d="' + path(ll) + '"/>';
+
+    const th0 = L.th0, th1 = L.th1;
+    const ll0 = C.logLik(XS, th0), f1 = C.boundF(XS, L.gamma, th1), ll1 = C.logLik(XS, th1);
+    const here = B.s === 0;
+    // s = 1: peak of the bound (orange) and the true log-likelihood (ink), with the gap between them
+    if (Math.abs(Y(f1) - Y(ll1)) > 1) s += '<line class="gapline" x1="' + X(1) + '" x2="' + X(1) + '" y1="' + Y(f1) + '" y2="' + Y(ll1) + '"/>';
+    s += '<circle class="mk-climb" cx="' + X(1) + '" cy="' + Y(f1) + '" r="6"/>';
+    s += '<circle class="' + (here ? 'mk-hollow' : 'mk-ink') + '" cx="' + X(1) + '" cy="' + Y(ll1) + '" r="6"/>';
+    s += '<circle class="' + (here ? 'mk-ink' : 'mk-hollow') + '" cx="' + X(0) + '" cy="' + Y(ll0) + '" r="6"/>';
+    s += '<text class="lbl o" x="' + (X(1) + 10) + '" y="' + (Y(f1) + 4) + '">peak of F</text>';
+    if (Math.abs(Y(f1) - Y(ll1)) > 14) s += '<text class="lbl" x="' + (X(1) - 9) + '" y="' + ((Y(f1) + Y(ll1)) / 2 + 4) + '" text-anchor="end">gap = KL</text>';
+    s += '<text class="lbl" x="' + (X(1) + 10) + '" y="' + (Y(ll1) - 8) + '">ℓ here</text>';
+    s += '<text class="lbl b" x="' + (X(0) + 10) + '" y="' + (Y(ll0) + 18) + '">bound touches ℓ</text>';
+    svg.innerHTML = s;
+  }
+
+  function renderPoint() {
+    const i = B.sel, x = XS[i], th = B.gammaTh;
+    const lj = C.logJoint(x, th), w = lj.map(Math.exp), z = w[0] + w[1];
+    $('b-sel-out').textContent = '#' + (i + 1) + ' of ' + XS.length;
+    $('b-point').innerHTML =
+      '<div class="row">x = ' + fmt(x, 2) + '</div>' +
+      '<div class="row">A: weight × density = ' + w[0].toPrecision(3) + '</div>' +
+      '<div class="row">B: weight × density = ' + w[1].toPrecision(3) + '</div>' +
+      '<div class="row">responsibility A = ' + fmt(w[0] / z, 3) + '</div>' +
+      '<div class="row">responsibility B = ' + fmt(w[1] / z, 3) + '</div>';
+  }
+
+  function updateB() {
+    const llNow = C.logLik(XS, B.th);
+    const fNow = C.boundF(XS, B.gamma, B.th);
+    $('b-iter').textContent = String(B.iter);
+    $('b-ll').textContent = fmt(llNow, 3);
+    $('b-F').textContent = fmt(fNow, 3);
+    $('b-gap').textContent = fmt(Math.max(0, llNow - fNow), 3);
+    if (B.last) {
+      $('b-dF').textContent = signed(B.last.dF, 3);
+      $('b-dGap').textContent = signed(B.last.gap, 3);
+      $('b-dLL').textContent = signed(B.last.dLL, 3);
+    } else {
+      ['b-dF', 'b-dGap', 'b-dLL'].forEach((id) => { $(id).textContent = '–'; });
+    }
+    for (let k = 0; k < 2; k++) {
+      $('b-pi' + k).textContent = fmt(B.th.pi[k], 2);
+      $('b-mu' + k).textContent = fmt(B.th.mu[k], 2);
+      $('b-sd' + k).textContent = fmt(Math.sqrt(B.th.v[k]), 2);
+    }
+
+    const be = $('b-e'), bm = $('b-m');
+    be.disabled = B.phase !== 'E';
+    bm.disabled = B.phase !== 'M';
+    be.classList.toggle('next', B.phase === 'E');
+    bm.classList.toggle('next', B.phase === 'M');
+
+    const st = $('b-status');
+    let msg;
+    if (B.phase === 'M') {
+      msg = B.iter === 0
+        ? 'E-step done at the starting guess. Dot colors show each point’s responsibilities. The blue bound they define touches ℓ here. Next: M-step jumps to the bound’s peak.'
+        : 'E-step done. The new bound touches ℓ again at the current parameters (gap = 0). Next: M-step.';
+    } else if (B.converged) {
+      msg = 'Converged after ' + B.iter + ' iterations: ℓ changed by less than 0.0001 (ℓ = ' + fmt(llNow, 2) + '). ' +
+        (llNow < REF_LL - 0.05
+          ? 'This is only a local maximum. A different start reaches ℓ = ' + fmt(REF_LL, 2) + '.'
+          : 'This matches the best fit found from the other starting guesses.');
+    } else {
+      msg = 'M-step done. ℓ rose by ' + fmt(B.last.dLL, 3) + ': the bound gained ' + fmt(B.last.dF, 3) +
+        ' and the rest (' + fmt(B.last.gap, 3) + ') is the gap that opens because the old bound is no longer tight at the new parameters. Next: E-step.';
+    }
+    st.textContent = msg;
+
+    $('b-auto').disabled = B.converged;
+    $('b-sel').value = B.sel;
+    renderBFit();
+    renderBLine();
+    renderPoint();
+    sparkline($('b-spark'), B.llHist, 1);
+  }
+
+  // controls B
+  $('b-e').addEventListener('click', () => { bAuto(false); if (B.phase === 'E') { bE(); updateB(); } });
+  $('b-m').addEventListener('click', () => { bAuto(false); if (B.phase === 'M') { bM(); updateB(); } });
+  $('b-auto').addEventListener('click', () => {
+    if (B.timer) { bAuto(false); return; }
+    if (B.converged) return;
+    bAuto(true); bTick();
+  });
+  $('b-reset').addEventListener('click', () => bReset($('b-preset').value));
+  $('b-preset').addEventListener('change', (e) => bReset(e.target.value));
+  $('b-sel').addEventListener('input', (e) => { B.sel = parseInt(e.target.value, 10); renderBFit(); renderPoint(); });
+  $('b-fit').addEventListener('click', (e) => {
+    const t = e.target;
+    if (t && t.dataset && t.dataset.i !== undefined) {
+      B.sel = parseInt(t.dataset.i, 10);
+      $('b-sel').value = B.sel;
+      renderBFit(); renderPoint();
+    }
+  });
+
+  // ====================================================================
+  // Level switcher
+  // ====================================================================
+  (function () {
+    const seg = $('lvl-seg'), root = $('concepts');
+    const btns = Array.prototype.slice.call(seg.querySelectorAll('button'));
+    function choose(level, focus) {
+      root.setAttribute('data-level', level);
+      btns.forEach((b) => {
+        const on = b.getAttribute('data-level') === level;
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+        b.tabIndex = on ? 0 : -1;
+        if (on && focus) b.focus();
+      });
+    }
+    btns.forEach((b, i) => {
+      b.addEventListener('click', () => choose(b.getAttribute('data-level'), false));
+      b.addEventListener('keydown', (e) => {
+        let j = -1;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') j = (i + 1) % btns.length;
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') j = (i + btns.length - 1) % btns.length;
+        if (j >= 0) { e.preventDefault(); choose(btns[j].getAttribute('data-level'), true); }
+      });
+    });
+    choose('ug', false);
+  })();
+
+  // ====================================================================
+  // Boot and responsive redraw
+  // ====================================================================
+  $('a-start').value = A.start;
+  $('a-L').value = A.L;
+  $('b-sel').max = String(XS.length - 1);
+  aReset(A.start);
+  bReset('middle');
+
+  if (typeof ResizeObserver !== 'undefined') {
+    const last = {};
+    const watch = (id, fn) => {
+      const el = $(id);
+      new ResizeObserver(() => {
+        const w = Math.round(el.getBoundingClientRect().width);
+        if (last[id] !== w) { last[id] = w; fn(); }
+      }).observe(el);
+    };
+    watch('a-wrap', renderA);
+    watch('b-fit-wrap', renderBFit);
+    watch('b-line-wrap', renderBLine);
+  }
+})();
+</script>
+</body>
+</html>
