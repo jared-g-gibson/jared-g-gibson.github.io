@@ -1,0 +1,916 @@
+ <!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Naive Bayes Explorer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout concept: one long reading column with a sticky reading-level bar; each topic is prose at the chosen level, then a hands-on demo panel beneath it. */
+:root{
+  --bg:#F1F4F8; --surface:#FFFFFF; --surface2:#E7ECF2; --fg:#14212D; --muted:#506274; --line:#CAD3DE;
+  --accent:#2547C9; --accent-fg:#FFFFFF; --spam:#C2255C; --ham:#0F7F8A; --nb:#B8741A; --good:#2E7D4F; --bad:#B42318;
+  --font-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --font-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E151D; --surface:#151F2A; --surface2:#1D2A38; --fg:#E4ECF4; --muted:#95A6B8; --line:#2B3B4D;
+  --accent:#7C9BFF; --accent-fg:#0E151D; --spam:#F06595; --ham:#4CC3CF; --nb:#F2B04A; --good:#6FCF97; --bad:#FF8A80; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E151D; --surface:#151F2A; --surface2:#1D2A38; --fg:#E4ECF4; --muted:#95A6B8; --line:#2B3B4D;
+  --accent:#7C9BFF; --accent-fg:#0E151D; --spam:#F06595; --ham:#4CC3CF; --nb:#F2B04A; --good:#6FCF97; --bad:#FF8A80; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:16px;line-height:1.6;
+  padding-block:0 72px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1040px;margin:0 auto}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0}
+code,.m{font-family:var(--font-mono);font-size:.88em;background:var(--surface2);padding:1px 5px;border-radius:5px}
+a{color:var(--accent)}
+.kicker{font:500 .74rem var(--font-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0}
+
+.hero{padding-top:40px;display:flex;flex-direction:column;gap:14px;padding-bottom:22px}
+.hero h1{font-weight:800;font-size:clamp(2rem,5.4vw,3.5rem);line-height:1.02;letter-spacing:-.02em;max-width:18ch}
+.lede{max-width:64ch;color:var(--muted);margin:0;font-size:1.05rem}
+.hero-eq{font-size:clamp(.95rem,2.6vw,1.35rem);align-self:flex-start;max-width:100%}
+
+.levelbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line);
+  padding:10px 0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px}
+.levelbar .lab{font:500 .74rem var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--surface)}
+.seg button{font:500 .85rem var(--font-body);padding:7px 14px;border:0;background:none;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+.jump{display:flex;gap:16px;overflow-x:auto;white-space:nowrap;min-width:0;flex:1 1 100%;font-size:.85rem;padding-bottom:2px}
+.jump a{color:var(--muted);text-decoration:none}
+.jump a:hover{color:var(--accent);text-decoration:underline}
+button:focus-visible,a:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+section.topic{padding-top:56px;scroll-margin-top:96px}
+section.topic>.kicker{margin-bottom:6px}
+section.topic>h2{font-weight:700;font-size:clamp(1.5rem,3.6vw,2.1rem);letter-spacing:-.01em;margin-bottom:14px}
+.lv{display:none;max-width:70ch}
+.lv p,.lv ul{margin:0 0 .85em}
+.lv ul{padding-left:1.2em}.lv li{margin-bottom:.35em}
+#app[data-level="kid"] .lv.kid,#app[data-level="hs"] .lv.hs,#app[data-level="ug"] .lv.ug,#app[data-level="all"] .lv{display:block}
+#app[data-level="all"] .lv{padding:6px 0 10px;border-top:1px dashed var(--line);margin-top:8px}
+#app[data-level="all"] .lv::before{content:attr(data-label);display:block;font:500 .72rem var(--font-mono);letter-spacing:.09em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+.math{font-family:var(--font-mono);font-size:.9rem;background:var(--surface2);border-radius:8px;padding:12px 14px;overflow-x:auto;white-space:pre;line-height:1.75;margin:10px 0;max-width:100%}
+
+.demo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-block:26px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.demo h3{font-weight:600;font-size:1.15rem}
+.demo .hint{margin:0;color:var(--muted);font-size:.9rem;max-width:70ch}
+.ctrl{display:grid;grid-template-columns:minmax(130px,210px) 1fr 70px;gap:10px;align-items:center;font-size:.9rem}
+.ctrl output{font-family:var(--font-mono);text-align:right;font-size:.85rem}
+.ctrl>*{min-width:0}
+input[type=range]{width:100%;accent-color:var(--accent);min-width:0}
+@media (max-width:560px){.ctrl{grid-template-columns:1fr 64px}.ctrl label{grid-column:1/-1}}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{font:500 .88rem var(--font-body);padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface2);color:var(--fg);cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+.btn[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:1px}
+.btn:disabled{opacity:.55;cursor:default}
+canvas{width:100%;display:block;border-radius:8px;background:var(--surface2);touch-action:manipulation}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:18px}
+.grid2>*{min-width:0}
+.readouts{display:flex;flex-wrap:wrap;gap:10px}
+.readout{background:var(--surface2);border-radius:8px;padding:8px 12px;font-size:.8rem;color:var(--muted);min-width:108px}
+.readout b{display:block;font:600 1.05rem var(--font-mono);color:var(--fg)}
+.note{font-size:.9rem;margin:0;color:var(--muted)}
+.note strong{color:var(--fg)}
+.warn{color:var(--bad);font-weight:600}
+.ok{color:var(--good);font-weight:600}
+
+/* spam playground */
+.wrow{display:grid;grid-template-columns:minmax(88px,112px) 92px 1fr;gap:10px;align-items:center;font-size:.85rem}
+.wrow .chip{font:500 .85rem var(--font-body);padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface2);color:var(--muted);cursor:pointer;text-align:left}
+.wrow .chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+.wrow .th{font-family:var(--font-mono);font-size:.76rem;color:var(--muted)}
+.dbar{position:relative;height:20px;background:var(--surface2);border-radius:5px;min-width:0}
+.dbar::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--muted);opacity:.6}
+.dbar i{position:absolute;top:3px;bottom:3px;border-radius:3px}
+.dbar span{position:absolute;top:0;font:500 .68rem/20px var(--font-mono);color:var(--fg)}
+.pbar{display:flex;height:36px;border-radius:8px;overflow:hidden;font:600 .85rem/36px var(--font-mono);color:var(--accent-fg)}
+.readout b.ok{color:var(--good)}.readout b.warn{color:var(--bad)}
+.pbar>div{padding:0 10px;white-space:nowrap;overflow:hidden;transition:flex-basis .25s}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.dots{display:flex;flex-wrap:wrap;gap:3px}
+.dots i{width:12px;height:12px;border-radius:3px;background:var(--surface2);border:1px solid var(--line)}
+.dots i.on{background:var(--spam);border-color:transparent}
+
+.tbl{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:520px}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font:600 .72rem var(--font-mono);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+td.num{font-family:var(--font-mono);font-size:.85rem}
+svg text{font-family:var(--font-mono);font-size:11px;fill:var(--muted)}
+
+.q{border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:8px}
+.q p{margin:0;font-weight:600}
+.opt{text-align:left;font:400 .92rem var(--font-body);padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface2);color:var(--fg);cursor:pointer}
+.opt.right{border-color:var(--good);outline:2px solid var(--good)}
+.opt.wrong{border-color:var(--bad);outline:2px solid var(--bad)}
+.why{font-size:.9rem;color:var(--muted);margin:0}
+footer{margin-top:64px;padding-top:18px;border-top:1px solid var(--line);font-size:.85rem;color:var(--muted);max-width:70ch}
+footer ul{padding-left:1.2em;margin:6px 0 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<div id="app" data-level="hs">
+<div class="wrap">
+
+<header class="hero">
+  <p class="kicker">Advanced ML · probabilistic classifiers · bound optimization</p>
+  <h1>Naive Bayes, logistic regression, and how classifiers learn</h1>
+  <p class="lede">Every idea here is explained three ways: for an elementary schooler, a high school senior, and an undergraduate. Pick a reading level in the bar below, then try the demos. The last part ties it all to bound optimization.</p>
+  <div class="math hero-eq">p(y | x)  ∝  p(y) · ∏ⱼ p(xⱼ | y)</div>
+</header>
+
+<div class="levelbar" role="group" aria-label="Reading level">
+  <span class="lab">Reading level</span>
+  <div class="seg">
+    <button type="button" data-level="kid" aria-pressed="false">Elementary</button>
+    <button type="button" data-level="hs" aria-pressed="true">High school</button>
+    <button type="button" data-level="ug" aria-pressed="false">Undergrad</button>
+    <button type="button" data-level="all" aria-pressed="false">All three</button>
+  </div>
+  <nav class="jump" aria-label="Sections">
+    <a href="#nb">Naive Bayes</a><a href="#models">Example models</a><a href="#fitting">Fitting</a>
+    <a href="#bayesian">Bayesian NB</a><a href="#lr">NB &amp; logistic regression</a>
+    <a href="#gendisc">Generative vs discriminative</a><a href="#bounds">Bound optimization</a><a href="#quiz">Quiz</a>
+  </nav>
+</div>
+
+<!-- ===== PART 1a ===== -->
+<section class="topic" id="nb">
+  <p class="kicker">Part 1 · What is it?</p>
+  <h2>The naive Bayes classifier</h2>
+
+  <div class="lv kid" data-label="Elementary school">
+    <p>Pretend you are a detective deciding whether a letter is junk mail. You look for clues. Does it say FREE? Does it say WINNER? Does it mention homework? Junk mail says FREE a lot, and a letter from your teacher almost never does. So every clue gives a little push toward JUNK or toward NOT JUNK. You add up all the pushes, and the side with the bigger pile wins.</p>
+    <p>It is called <em>naive</em> because the detective acts as if every clue works alone. Real clues sometimes team up (FREE and WINNER often show up together), but pretending they don't makes the detective fast, and surprisingly good.</p>
+  </div>
+  <div class="lv hs" data-label="High school senior">
+    <p>Naive Bayes starts from Bayes' rule: <code>P(spam | words) = P(words | spam) × P(spam) ÷ P(words)</code>. Computing <code>P(words | spam)</code> exactly would need data on every possible combination of words, which is far too many combinations to ever see.</p>
+    <p>The <strong>naive assumption</strong> fixes this: once you know the class, each word shows up independently of the others. Then <code>P(words | spam)</code> is just a product, <code>P(free | spam) × P(winner | spam) × …</code>. To classify, compute that product for each class, multiply by the class's prior, and pick the larger result.</p>
+    <p>Example with a single clue: 40% of email is spam, and "free" appears in 45% of spam but only 5% of normal email. The odds are 0.40 × 0.45 : 0.60 × 0.05 = 0.18 : 0.03 = 6 : 1, so the email is about 86% likely to be spam.</p>
+  </div>
+  <div class="lv ug" data-label="Undergraduate">
+    <p>Naive Bayes is a <strong>generative classifier</strong>: it models the joint <code>p(x, y) = p(y) p(x | y)</code> and classifies with Bayes' rule. For <code>y ∈ {1…C}</code> and <code>x ∈ ℝ<sup>D</sup></code>, the "naive" assumption is class-conditional independence, <code>p(x | y=c, θ) = ∏<sub>j=1..D</sub> p(x<sub>j</sub> | y=c, θ<sub>jc</sub>)</code>. As a graphical model, <code>y</code> is the only parent of every <code>x<sub>j</sub></code>.</p>
+    <p>This is a statistical-efficiency trade. A full joint over D binary features needs O(C·2<sup>D</sup>) parameters; the factored form needs O(CD). The decision rule is <code>ŷ = argmax<sub>c</sub> [ log π<sub>c</sub> + Σ<sub>j</sub> log p(x<sub>j</sub> | θ<sub>jc</sub>) ]</code>. The assumption is rarely true, yet the classifier is often accurate anyway: the argmax can be right while the posterior probability is badly miscalibrated, because correlated features get counted more than once.</p>
+  </div>
+  <div class="math">p(y=c | x)  =       π_c · ∏ⱼ p(xⱼ | θ_jc)
+                   ─────────────────────────────
+                   Σ_c′  π_c′ · ∏ⱼ p(xⱼ | θ_jc′)</div>
+
+  <div class="demo" id="demo-spam">
+    <h3>Try it: is this email spam?</h3>
+    <p class="hint">A Bernoulli naive Bayes model, trained on a pretend inbox of 1000 emails. Tap a word to mark it as appearing in the email. Each bar shows how far that word pushes the log-odds toward spam (right) or normal mail (left). Words that are absent push too, because "no 'free'" is also evidence.</p>
+    <div class="ctrl"><label for="spam-prior">Prior P(spam)</label><input id="spam-prior" type="range" min="5" max="95" value="40"><output id="spam-prior-out">40%</output></div>
+    <div class="row" id="spam-presets"></div>
+    <div id="spam-rows" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="legend"><span><i style="background:var(--spam)"></i>pushes toward spam</span><span><i style="background:var(--ham)"></i>pushes toward normal mail</span><span>θ = P(word appears | class), S = spam, H = ham</span></div>
+    <div class="pbar" id="spam-bar"></div>
+    <p class="note" id="spam-math"></p>
+  </div>
+</section>
+
+<!-- ===== PART 1b ===== -->
+<section class="topic" id="models">
+  <p class="kicker">Part 1 · Example models</p>
+  <h2>Choosing a likelihood: Bernoulli, multinomial, Gaussian</h2>
+
+  <div class="lv kid" data-label="Elementary school">
+    <p>Different clues need different scoreboards. A <strong>yes/no clue</strong> ("does it have wings?") uses a yes/no scoreboard. A <strong>counting clue</strong> ("how many times does the word FREE show up?") uses a tally scoreboard. A <strong>measuring clue</strong> ("how tall is it?") uses a measuring scoreboard, where most animals of one kind are close to the same height and very few are far away from it.</p>
+  </div>
+  <div class="lv hs" data-label="High school senior">
+    <p>Which version of naive Bayes you use depends on what your features look like:</p>
+    <ul>
+      <li><strong>Bernoulli</strong>: each feature is yes/no (is the word in the email?). For every class and feature you store one number, the chance θ that the answer is "yes".</li>
+      <li><strong>Multinomial</strong>: each feature is a count (how many times does each word appear?). For every class you store the share of that class's words that each vocabulary word makes up.</li>
+      <li><strong>Gaussian</strong>: each feature is a measurement (height, blood pressure). For every class and feature you store a mean and a spread, which describes a bell curve.</li>
+    </ul>
+    <p>Different features can even use different kinds of model, because each feature is handled on its own.</p>
+  </div>
+  <div class="lv ug" data-label="Undergraduate">
+    <p>The factorization lets each feature pick its own class-conditional family:</p>
+    <ul>
+      <li><strong>Bernoulli</strong>: <code>p(x | y=c) = ∏<sub>j</sub> θ<sub>jc</sub><sup>x<sub>j</sub></sup> (1−θ<sub>jc</sub>)<sup>1−x<sub>j</sub></sup></code> for binary features.</li>
+      <li><strong>Multinomial</strong>: <code>p(x | y=c) = [n! / ∏<sub>j</sub> x<sub>j</sub>!] ∏<sub>j</sub> θ<sub>jc</sub><sup>x<sub>j</sub></sup></code> with <code>Σ<sub>j</sub> θ<sub>jc</sub> = 1</code>. The multinomial coefficient does not depend on c, so it cancels in the posterior.</li>
+      <li><strong>Gaussian</strong>: <code>p(x<sub>j</sub> | y=c) = N(x<sub>j</sub>; μ<sub>jc</sub>, σ²<sub>jc</sub>)</code>. A categorical feature uses <code>Cat(θ<sub>jc</sub>)</code>.</li>
+    </ul>
+    <p>The log-posterior is linear in the features for Bernoulli and multinomial NB, and for Gaussian NB with class-independent variances. With class-specific variances the boundary is quadratic. That is the first hint of the logistic-regression link in a later section.</p>
+  </div>
+
+  <div class="demo" id="demo-gnb">
+    <h3>Gaussian naive Bayes on a 2-D scatter</h3>
+    <p class="hint">Each class gets one bell curve per axis, so its fitted outline (dashed ellipses, 1σ and 2σ) can only be axis-aligned. Raise the correlation to tilt the true clusters and watch the model's outline stop matching them. Click the plot to add your own points.</p>
+    <div class="row" role="group" aria-label="Class for new points">
+      <button class="btn" type="button" id="gnb-ca" aria-pressed="true">Add points: class A</button>
+      <button class="btn" type="button" id="gnb-cb" aria-pressed="false">Add points: class B</button>
+      <button class="btn" type="button" id="gnb-reset">Resample</button>
+    </div>
+    <div class="ctrl"><label for="gnb-rho">Correlation inside each class</label><input id="gnb-rho" type="range" min="0" max="0.9" step="0.05" value="0"><output id="gnb-rho-out">0.00</output></div>
+    <canvas id="gnb-canvas" height="340" aria-label="Scatter plot with Gaussian naive Bayes posterior shading"></canvas>
+    <div class="legend"><span><i style="background:var(--spam)"></i>class A</span><span><i style="background:var(--ham)"></i>class B</span><span><i style="background:var(--accent)"></i>LDA boundary (a reference that models the correlation)</span><span>shading = naive Bayes P(class | point)</span></div>
+    <div class="readouts" id="gnb-read"></div>
+  </div>
+</section>
+
+<!-- ===== PART 1c ===== -->
+<section class="topic" id="fitting">
+  <p class="kicker">Part 1 · Model fitting</p>
+  <h2>Fitting naive Bayes: training is counting</h2>
+
+  <div class="lv kid" data-label="Elementary school">
+    <p>How does the detective learn the clues? By counting! Take 100 old letters where you already know the answer. If 30 were junk and the word FREE was in 12 of them, then FREE shows up in 12 out of 30 junk letters. That is the whole lesson, one count per clue.</p>
+    <p>There is one trap. If FREE never appeared in a junk letter you looked at, the detective would shout "FREE can NEVER be in junk!" and stop listening to every other clue. The fix is to pretend you saw every clue a tiny bit, like adding one pretend letter. Then nothing is ever "impossible".</p>
+  </div>
+  <div class="lv hs" data-label="High school senior">
+    <p>"Fitting" means choosing the probabilities from training data. The best-fitting values (the <strong>maximum likelihood estimates</strong>) turn out to be plain relative frequencies: the class prior is the fraction of training emails in that class, and the chance of a word given a class is the fraction of that class's emails containing the word. For a measurement feature, you use each class's sample mean and sample variance. One pass through the data is enough, with no trial and error.</p>
+    <p>The problem is <strong>zero counts</strong>. If "prize" never appeared in a spam email, the estimate is P(prize | spam) = 0, and then any email containing "prize" gets probability 0 of being spam no matter what else it says. <strong>Laplace (add-one) smoothing</strong> adds one pretend example of each outcome: <code>(count + 1) ÷ (total + 2)</code> for a yes/no feature.</p>
+  </div>
+  <div class="lv ug" data-label="Undergraduate">
+    <p>With i.i.d. data, the log-likelihood decomposes over parameters: <code>log p(D | θ) = Σ<sub>c</sub> N<sub>c</sub> log π<sub>c</sub> + Σ<sub>j</sub> Σ<sub>c</sub> Σ<sub>i: y<sub>i</sub>=c</sub> log p(x<sub>ij</sub> | θ<sub>jc</sub>)</code>. Each term is maximized separately. The prior comes from a Lagrange multiplier for <code>Σ π<sub>c</sub> = 1</code>, and the per-feature terms are one-dimensional MLEs. Everything is closed form and costs O(ND) to compute.</p>
+    <p>The MLE fails when a count is zero: the log-likelihood contribution is unbounded below, and one zero factor wipes out the whole product at prediction time. Adding pseudo-counts α is the standard fix, and the next section shows it is exactly Bayesian inference under a Beta or Dirichlet prior. The contrast to remember: here the fit is a counting formula, whereas logistic regression has no closed form and needs iterative optimization (Newton, IRLS, or bound optimization).</p>
+  </div>
+  <div class="math">π̂_c    = N_c / N
+θ̂_jc   = N_jc / N_c              Bernoulli: examples of class c with feature j on
+θ̂_jc   = N_jc / Σ_j′ N_j′c       Multinomial: word j's share of class c's tokens
+μ̂_jc   = mean of xⱼ in class c;   σ̂²_jc = variance of xⱼ in class c</div>
+
+  <div class="demo" id="demo-fit">
+    <h3>Count, estimate, smooth</h3>
+    <p class="hint">Suppose you have a set of spam emails and the word "prize" appears in some of them. Move the sliders and compare the raw count (MLE) with the smoothed estimate. Then see what happens to a new email that also contains "free".</p>
+    <div class="ctrl"><label for="fit-n">Spam emails in training set (N<sub>c</sub>)</label><input id="fit-n" type="range" min="1" max="60" value="20"><output id="fit-n-out">20</output></div>
+    <div class="ctrl"><label for="fit-k">…containing "prize" (N<sub>jc</sub>)</label><input id="fit-k" type="range" min="0" max="20" value="0"><output id="fit-k-out">0</output></div>
+    <div class="ctrl"><label for="fit-a">Smoothing α (pseudo-count)</label><input id="fit-a" type="range" min="0" max="3" step="0.25" value="0"><output id="fit-a-out">0</output></div>
+    <div class="dots" id="fit-dots" aria-label="Each square is a spam email; filled squares contain the word prize"></div>
+    <div class="readouts" id="fit-read"></div>
+    <p class="note" id="fit-zero"></p>
+  </div>
+</section>
+
+<!-- ===== PART 1d ===== -->
+<section class="topic" id="bayesian">
+  <p class="kicker">Part 1 · Bayesian naive Bayes</p>
+  <h2>Bayesian naive Bayes: start with a guess, let data change it</h2>
+
+  <div class="lv kid" data-label="Elementary school">
+    <p>Before you look at any letters, you may already have a hunch, like "FREE is probably a bit suspicious". Bayesian naive Bayes lets you write down that hunch first, and then change your mind as you see real letters. With only a few letters you mostly keep your hunch. With lots of letters, the letters win.</p>
+  </div>
+  <div class="lv hs" data-label="High school senior">
+    <p>Instead of locking in one number for "chance of prize in spam", keep a whole <em>range</em> of believable values and update it with data. The starting range is a <strong>prior</strong>. A convenient choice is the Beta distribution with two numbers a and b, which act like imaginary emails: a imaginary spam emails with the word and b without it.</p>
+    <p>After seeing real data (k of n spam emails had the word), your updated best guess is <code>(k + a) ÷ (n + a + b)</code>. Few real emails: the imaginary ones matter a lot. Many real emails: they barely matter. Laplace smoothing is the special case a = b = 1, a prior that treats every value as equally likely.</p>
+  </div>
+  <div class="lv ug" data-label="Undergraduate">
+    <p>Treat the parameters as random: <code>π ~ Dir(α)</code> and, independently, <code>θ<sub>jc</sub> ~ Beta(a, b)</code> for Bernoulli features (Dirichlet for categorical or multinomial). Because the likelihood and the prior factorize, so does the posterior: <code>θ<sub>jc</sub> | D ~ Beta(a + N<sub>jc</sub>, b + N<sub>c</sub> − N<sub>jc</sub>)</code>, with the same closed-form update for every parameter.</p>
+    <p>For prediction, integrate the parameters out instead of plugging in a point estimate. Under the independent posteriors, the posterior predictive also factorizes, and for a Bernoulli feature it equals the posterior mean: <code>p(x<sub>j</sub>=1 | y=c, D) = (N<sub>jc</sub> + a) / (N<sub>c</sub> + a + b)</code>. With a = b = 1 this is add-one smoothing (Laplace's rule of succession). The MAP estimate differs, <code>(N<sub>jc</sub> + a − 1) / (N<sub>c</sub> + a + b − 2)</code>, and with a = b = 1 it reduces to the MLE. So "Laplace smoothing" is a posterior mean, not a MAP. The Beta-Binomial marginal likelihood is also closed form, which allows model comparison.</p>
+  </div>
+  <div class="math">prior       θ ~ Beta(a, b)
+posterior   θ | D ~ Beta(a + k, b + n − k)          (k successes in n trials)
+mean        (k + a) / (n + a + b)       MAP   (k + a − 1) / (n + a + b − 2)</div>
+
+  <div class="demo" id="demo-bayes">
+    <h3>Beta prior meets data</h3>
+    <p class="hint">The dashed curve is your prior belief about θ = P(word | class). The solid curve is the posterior after seeing k of n. Watch the posterior move from the prior toward the data as n grows.</p>
+    <div class="row" id="bay-presets"></div>
+    <div class="grid2">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="ctrl"><label for="bay-a">Prior a</label><input id="bay-a" type="range" min="1" max="20" step="0.5" value="2"><output id="bay-a-out"></output></div>
+        <div class="ctrl"><label for="bay-b">Prior b</label><input id="bay-b" type="range" min="1" max="20" step="0.5" value="8"><output id="bay-b-out"></output></div>
+        <div class="ctrl"><label for="bay-n">Observed emails n</label><input id="bay-n" type="range" min="0" max="100" value="10"><output id="bay-n-out"></output></div>
+        <div class="ctrl"><label for="bay-k">…with the word, k</label><input id="bay-k" type="range" min="0" max="10" value="7"><output id="bay-k-out"></output></div>
+      </div>
+      <div class="readouts" id="bay-read" style="align-content:flex-start"></div>
+    </div>
+    <canvas id="bay-canvas" height="260" aria-label="Beta prior and posterior density"></canvas>
+    <div class="legend"><span><i style="background:var(--muted)"></i>prior</span><span><i style="background:var(--accent)"></i>posterior</span><span>markers: MLE, MAP, posterior mean</span></div>
+  </div>
+</section>
+
+<!-- ===== PART 1e ===== -->
+<section class="topic" id="lr">
+  <p class="kicker">Part 1 · The connection</p>
+  <h2>Naive Bayes and logistic regression</h2>
+
+  <div class="lv kid" data-label="Elementary school">
+    <p>Both helpers keep score by adding up clues, but they get their clue strengths in different ways. Naive Bayes <em>counts</em>: "this clue is 6 times more common in junk". Logistic regression <em>practices</em>: it tries strengths, checks how often it guesses right, and keeps adjusting.</p>
+    <p>Here is the funny difference. If you tell naive Bayes the same clue three times, it counts the clue three times and gets overexcited. Logistic regression notices the clue repeated and gives each copy a smaller say.</p>
+  </div>
+  <div class="lv hs" data-label="High school senior">
+    <p>Both methods end with a <strong>score that adds up the clues</strong>, then squash that score into a probability with the S-shaped sigmoid curve. For naive Bayes with yes/no clues, the log-odds of spam is the prior log-odds plus one term per clue. That is exactly the shape of logistic regression: <code>log-odds = w₀ + w₁x₁ + w₂x₂ + …</code>.</p>
+    <p>So the two methods can produce the same kind of answer. The difference is where the weights come from. Naive Bayes reads each weight off the counts, one clue at a time. Logistic regression searches for the weights that make its predicted probabilities fit the training labels best, all clues at once. If clues overlap, naive Bayes double-counts them, and logistic regression can correct for that.</p>
+  </div>
+  <div class="lv ug" data-label="Undergraduate">
+    <p>For binary y and Bernoulli features, the NB log-odds is affine in x: <code>log p(y=1|x)/p(y=0|x) = w₀ + wᵀx</code> with <code>w<sub>j</sub> = log[θ<sub>j1</sub>(1−θ<sub>j0</sub>) / (θ<sub>j0</sub>(1−θ<sub>j1</sub>))]</code> and <code>w₀ = log(π₁/π₀) + Σ<sub>j</sub> log[(1−θ<sub>j1</sub>)/(1−θ<sub>j0</sub>)]</code>. Hence <code>p(y=1|x) = σ(w₀ + wᵀx)</code>. Gaussian NB with shared variances gives <code>w<sub>j</sub> = (μ<sub>j1</sub> − μ<sub>j0</sub>)/σ<sub>j</sub>²</code>.</p>
+    <p>So NB is a point inside logistic regression's hypothesis class, and the two differ only in the estimator. NB maximizes the <em>joint</em> likelihood <code>Σ log p(x<sub>i</sub>, y<sub>i</sub>)</code> (closed form). LR maximizes the <em>conditional</em> likelihood <code>Σ log p(y<sub>i</sub> | x<sub>i</sub>)</code>, which is convex but has no closed form. When the NB assumptions hold and n → ∞, the two agree. When features are correlated, NB's joint-likelihood fit double-counts evidence, which produces overconfident posteriors, and LR's conditional fit can reduce the weights to compensate. Gaussian NB with unequal class variances has a quadratic boundary, so it escapes the LR class.</p>
+  </div>
+  <div class="math">NB log-odds  =  log(π₁/π₀)  +  Σⱼ [ xⱼ·log(θⱼ₁/θⱼ₀)  +  (1−xⱼ)·log((1−θⱼ₁)/(1−θⱼ₀)) ]
+             =  w₀ + Σⱼ wⱼ xⱼ                     →   p(y=1 | x) = σ(w₀ + wᵀx)</div>
+
+  <div class="demo" id="demo-lrA">
+    <h3>Set a naive Bayes model, read off its logistic regression</h3>
+    <p class="hint">Three binary features. Drag the NB parameters and the demo computes the equivalent logistic-regression weights, then checks all 8 possible inputs.</p>
+    <div class="grid2">
+      <div id="lrA-ctrls" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div class="readouts" id="lrA-w" style="align-content:flex-start"></div>
+    </div>
+    <div class="tbl"><table id="lrA-table"><thead><tr><th>x₁x₂x₃</th><th>NB posterior P(y=1|x)</th><th>σ(w₀+w·x)</th><th>match</th></tr></thead><tbody></tbody></table></div>
+  </div>
+
+  <div class="demo" id="demo-dup">
+    <h3>Duplicate a feature and watch naive Bayes overreact</h3>
+    <p class="hint">One feature with P(on | y=1) = 0.8 and P(on | y=0) = 0.4, prior 50/50, and the feature is on. Now add exact copies of it. A logistic regression refit on the copies can split the weight and stays at the true answer. Naive Bayes multiplies the evidence for every copy.</p>
+    <div class="ctrl"><label for="dup-m">Number of identical copies</label><input id="dup-m" type="range" min="1" max="10" value="3"><output id="dup-m-out"></output></div>
+    <div id="dup-svg"></div>
+    <div class="readouts" id="dup-read"></div>
+  </div>
+</section>
+
+<!-- ===== PART 2 ===== -->
+<section class="topic" id="gendisc">
+  <p class="kicker">Part 2 · Two ways to build a classifier</p>
+  <h2>Generative vs. discriminative classifiers</h2>
+
+  <div class="lv kid" data-label="Elementary school">
+    <p><strong>Generative</strong> means "learn to draw." You learn what cats look like and what dogs look like, well enough to sketch a new one. To decide what a mystery animal is, you ask, "does it look more like my cat drawings or my dog drawings?"</p>
+    <p><strong>Discriminative</strong> means "learn the fence." You do not learn to draw anything. You only learn where to put a fence between cats and dogs. You can't draw a cat, but you are very good at telling which side of the fence an animal is on.</p>
+    <p>Drawing is more work, but it helps when you only have a few examples, or when some clues are missing. A fence is less work and is usually better once you have seen lots of animals.</p>
+  </div>
+  <div class="lv hs" data-label="High school senior">
+    <p>A <strong>generative</strong> classifier models how the data are produced in each class, <code>P(x | class)</code> and <code>P(class)</code>, then uses Bayes' rule to get <code>P(class | x)</code>. Naive Bayes is the standard example. A <strong>discriminative</strong> classifier models <code>P(class | x)</code> directly, without caring how x itself is distributed. Logistic regression is the standard example.</p>
+    <p>Rules of thumb: generative models tend to win when training data are scarce, when the data are partly unlabeled or have missing values, or when you want to simulate new data. Discriminative models tend to win when you have plenty of labeled data, because they spend all their effort on the boundary and make fewer assumptions.</p>
+  </div>
+  <div class="lv ug" data-label="Undergraduate">
+    <p>Generative classifiers fit <code>p(x, y | θ)</code> by maximizing the joint likelihood; discriminative ones fit <code>p(y | x, θ)</code> by maximizing the conditional likelihood. Ng &amp; Jordan (2001) compared NB and LR directly. The discriminative model has the lower <em>asymptotic</em> error, since it does not depend on the independence assumption being true. The generative model may reach its (higher) asymptote much faster: roughly O(log D) training examples versus O(D) for LR. That gives two regimes: NB can win with little data, and LR wins once n is large enough.</p>
+    <p>Beyond that, the generative joint gives you <code>p(x)</code> for outlier detection and for semi-supervised learning with EM, plus principled handling of missing features by marginalizing them out. The discriminative model gives better-calibrated probabilities, accepts arbitrary correlated and overlapping features without modeling them, and is more robust to misspecification of <code>p(x | y)</code>.</p>
+  </div>
+
+  <div class="tbl"><table>
+    <thead><tr><th></th><th>Generative (e.g. naive Bayes)</th><th>Discriminative (e.g. logistic regression)</th></tr></thead>
+    <tbody>
+      <tr><th>Models</th><td>p(x, y) = p(y) p(x | y)</td><td>p(y | x)</td></tr>
+      <tr><th>Advantages</th><td>Easy to fit (counting, often closed form)<br>Handles missing features and unlabeled data (EM)<br>Can generate data and detect outliers with p(x)<br>New classes can be added without refitting old ones<br>Often better with very little data<br>Prior knowledge fits in naturally</td><td>Lower asymptotic error with plenty of data<br>Fewer assumptions, robust to a wrong p(x | y)<br>Arbitrary, correlated, overlapping features are fine<br>Usually better-calibrated probabilities<br>All capacity goes to the decision boundary</td></tr>
+      <tr><th>Disadvantages</th><td>Wrong p(x | y) assumptions raise the error floor<br>Spends capacity modeling x, which classification never needs<br>Overconfident probabilities when features are correlated<br>Awkward to use rich engineered features</td><td>Needs labeled data<br>Needs iterative optimization (no closed form)<br>Cannot generate data or handle missing inputs easily<br>Prone to overfitting with few examples (needs regularization)<br>Adding a class means retraining everything</td></tr>
+    </tbody></table></div>
+
+  <div class="demo" id="demo-lc">
+    <h3>Experiment: who learns faster, naive Bayes or logistic regression?</h3>
+    <p class="hint">Synthetic data: 10 Gaussian features, two classes, the class difference lives in the first 3 features, and all features share a nuisance factor with the correlation you choose. At 0 correlation NB's assumption is exactly true. As correlation grows, NB's error floor rises while logistic regression can subtract the nuisance out. Each point averages 24 random training sets, tested on 3000 fresh points.</p>
+    <div class="ctrl"><label for="lc-rho">Feature correlation (ρ)</label><input id="lc-rho" type="range" min="0" max="0.8" step="0.1" value="0.3"><output id="lc-rho-out"></output></div>
+    <div class="row"><button class="btn primary" type="button" id="lc-run">Run experiment</button><span class="note" id="lc-status"></span></div>
+    <div id="lc-svg"></div>
+    <div class="legend"><span><i style="background:var(--nb)"></i>Gaussian naive Bayes</span><span><i style="background:var(--accent)"></i>Logistic regression (L2, Newton)</span><span><i style="background:var(--muted)"></i>Bayes-optimal error</span></div>
+    <p class="note" id="lc-read"></p>
+  </div>
+</section>
+
+<!-- ===== BOUND OPTIMIZATION ===== -->
+<section class="topic" id="bounds">
+  <p class="kicker">Bridge · Bound optimization</p>
+  <h2>Where bound optimization comes in</h2>
+
+  <div class="lv kid" data-label="Elementary school">
+    <p>Imagine you are in a bumpy park in thick fog, trying to reach the lowest spot. You can't see far, so you do a trick. You hold a big smooth bowl over the bumpy ground, so the bowl touches the ground right under your feet and is never lower than the ground. Sliding to the bottom of the <em>bowl</em> is easy, and wherever you land, the real ground under you is at least that low. Then you do it again from the new spot. Each round you go down, and you never go up.</p>
+  </div>
+  <div class="lv hs" data-label="High school senior">
+    <p>Some functions are hard to minimize directly, like the "mistake score" of logistic regression. <strong>Bound optimization</strong> (also called MM, "majorize-minimize") replaces the hard function with an easy one, such as a parabola, that lies on or above it and touches it at your current guess. You jump to the bottom of the parabola. Because the parabola is above the real curve, the real function is now at least as low as the parabola's bottom, which is at most as high as where you started. Repeat until you stop improving.</p>
+  </div>
+  <div class="lv ug" data-label="Undergraduate">
+    <p>To minimize <code>L(θ)</code>, construct a surrogate <code>Q(θ | θ<sub>t</sub>)</code> with <code>Q(θ | θ<sub>t</sub>) ≥ L(θ)</code> for all θ and <code>Q(θ<sub>t</sub> | θ<sub>t</sub>) = L(θ<sub>t</sub>)</code>. Set <code>θ<sub>t+1</sub> = argmin Q(· | θ<sub>t</sub>)</code>. Then <code>L(θ<sub>t+1</sub>) ≤ Q(θ<sub>t+1</sub> | θ<sub>t</sub>) ≤ Q(θ<sub>t</sub> | θ<sub>t</sub>) = L(θ<sub>t</sub>)</code>, so descent is monotone by construction, with no line search. (For maximization, use a lower bound.)</p>
+    <p><strong>EM is bound optimization.</strong> For a latent-variable log-likelihood, Jensen's inequality gives <code>ℓ(θ) ≥ Σ<sub>i</sub> Σ<sub>z</sub> q<sub>i</sub>(z) log[p(x<sub>i</sub>, z | θ) / q<sub>i</sub>(z)]</code>, tight when <code>q<sub>i</sub> = p(z | x<sub>i</sub>, θ<sub>t</sub>)</code>. For naive Bayes with unlabeled data, the E-step computes NB posteriors over the missing labels, and the M-step is the same counting formula as before but with fractional (soft) counts. This is how generative classifiers use unlabeled data.</p>
+    <p><strong>Logistic regression.</strong> The Hessian of the negative log-likelihood satisfies <code>H(w) ⪯ ¼ XᵀX</code> (since <code>σ(1−σ) ≤ ¼</code>), so the quadratic with fixed curvature <code>B = ¼ XᵀX</code> is a global upper bound (Böhning &amp; Lindsay, 1988). The update <code>w ← w − B⁻¹ ∇L(w)</code> reuses one matrix that can be factored once. It is slower per iteration than Newton's method but guaranteed monotone, while Newton's local quadratic is not a global bound and can overshoot.</p>
+  </div>
+  <div class="math">NLL     L(w)  = Σᵢ [ log(1 + e^{w·xᵢ}) − yᵢ · w·xᵢ ]
+bound   Q(w | wₜ) = L(wₜ) + L′(wₜ)(w − wₜ) + ½ B (w − wₜ)²        B = ¼ Σᵢ xᵢ²
+update  wₜ₊₁  = wₜ − L′(wₜ) / B</div>
+
+  <div class="demo" id="demo-mm">
+    <h3>Step through a bound optimization on 1-D logistic regression</h3>
+    <p class="hint">The blue curve is the negative log-likelihood L(w) for 12 labeled points. The dashed parabola is the surrogate Q touching L at the current w. Compare the fixed-curvature bound with a Newton step (which uses the local curvature). Start far to the right, where L is nearly flat, to see the difference.</p>
+    <div class="row" role="group" aria-label="Surrogate type">
+      <button class="btn" type="button" id="mm-bound" aria-pressed="true">Fixed-curvature bound (¼Σx²)</button>
+      <button class="btn" type="button" id="mm-newton" aria-pressed="false">Newton (local curvature)</button>
+    </div>
+    <div class="ctrl"><label for="mm-w0">Starting w</label><input id="mm-w0" type="range" min="-4" max="8" step="0.5" value="6"><output id="mm-w0-out"></output></div>
+    <div class="row"><button class="btn primary" type="button" id="mm-step">Step</button><button class="btn" type="button" id="mm-run">Run 10 steps</button><button class="btn" type="button" id="mm-reset">Reset</button></div>
+    <canvas id="mm-canvas" height="300" aria-label="Logistic loss curve with quadratic surrogate"></canvas>
+    <div class="legend"><span><i style="background:var(--accent)"></i>L(w), the true loss</span><span><i style="background:var(--nb)"></i>surrogate Q(w | wₜ)</span><span><i style="background:var(--spam)"></i>iterates</span></div>
+    <div class="readouts" id="mm-read"></div>
+    <div class="tbl"><table id="mm-log"><thead><tr><th>step t</th><th>wₜ</th><th>L(wₜ)</th><th>change in L</th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<!-- ===== QUIZ ===== -->
+<section class="topic" id="quiz">
+  <p class="kicker">Check yourself</p>
+  <h2>Five quick questions</h2>
+  <div class="demo" id="quiz-box"></div>
+</section>
+
+<footer>
+  <p>Further reading</p>
+  <ul>
+    <li>A. Ng and M. Jordan (2001). On discriminative vs. generative classifiers: a comparison of logistic regression and naive Bayes. NeurIPS.</li>
+    <li>D. Böhning and B. Lindsay (1988). Monotonicity of quadratic-approximation algorithms. Annals of the Institute of Statistical Mathematics.</li>
+    <li>D. Hunter and K. Lange (2004). A tutorial on MM algorithms. The American Statistician.</li>
+  </ul>
+  <p style="margin-top:14px">All demos run in your browser. The numbers in the spam example are made up for teaching.</p>
+</footer>
+
+</div><!-- /wrap -->
+</div><!-- /app -->
+<script>
+(function(){
+'use strict';
+/* ---------- helpers ---------- */
+const $=(s,r=document)=>r.querySelector(s);
+const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const sigmoid=z=>1/(1+Math.exp(-z));
+const f=(x,d=3)=>Number.isFinite(x)?x.toFixed(d):'—';
+const pct=(x,d=1)=>Number.isFinite(x)?(100*x).toFixed(d)+'%':'—';
+const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
+function hex2rgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function gauss(r){let u=0;while(u===0)u=r();const v=r();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function fitCanvas(c){
+  c.dataset.h=c.dataset.h||c.getAttribute('height');
+  const w=Math.max(220,Math.round(c.getBoundingClientRect().width)),h=+c.dataset.h,r=window.devicePixelRatio||1;
+  c.width=Math.round(w*r);c.height=Math.round(h*r);c.style.height=h+'px';
+  const ctx=c.getContext('2d');ctx.setTransform(r,0,0,r,0,0);return {ctx,w,h};
+}
+const REDRAW=[];
+function addRedraw(fn){REDRAW.push(fn);}
+function redrawAll(){REDRAW.forEach(fn=>{try{fn();}catch(e){console.error(e);}});}
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',redrawAll);}catch(e){}
+new MutationObserver(redrawAll).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+function watchResize(el,fn){
+  addRedraw(fn);
+  if(window.ResizeObserver){let t;new ResizeObserver(()=>{cancelAnimationFrame(t);t=requestAnimationFrame(fn);}).observe(el);}
+}
+function range(id,fn){
+  const el=$('#'+id),out=$('#'+id+'-out');
+  const upd=()=>{if(out)out.innerHTML=fn?fn(+el.value):el.value;};
+  el.addEventListener('input',upd);upd();return el;
+}
+
+/* ---------- reading level + nav ---------- */
+const app=$('#app');
+function setLevel(l,save){
+  app.dataset.level=l;
+  $$('.seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.level===l)));
+  if(save){try{localStorage.setItem('nbx-level',l);}catch(e){}}
+}
+$$('.seg button').forEach(b=>b.addEventListener('click',()=>setLevel(b.dataset.level,true)));
+try{const s=localStorage.getItem('nbx-level');if(s&&['kid','hs','ug','all'].includes(s))setLevel(s,false);}catch(e){}
+$$('.jump a').forEach(a=>a.addEventListener('click',e=>{
+  const t=$(a.getAttribute('href'));
+  if(t){e.preventDefault();t.scrollIntoView({behavior:'smooth',block:'start'});}
+}));
+
+/* ---------- 1. spam playground (Bernoulli NB) ---------- */
+(function(){
+  const WORDS=[
+    {w:'free',s:.45,h:.05},{w:'winner',s:.25,h:.01},{w:'prize',s:.20,h:.01},{w:'click',s:.50,h:.12},
+    {w:'invoice',s:.15,h:.12},{w:'meeting',s:.04,h:.35},{w:'project',s:.05,h:.40},{w:'lunch',s:.03,h:.25}];
+  const PRESETS=[
+    {n:'Prize scam',on:['free','winner','prize','click']},
+    {n:'Work email',on:['meeting','project']},
+    {n:'Mixed signals',on:['free','project','invoice']},
+    {n:'No words',on:[]}];
+  const st={on:new Set(['free','click']),prior:.4};
+  const cOn=o=>Math.log(o.s/o.h), cOff=o=>Math.log((1-o.s)/(1-o.h));
+  const maxAbs=Math.max(...WORDS.flatMap(o=>[Math.abs(cOn(o)),Math.abs(cOff(o))]));
+  const rows=$('#spam-rows'),els=[];
+  WORDS.forEach(o=>{
+    const row=document.createElement('div');row.className='wrow';
+    row.innerHTML='<button type="button" class="chip" aria-pressed="false"></button><span class="th">S '+o.s.toFixed(2)+' · H '+o.h.toFixed(2)+'</span><div class="dbar"><i></i><span></span></div>';
+    const chip=$('.chip',row);chip.textContent=o.w;
+    chip.addEventListener('click',()=>{st.on.has(o.w)?st.on.delete(o.w):st.on.add(o.w);render();});
+    rows.appendChild(row);els.push({o,chip,bar:$('i',row),lab:$('span',row)});
+  });
+  const pres=$('#spam-presets');
+  PRESETS.forEach(p=>{
+    const b=document.createElement('button');b.type="button";b.className='btn';b.textContent=p.n;
+    b.addEventListener('click',()=>{st.on=new Set(p.on);render();});pres.appendChild(b);
+  });
+  range('spam-prior',v=>{st.prior=v/100;render();return v+'%';});
+  function render(){
+    let lo=Math.log(st.prior/(1-st.prior));const prior0=lo;let sum=0;
+    els.forEach(({o,chip,bar,lab})=>{
+      const on=st.on.has(o.w),v=on?cOn(o):cOff(o);sum+=v;
+      chip.setAttribute('aria-pressed',String(on));chip.title=on?'present in the email':'absent from the email';
+      const w=Math.abs(v)/maxAbs*50;
+      bar.style.width=w+'%';
+      if(v>=0){bar.style.left='50%';bar.style.right='auto';bar.style.background='var(--spam)';lab.style.left='6px';lab.style.right='auto';}
+      else{bar.style.right='50%';bar.style.left='auto';bar.style.background='var(--ham)';lab.style.right='6px';lab.style.left='auto';}
+      lab.textContent=(v>=0?'+':'')+v.toFixed(2)+(on?' present':' absent');
+    });
+    lo+=sum;const p=sigmoid(lo);
+    $('#spam-bar').innerHTML='<div style="background:var(--spam);flex-basis:'+(p*100)+'%">spam '+pct(p,0)+'</div><div style="background:var(--ham);flex-basis:'+((1-p)*100)+'%">ham '+pct(1-p,0)+'</div>';
+    $('#spam-math').innerHTML='log-odds = prior '+f(prior0,2)+' + words '+f(sum,2)+' = <strong>'+f(lo,2)+'</strong>, so P(spam | words) = σ('+f(lo,2)+') = <strong>'+pct(p,1)+'</strong>';
+  }
+  render();
+})();
+
+/* ---------- 2. Gaussian NB scatter ---------- */
+(function(){
+  const cv=$('#gnb-canvas'),X0=-4,X1=4,Y0=-3.4,Y1=3.4;
+  const st={pts:[],rho:0,seed:7,cls:0};
+  function gen(){
+    const r=mulberry32(st.seed),s=Math.sqrt(.8),k=Math.sqrt(1-st.rho*st.rho);st.pts=[];
+    for(let c=0;c<2;c++)for(let i=0;i<40;i++){
+      const z1=gauss(r),z2=gauss(r);
+      st.pts.push({x:(c?1:-1)*1.0+z1*s,y:st.rho*z1*s+k*z2*s,c});
+    }
+  }
+  function fit(){
+    const g=[0,1].map(c=>{const p=st.pts.filter(q=>q.c===c),n=p.length||1;
+      const mx=p.reduce((a,q)=>a+q.x,0)/n,my=p.reduce((a,q)=>a+q.y,0)/n;
+      const vx=p.reduce((a,q)=>a+(q.x-mx)**2,0)/n+1e-3,vy=p.reduce((a,q)=>a+(q.y-my)**2,0)/n+1e-3;
+      return {n:p.length,mx,my,vx,vy};});
+    const N=g[0].n+g[1].n||1;
+    const lp=(m,x,y,c)=>Math.log((g[c].n+1e-9)/N)-.5*Math.log(2*Math.PI*m.vx)-.5*Math.log(2*Math.PI*m.vy)-(x-m.mx)**2/(2*m.vx)-(y-m.my)**2/(2*m.vy);
+    const post=(x,y)=>sigmoid(lp(g[1],x,y,1)-lp(g[0],x,y,0));
+    // LDA reference: shared full covariance
+    let sxx=0,sxy=0,syy=0;
+    st.pts.forEach(q=>{const m=g[q.c];const dx=q.x-m.mx,dy=q.y-m.my;sxx+=dx*dx;sxy+=dx*dy;syy+=dy*dy;});
+    const d=Math.max(1,N-2);sxx/=d;sxy/=d;syy/=d;
+    const det=sxx*syy-sxy*sxy+1e-9,dm=[g[1].mx-g[0].mx,g[1].my-g[0].my];
+    const w=[(syy*dm[0]-sxy*dm[1])/det,(-sxy*dm[0]+sxx*dm[1])/det];
+    const b=-(w[0]*(g[0].mx+g[1].mx)/2+w[1]*(g[0].my+g[1].my)/2)+Math.log((g[1].n+1e-9)/(g[0].n+1e-9));
+    return {g,post,w,b};
+  }
+  function render(){
+    const {ctx,w:W,h:H}=fitCanvas(cv);
+    const mx=x=>(x-X0)/(X1-X0)*W,my=y=>H-(y-Y0)/(Y1-Y0)*H;
+    const cA=hex2rgb(cssv('--spam')),cB=hex2rgb(cssv('--ham')),M=fit();
+    ctx.clearRect(0,0,W,H);
+    const cell=6;
+    for(let px=0;px<W;px+=cell)for(let py=0;py<H;py+=cell){
+      const x=X0+(px+cell/2)/W*(X1-X0),y=Y1-(py+cell/2)/H*(Y1-Y0),p=M.post(x,y);
+      const col=p>.5?cB:cA,a=.08+.5*Math.abs(2*p-1);
+      ctx.fillStyle='rgba('+col[0]+','+col[1]+','+col[2]+','+a.toFixed(3)+')';ctx.fillRect(px,py,cell,cell);
+    }
+    [0,1].forEach(c=>{
+      const m=M.g[c];ctx.strokeStyle=c?cssv('--ham'):cssv('--spam');ctx.lineWidth=1.5;ctx.setLineDash([5,4]);
+      [1,2].forEach(k=>{ctx.beginPath();for(let i=0;i<=64;i++){const t=i/64*2*Math.PI,x=m.mx+k*Math.sqrt(m.vx)*Math.cos(t),y=m.my+k*Math.sqrt(m.vy)*Math.sin(t);i?ctx.lineTo(mx(x),my(y)):ctx.moveTo(mx(x),my(y));}ctx.stroke();});
+    });
+    ctx.setLineDash([]);
+    // LDA boundary
+    ctx.strokeStyle=cssv('--accent');ctx.lineWidth=2;ctx.beginPath();
+    if(Math.abs(M.w[1])>1e-6){ctx.moveTo(mx(X0),my(-(M.w[0]*X0+M.b)/M.w[1]));ctx.lineTo(mx(X1),my(-(M.w[0]*X1+M.b)/M.w[1]));}
+    else{const x=-M.b/M.w[0];ctx.moveTo(mx(x),0);ctx.lineTo(mx(x),H);}
+    ctx.stroke();
+    st.pts.forEach(q=>{ctx.beginPath();ctx.arc(mx(q.x),my(q.y),3.6,0,7);ctx.fillStyle=q.c?cssv('--ham'):cssv('--spam');ctx.fill();ctx.lineWidth=1;ctx.strokeStyle=cssv('--surface');ctx.stroke();});
+    const accNB=st.pts.filter(q=>(M.post(q.x,q.y)>.5?1:0)===q.c).length/st.pts.length;
+    const accLDA=st.pts.filter(q=>((M.w[0]*q.x+M.w[1]*q.y+M.b)>0?1:0)===q.c).length/st.pts.length;
+    $('#gnb-read').innerHTML=
+      '<div class="readout">Points<b>'+st.pts.length+'</b></div>'+
+      '<div class="readout">Naive Bayes accuracy<b>'+pct(accNB,1)+'</b></div>'+
+      '<div class="readout">LDA accuracy<b>'+pct(accLDA,1)+'</b></div>'+
+      '<div class="readout">NB class A μ, σ<b>('+f(M.g[0].mx,1)+', '+f(M.g[0].my,1)+') · ('+f(Math.sqrt(M.g[0].vx),2)+', '+f(Math.sqrt(M.g[0].vy),2)+')</b></div>'+
+      '<div class="readout">NB class B μ, σ<b>('+f(M.g[1].mx,1)+', '+f(M.g[1].my,1)+') · ('+f(Math.sqrt(M.g[1].vx),2)+', '+f(Math.sqrt(M.g[1].vy),2)+')</b></div>';
+  }
+  cv.addEventListener('click',e=>{
+    const r=cv.getBoundingClientRect();
+    st.pts.push({x:X0+(e.clientX-r.left)/r.width*(X1-X0),y:Y1-(e.clientY-r.top)/r.height*(Y1-Y0),c:st.cls});render();
+  });
+  const setCls=c=>{st.cls=c;$('#gnb-ca').setAttribute('aria-pressed',String(c===0));$('#gnb-cb').setAttribute('aria-pressed',String(c===1));};
+  $('#gnb-ca').addEventListener('click',()=>setCls(0));
+  $('#gnb-cb').addEventListener('click',()=>setCls(1));
+  $('#gnb-reset').addEventListener('click',()=>{st.seed=(st.seed*7919+13)%100003;gen();render();});
+  range('gnb-rho',v=>{st.rho=v;gen();render();return v.toFixed(2);});
+  watchResize(cv,render);
+})();
+
+/* ---------- 3. counting, MLE vs smoothing ---------- */
+(function(){
+  const N=$('#fit-n'),K=$('#fit-k'),A=$('#fit-a');
+  function render(){
+    const n=+N.value;K.max=n;if(+K.value>n)K.value=n;
+    const k=+K.value,a=+A.value;
+    $('#fit-n-out').textContent=n;$('#fit-k-out').textContent=k;$('#fit-a-out').textContent=a;
+    $('#fit-dots').innerHTML=Array.from({length:n},(_,i)=>'<i class="'+(i<k?'on':'')+'"></i>').join('');
+    const mle=k/n,sm=(k+a)/(n+2*a);
+    const lo=Math.log(sm/0.02)+Math.log(.5/.05),p=sigmoid(lo);
+    $('#fit-read').innerHTML=
+      '<div class="readout">MLE θ̂ = k / n<b>'+f(mle,3)+'</b></div>'+
+      '<div class="readout">Smoothed (k+α)/(n+2α)<b>'+f(sm,3)+'</b></div>'+
+      '<div class="readout">New email with "prize" + "free"<b>P(spam) = '+pct(p,1)+'</b></div>';
+    $('#fit-zero').innerHTML=sm===0
+      ?'<span class="warn">Zero-count problem:</span> θ = 0, so any email containing "prize" gets P(spam) = 0, even though "free" (P=0.50 in spam vs 0.05 in ham) is strong evidence. Raise α to fix it.'
+      :(k===0?'<span class="ok">Smoothing at work:</span> "prize" was never seen in spam, but the estimate is small and not zero, so the other evidence still counts.'
+      :'In this email the "ham" side uses P(prize | ham) = 0.02 and "free" uses 0.50 vs 0.05, prior 50/50.');
+  }
+  [N,K,A].forEach(e=>e.addEventListener('input',render));render();
+})();
+
+/* ---------- 4. Beta prior + data ---------- */
+(function(){
+  function lgamma(z){
+    const g=7,c=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+    if(z<.5)return Math.log(Math.PI/Math.sin(Math.PI*z))-lgamma(1-z);
+    z-=1;let x=c[0];for(let i=1;i<g+2;i++)x+=c[i]/(z+i);const t=z+g+.5;
+    return .5*Math.log(2*Math.PI)+(z+.5)*Math.log(t)-t+Math.log(x);
+  }
+  const pdf=(x,a,b)=>Math.exp(lgamma(a+b)-lgamma(a)-lgamma(b)+(a-1)*Math.log(x)+(b-1)*Math.log(1-x));
+  const A=$('#bay-a'),B=$('#bay-b'),N=$('#bay-n'),K=$('#bay-k'),cv=$('#bay-canvas');
+  const PRE=[{t:'Strong prior, little data',a:12,b:12,n:5,k:5},{t:'Weak prior, lots of data',a:2,b:2,n:80,k:60},{t:'Laplace (a = b = 1), zero count',a:1,b:1,n:10,k:0}];
+  const pres=$('#bay-presets');
+  PRE.forEach(p=>{const b=document.createElement('button');b.type='button';b.className='btn';b.textContent=p.t;
+    b.addEventListener('click',()=>{A.value=p.a;B.value=p.b;N.value=p.n;K.max=p.n;K.value=p.k;render();});pres.appendChild(b);});
+  function render(){
+    const a=+A.value,b=+B.value,n=+N.value;K.max=n;if(+K.value>n)K.value=n;const k=+K.value;
+    $('#bay-a-out').textContent=a;$('#bay-b-out').textContent=b;$('#bay-n-out').textContent=n;$('#bay-k-out').textContent=k;
+    const pa=a+k,pb=b+n-k,mle=n?k/n:NaN,den=n+a+b-2,map=den>0?(k+a-1)/den:NaN,mean=pa/(pa+pb);
+    // 95% credible interval from a numeric CDF
+    const G=2000;let cdf=0,lo=0,hi=1,gotLo=false;
+    for(let i=0;i<G;i++){const x=(i+.5)/G;cdf+=pdf(x,pa,pb)/G;if(!gotLo&&cdf>=.025){lo=x;gotLo=true;}if(cdf>=.975){hi=x;break;}}
+    $('#bay-read').innerHTML=
+      '<div class="readout">MLE k/n<b>'+f(mle,3)+'</b></div>'+
+      '<div class="readout">MAP<b>'+f(map,3)+'</b></div>'+
+      '<div class="readout">Posterior mean<b>'+f(mean,3)+'</b></div>'+
+      '<div class="readout">Prior mean<b>'+f(a/(a+b),3)+'</b></div>'+
+      '<div class="readout">95% credible interval<b>['+f(lo,2)+', '+f(hi,2)+']</b></div>';
+    const {ctx,w:W,h:H}=fitCanvas(cv),L=36,R=12,T=18,Bt=26;
+    const xs=[],pri=[],pos=[];let ymax=0;
+    for(let i=1;i<400;i++){const x=i/400;xs.push(x);const p1=pdf(x,a,b),p2=pdf(x,pa,pb);pri.push(p1);pos.push(p2);ymax=Math.max(ymax,p1,p2);}
+    ymax*=1.1;
+    const mx=x=>L+x*(W-L-R),my=y=>H-Bt-y/ymax*(H-Bt-T);
+    ctx.clearRect(0,0,W,H);ctx.font='11px '+cssv('--font-mono');ctx.fillStyle=cssv('--muted');ctx.strokeStyle=cssv('--line');ctx.lineWidth=1;
+    [0,.25,.5,.75,1].forEach(t=>{ctx.beginPath();ctx.moveTo(mx(t),T);ctx.lineTo(mx(t),H-Bt);ctx.stroke();ctx.textAlign='center';ctx.fillText(t.toString(),mx(t),H-8);});
+    ctx.textAlign='right';ctx.fillText('density',L-4,T+4);
+    const path=(arr)=>{ctx.beginPath();arr.forEach((y,i)=>{i?ctx.lineTo(mx(xs[i]),my(y)):ctx.moveTo(mx(xs[i]),my(y));});};
+    ctx.setLineDash([6,4]);ctx.strokeStyle=cssv('--muted');ctx.lineWidth=2;path(pri);ctx.stroke();ctx.setLineDash([]);
+    path(pos);ctx.lineTo(mx(xs[xs.length-1]),my(0));ctx.lineTo(mx(xs[0]),my(0));ctx.closePath();
+    const ac=hex2rgb(cssv('--accent'));ctx.fillStyle='rgba('+ac[0]+','+ac[1]+','+ac[2]+',.16)';ctx.fill();
+    ctx.strokeStyle=cssv('--accent');ctx.lineWidth=2.5;path(pos);ctx.stroke();
+    const mark=(v,lab,col,yy)=>{if(!Number.isFinite(v)||v<0||v>1)return;ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(mx(v),yy+4);ctx.lineTo(mx(v),H-Bt);ctx.stroke();
+      ctx.fillStyle=col;ctx.textAlign=v>.8?'right':'left';ctx.fillText(lab,mx(v)+(v>.8?-4:4),yy+2);};
+    mark(mle,'MLE',cssv('--nb'),T+4);mark(map,'MAP',cssv('--ham'),T+18);mark(mean,'mean',cssv('--accent'),T+32);
+  }
+  [A,B,N,K].forEach(e=>e.addEventListener('input',render));
+  watchResize(cv,render);
+})();
+
+/* ---------- 5a. NB parameters -> logistic regression weights ---------- */
+(function(){
+  const defs=[['π₁ = P(y=1)',.4],['θ₁₁ = P(x₁=1 | y=1)',.8],['θ₁₀ = P(x₁=1 | y=0)',.3],['θ₂₁ = P(x₂=1 | y=1)',.6],['θ₂₀ = P(x₂=1 | y=0)',.5],['θ₃₁ = P(x₃=1 | y=1)',.2],['θ₃₀ = P(x₃=1 | y=0)',.7]];
+  const box=$('#lrA-ctrls'),ins=[];
+  defs.forEach((d,i)=>{
+    const row=document.createElement('div');row.className='ctrl';
+    row.innerHTML='<label for="lrA-s'+i+'">'+d[0]+'</label><input id="lrA-s'+i+'" type="range" min="0.05" max="0.95" step="0.01" value="'+d[1]+'"><output></output>';
+    box.appendChild(row);const el=$('input',row);ins.push({el,out:$('output',row)});el.addEventListener('input',render);
+  });
+  function render(){
+    const v=ins.map(o=>+o.el.value);ins.forEach((o,i)=>o.out.textContent=v[i].toFixed(2));
+    const pi=v[0],th1=[v[1],v[3],v[5]],th0=[v[2],v[4],v[6]];
+    const w=th1.map((t,j)=>Math.log(t*(1-th0[j])/(th0[j]*(1-t))));
+    let w0=Math.log(pi/(1-pi));th1.forEach((t,j)=>{w0+=Math.log((1-t)/(1-th0[j]));});
+    $('#lrA-w').innerHTML=
+      '<div class="readout">w₀ (bias)<b>'+f(w0,3)+'</b></div>'+w.map((x,j)=>'<div class="readout">w'+'₁₂₃'[j]+'<b>'+f(x,3)+'</b></div>').join('');
+    let html='',allOk=true;
+    for(let m=0;m<8;m++){
+      const x=[(m>>2)&1,(m>>1)&1,m&1];
+      let a1=pi,a0=1-pi;x.forEach((xj,j)=>{a1*=xj?th1[j]:1-th1[j];a0*=xj?th0[j]:1-th0[j];});
+      const nb=a1/(a1+a0),lr=sigmoid(w0+w[0]*x[0]+w[1]*x[1]+w[2]*x[2]),ok=Math.abs(nb-lr)<1e-9;allOk=allOk&&ok;
+      html+='<tr><td class="num">'+x.join(' ')+'</td><td class="num">'+f(nb,6)+'</td><td class="num">'+f(lr,6)+'</td><td>'+(ok?'<span class="ok">✓</span>':'<span class="warn">✗</span>')+'</td></tr>';
+    }
+    $('#lrA-table tbody').innerHTML=html;
+  }
+  render();
+})();
+
+/* ---------- 5b. duplicated features ---------- */
+(function(){
+  const M=$('#dup-m'),box=$('#dup-svg');
+  const nbP=m=>{const lo=m*Math.log(.8/.4);return sigmoid(lo);};
+  const truth=.8/(.8+.4);
+  function render(){
+    const m=+M.value;$('#dup-m-out').textContent=m;
+    const W=640,H=250,L=44,R=16,T=14,B=30,mx=i=>L+(i-1)/9*(W-L-R),my=p=>H-B-(p-.5)/.5*(H-B-T);
+    let s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Naive Bayes posterior versus number of copies of one feature">';
+    [.5,.6,.7,.8,.9,1].forEach(p=>{s+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+my(p)+'" y2="'+my(p)+'" style="stroke:var(--line)"/><text x="'+(L-6)+'" y="'+(my(p)+4)+'" text-anchor="end">'+p.toFixed(1)+'</text>';});
+    for(let i=1;i<=10;i++)s+='<text x="'+mx(i)+'" y="'+(H-10)+'" text-anchor="middle">'+i+'</text>';
+    s+='<text x="'+(W/2)+'" y="'+(H-0)+'" text-anchor="middle" style="font-size:10px">copies of the feature</text>';
+    s+='<line x1="'+mx(1)+'" x2="'+mx(10)+'" y1="'+my(truth)+'" y2="'+my(truth)+'" style="stroke:var(--muted);stroke-width:2;stroke-dasharray:6 4"/>';
+    s+='<text x="'+(mx(10))+'" y="'+(my(truth)-8)+'" text-anchor="end">logistic regression (refit): stays at '+truth.toFixed(3)+'</text>';
+    let d='';for(let i=1;i<=10;i++)d+=(i>1?'L':'M')+mx(i)+' '+my(nbP(i));
+    s+='<path d="'+d+'" fill="none" style="stroke:var(--nb);stroke-width:2.5"/>';
+    for(let i=1;i<=10;i++)s+='<circle cx="'+mx(i)+'" cy="'+my(nbP(i))+'" r="'+(i===m?6:3)+'" style="fill:'+(i===m?'var(--nb)':'var(--surface)')+';stroke:var(--nb);stroke-width:2"/>';
+    s+='<text x="'+(mx(5)+8)+'" y="'+(my(nbP(5))+20)+'">naive Bayes</text></svg>';
+    box.innerHTML=s;
+    $('#dup-read').innerHTML=
+      '<div class="readout">Naive Bayes P(y=1 | x)<b>'+f(nbP(m),4)+'</b></div>'+
+      '<div class="readout">Logistic regression<b>'+f(truth,4)+'</b></div>'+
+      '<div class="readout">NB log-odds<b>'+f(m*Math.log(2),3)+' = '+m+' × ln 2</b></div>'+
+      '<div class="readout">True log-odds<b>'+f(Math.log(2),3)+'</b></div>';
+  }
+  M.addEventListener('input',render);render();
+})();
+
+/* ---------- 6. learning curves: Gaussian NB vs logistic regression ---------- */
+const LC={D:10,SIG:3,MU:.6,NS:[4,8,16,32,64,128,256,512],R:24,T:3000,LAM:.1};
+function lcGen(r,n,rho,balanced){
+  const X=[],Y=[],a=Math.sqrt(1-rho),b=Math.sqrt(rho);
+  for(let i=0;i<n;i++){
+    const y=balanced?i%2:(r()<.5?1:0),s=gauss(r),x=new Array(LC.D);
+    for(let j=0;j<LC.D;j++)x[j]=(j<LC.SIG?(y?LC.MU:-LC.MU):0)+a*gauss(r)+b*s;
+    X.push(x);Y.push(y);
+  }
+  return {X,Y};
+}
+function lcFitNB(tr){
+  const D=LC.D,m=[new Array(D).fill(0),new Array(D).fill(0)],cnt=[0,0];
+  tr.X.forEach((x,i)=>{cnt[tr.Y[i]]++;for(let j=0;j<D;j++)m[tr.Y[i]][j]+=x[j];});
+  for(let c=0;c<2;c++)for(let j=0;j<D;j++)m[c][j]/=Math.max(1,cnt[c]);
+  const v=new Array(D).fill(0);
+  tr.X.forEach((x,i)=>{for(let j=0;j<D;j++)v[j]+=(x[j]-m[tr.Y[i]][j])**2;});
+  for(let j=0;j<D;j++)v[j]=v[j]/Math.max(1,tr.X.length-2)+1e-2;
+  const w=m[1].map((mu,j)=>(mu-m[0][j])/v[j]);
+  let b=Math.log((cnt[1]+1)/(cnt[0]+1));for(let j=0;j<D;j++)b-=w[j]*(m[1][j]+m[0][j])/2;
+  return {w,b};
+}
+function solve(A,bv){
+  const n=bv.length;
+  for(let i=0;i<n;i++){
+    let p=i;for(let r=i+1;r<n;r++)if(Math.abs(A[r][i])>Math.abs(A[p][i]))p=r;
+    [A[i],A[p]]=[A[p],A[i]];[bv[i],bv[p]]=[bv[p],bv[i]];
+    for(let r=i+1;r<n;r++){const k=A[r][i]/A[i][i];if(k)for(let c=i;c<n;c++)A[r][c]-=k*A[i][c];bv[r]-=k*bv[i];}
+  }
+  const x=new Array(n).fill(0);
+  for(let i=n-1;i>=0;i--){let s=bv[i];for(let c=i+1;c<n;c++)s-=A[i][c]*x[c];x[i]=s/A[i][i];}
+  return x;
+}
+function lcFitLR(tr){
+  const D=LC.D,P=D+1,w=new Array(P).fill(0);
+  for(let it=0;it<15;it++){
+    const g=new Array(P).fill(0),H=Array.from({length:P},()=>new Array(P).fill(0));
+    for(let i=0;i<tr.X.length;i++){
+      const xt=[1,...tr.X[i]];let z=0;for(let j=0;j<P;j++)z+=w[j]*xt[j];
+      const p=sigmoid(clamp(z,-30,30)),s=p*(1-p)+1e-9,e=p-tr.Y[i];
+      for(let j=0;j<P;j++){g[j]+=e*xt[j];for(let k=0;k<P;k++)H[j][k]+=s*xt[j]*xt[k];}
+    }
+    for(let j=1;j<P;j++){g[j]+=LC.LAM*w[j];H[j][j]+=LC.LAM;}
+    H[0][0]+=1e-6;
+    const dw=solve(H,g);let mx=0;for(let j=0;j<P;j++){w[j]-=dw[j];mx=Math.max(mx,Math.abs(dw[j]));}
+    if(mx<1e-7)break;
+  }
+  return {b:w[0],w:w.slice(1)};
+}
+const lcErr=(m,te)=>{let bad=0;te.X.forEach((x,i)=>{let z=m.b;for(let j=0;j<LC.D;j++)z+=m.w[j]*x[j];if((z>0?1:0)!==te.Y[i])bad++;});return bad/te.X.length;};
+function lcBayes(rho){
+  const D=LC.D,dm=new Array(D).fill(0).map((_,j)=>j<LC.SIG?2*LC.MU:0),s=dm.reduce((a,b)=>a+b,0),k=rho/(1-rho+D*rho);
+  return {b:0,w:dm.map(v=>(v-k*s)/(1-rho))};
+}
+(function(){
+  const box=$('#lc-svg'),run=$('#lc-run'),stat=$('#lc-status'),read=$('#lc-read');
+  let res=null,rhoShown=null,token=0;
+  range('lc-rho',v=>v.toFixed(1));
+  function draw(){
+    const W=640,H=300,L=46,R=18,T=14,B=40,NS=LC.NS;
+    const mx=i=>L+i/(NS.length-1)*(W-L-R),my=e=>H-B-e/.5*(H-B-T);
+    let s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Test error versus training set size for naive Bayes and logistic regression">';
+    [0,.1,.2,.3,.4,.5].forEach(e=>{s+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+my(e)+'" y2="'+my(e)+'" style="stroke:var(--line)"/><text x="'+(L-6)+'" y="'+(my(e)+4)+'" text-anchor="end">'+(e*100).toFixed(0)+'%</text>';});
+    NS.forEach((n,i)=>{s+='<text x="'+mx(i)+'" y="'+(H-22)+'" text-anchor="middle">'+n+'</text>';});
+    s+='<text x="'+(W/2)+'" y="'+(H-6)+'" text-anchor="middle">training examples n (log scale)</text>';
+    s+='<text x="'+L+'" y="10">test error</text>';
+    if(res){
+      const line=(key,col,dash)=>{
+        const pts=res[key].map((e,i)=>e==null?null:[mx(i),my(e)]).filter(Boolean);if(!pts.length)return;
+        s+='<path d="'+pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join('')+'" fill="none" style="stroke:'+col+';stroke-width:'+(dash?2:2.8)+(dash?';stroke-dasharray:6 4':'')+'"/>';
+        if(!dash)pts.forEach(p=>{s+='<circle cx="'+p[0].toFixed(1)+'" cy="'+p[1].toFixed(1)+'" r="3.5" style="fill:'+col+'"/>';});
+      };
+      s+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+my(res.bayes)+'" y2="'+my(res.bayes)+'" style="stroke:var(--muted);stroke-width:2;stroke-dasharray:6 4"/>';
+      line('nb','var(--nb)');line('lr','var(--accent)');
+    }else{
+      s+='<text x="'+(W/2)+'" y="'+(H/2-10)+'" text-anchor="middle" style="font-size:13px">Press "Run experiment"</text>';
+    }
+    box.innerHTML=s+'</svg>';
+    if(res){
+      const i=res.nb.map(e=>e!=null).lastIndexOf(true);
+      let cross='';for(let k=0;k<=i;k++)if(res.lr[k]<res.nb[k]){cross='Logistic regression first beats naive Bayes at n = '+NS[k]+'.';break;}
+      if(!cross)cross='Naive Bayes is at least as good as logistic regression at every n tested.';
+      read.innerHTML='At n = '+NS[i]+': naive Bayes <strong>'+pct(res.nb[i])+'</strong>, logistic regression <strong>'+pct(res.lr[i])+'</strong>, Bayes-optimal <strong>'+pct(res.bayes)+'</strong>. '+cross;
+    }else read.textContent='';
+  }
+  async function go(){
+    const rho=+$('#lc-rho').value,my_=++token;run.disabled=true;
+    const seedBase=Math.round(rho*10)*1000+17,te=lcGen(mulberry32(seedBase),LC.T,rho,false);
+    res={nb:LC.NS.map(()=>null),lr:LC.NS.map(()=>null),bayes:lcErr(lcBayes(rho),te)};
+    for(let i=0;i<LC.NS.length;i++){
+      const n=LC.NS[i];stat.textContent='running n = '+n+' …';
+      await new Promise(r=>setTimeout(r,0));if(my_!==token)return;
+      let a=0,b=0;
+      for(let r=0;r<LC.R;r++){const tr=lcGen(mulberry32(seedBase+n*131+r*7),n,rho,true);a+=lcErr(lcFitNB(tr),te);b+=lcErr(lcFitLR(tr),te);}
+      res.nb[i]=a/LC.R;res.lr[i]=b/LC.R;draw();
+    }
+    stat.textContent='done (ρ = '+rho.toFixed(1)+')';run.disabled=false;rhoShown=rho;
+  }
+  run.addEventListener('click',go);
+  $('#lc-rho').addEventListener('input',()=>{stat.textContent=rhoShown!==null?'ρ changed, run again to update':'';});
+  watchResize(box,draw);draw();
+})();
+
+/* ---------- 7. bound optimization on 1-D logistic regression ---------- */
+(function(){
+  const XS=[-2.5,-1.8,-1.2,-.7,-.3,.2,.5,.9,1.3,1.9,2.4,3.0],YS=[0,0,0,1,0,0,1,0,1,1,1,1];
+  const Lf=w=>XS.reduce((a,x,i)=>a+Math.log1p(Math.exp(-Math.abs(w*x)))+Math.max(w*x,0)-YS[i]*w*x,0);
+  const Gf=w=>XS.reduce((a,x,i)=>a+(sigmoid(w*x)-YS[i])*x,0);
+  const Hf=w=>XS.reduce((a,x)=>{const p=sigmoid(w*x);return a+p*(1-p)*x*x;},0);
+  const BC=.25*XS.reduce((a,x)=>a+x*x,0);
+  const X0=-4,X1=8,cv=$('#mm-canvas');
+  let wStar=0;{let w=0;for(let i=0;i<60;i++)w-=Gf(w)/Math.max(Hf(w),1e-6)*.5;wStar=w;}
+  const st={mode:'bound',w:6,hist:[],last:null};
+  function reset(){st.w=+$('#mm-w0').value;st.hist=[{t:0,w:st.w,L:Lf(st.w),d:null}];st.last=null;render();}
+  function curv(w){return st.mode==='bound'?BC:Math.max(Hf(w),1e-9);}
+  function step(){
+    const w=st.w,g=Gf(w),c=curv(w);st.last={w,g,c,L:Lf(w)};
+    const wn=clamp(w-g/c,-60,60),prev=st.hist[st.hist.length-1];
+    st.w=wn;st.hist.push({t:prev.t+1,w:wn,L:Lf(wn),d:Lf(wn)-prev.L});render();
+  }
+  function render(){
+    const {ctx,w:W,h:H}=fitCanvas(cv),L=40,R=12,T=10,B=26;
+    let ymax=0;for(let i=0;i<=120;i++)ymax=Math.max(ymax,Lf(X0+i/120*(X1-X0)));ymax=Math.min(ymax,34);
+    const mx=x=>L+(x-X0)/(X1-X0)*(W-L-R),my=y=>H-B-y/ymax*(H-B-T);
+    ctx.clearRect(0,0,W,H);ctx.font='11px '+cssv('--font-mono');ctx.fillStyle=cssv('--muted');ctx.strokeStyle=cssv('--line');ctx.lineWidth=1;
+    for(let x=-4;x<=8;x+=2){ctx.beginPath();ctx.moveTo(mx(x),T);ctx.lineTo(mx(x),H-B);ctx.stroke();ctx.textAlign='center';ctx.fillText(String(x),mx(x),H-9);}
+    ctx.textAlign='right';[0,10,20,30].filter(v=>v<=ymax).forEach(v=>{ctx.fillText(String(v),L-5,my(v)+4);});
+    ctx.textAlign='left';ctx.fillText('w',W-14,H-9);
+    ctx.save();ctx.beginPath();ctx.rect(L,T,W-L-R,H-B-T);ctx.clip();
+    const quad=(q,col,alpha,dash)=>{
+      ctx.globalAlpha=alpha;ctx.strokeStyle=col;ctx.lineWidth=2;ctx.setLineDash(dash?[6,4]:[]);ctx.beginPath();
+      for(let i=0;i<=200;i++){const x=X0+i/200*(X1-X0),y=q.L+q.g*(x-q.w)+.5*(q.c)*(x-q.w)**2;i?ctx.lineTo(mx(x),my(y)):ctx.moveTo(mx(x),my(y));}
+      ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;};
+    if(st.last)quad(st.last,cssv('--nb'),.4,true);
+    const cur={w:st.w,g:Gf(st.w),c:curv(st.w),L:Lf(st.w)};quad(cur,cssv('--nb'),1,false);
+    ctx.strokeStyle=cssv('--accent');ctx.lineWidth=3;ctx.beginPath();
+    for(let i=0;i<=240;i++){const x=X0+i/240*(X1-X0);i?ctx.lineTo(mx(x),my(Lf(x))):ctx.moveTo(mx(x),my(Lf(x)));}ctx.stroke();
+    ctx.strokeStyle=cssv('--muted');ctx.setLineDash([2,4]);ctx.beginPath();ctx.moveTo(mx(wStar),T);ctx.lineTo(mx(wStar),H-B);ctx.stroke();ctx.setLineDash([]);
+    st.hist.forEach((h,i)=>{ctx.beginPath();ctx.arc(mx(h.w),my(h.L),i===st.hist.length-1?6:3.5,0,7);ctx.fillStyle=cssv('--spam');ctx.fill();ctx.strokeStyle=cssv('--surface');ctx.lineWidth=1.5;ctx.stroke();});
+    ctx.restore();
+    // does Q lie above L everywhere on the plotted range?
+    let below=0,tot=0;for(let i=0;i<=400;i++){const x=X0+i/400*(X1-X0),q=cur.L+cur.g*(x-cur.w)+.5*cur.c*(x-cur.w)**2;tot++;if(q<Lf(x)-1e-9)below++;}
+    const lastD=st.hist[st.hist.length-1].d;
+    $('#mm-read').innerHTML=
+      '<div class="readout">Current w<b>'+f(st.w,4)+'</b></div>'+
+      '<div class="readout">L(w)<b>'+f(Lf(st.w),4)+'</b></div>'+
+      '<div class="readout">Optimum w*<b>'+f(wStar,4)+'</b></div>'+
+      '<div class="readout">Surrogate curvature<b>'+f(cur.c,3)+'</b></div>'+
+      '<div class="readout">Q ≥ L on the plot?<b class="'+(below?'warn':'ok')+'">'+(below?'no ('+pct(below/tot,0)+' below)':'yes')+'</b></div>'+
+      '<div class="readout">Last step<b class="'+(lastD==null?'':(lastD<=1e-12?'ok':'warn'))+'">'+(lastD==null?'—':(lastD<=1e-12?'L went down':'L went UP'))+'</b></div>';
+    $('#mm-log tbody').innerHTML=st.hist.slice(-12).map(h=>'<tr><td class="num">'+h.t+'</td><td class="num">'+f(h.w,4)+'</td><td class="num">'+f(h.L,4)+'</td><td class="num">'+(h.d==null?'—':(h.d>0?'+':'')+f(h.d,4))+'</td></tr>').join('');
+  }
+  $('#mm-step').addEventListener('click',step);
+  $('#mm-run').addEventListener('click',()=>{for(let i=0;i<10;i++)step();});
+  $('#mm-reset').addEventListener('click',reset);
+  const setMode=m=>{st.mode=m;$('#mm-bound').setAttribute('aria-pressed',String(m==='bound'));$('#mm-newton').setAttribute('aria-pressed',String(m==='newton'));reset();};
+  $('#mm-bound').addEventListener('click',()=>setMode('bound'));$('#mm-newton').addEventListener('click',()=>setMode('newton'));
+  range('mm-w0',v=>v.toFixed(1));$('#mm-w0').addEventListener('input',reset);
+  watchResize(cv,render);reset();
+})();
+
+/* ---------- quiz ---------- */
+(function(){
+  const Q=[
+    {q:'A naive Bayes spam filter is given the same word five times, as five identical features. Compared with seeing it once, its posterior is…',o:['unchanged','more extreme (overconfident)','less extreme','undefined'],a:1,
+     w:'NB multiplies one likelihood ratio per feature, so five copies add five times the log-odds. A logistic regression refit would split the weight and stay put.'},
+    {q:'For a Bernoulli feature, add-one (Laplace) smoothing (k+1)/(n+2) is…',o:['the MLE','the MAP estimate under a uniform Beta(1,1) prior','the posterior mean under a uniform Beta(1,1) prior','the median of the observed data'],a:2,
+     w:'With a Beta(1,1) prior the posterior is Beta(k+1, n−k+1), whose mean is (k+1)/(n+2). The MAP under a uniform prior is just the MLE, k/n.'},
+    {q:'Ng & Jordan compared naive Bayes and logistic regression. With very few training examples, which one tends to reach its best error sooner?',o:['Naive Bayes','Logistic regression','They are always identical','Neither one can learn from small data'],a:0,
+     w:'NB reaches its (possibly higher) asymptotic error with roughly O(log D) examples, while LR needs about O(D). LR has the lower asymptote, so it wins once n is large.'},
+    {q:'In bound optimization for minimization, the surrogate Q(θ | θₜ) must satisfy…',o:['Q ≤ L everywhere, with equality at θₜ','Q ≥ L everywhere, with equality at θₜ','Q and L must have identical curvature','Q must be minimized exactly at θₜ'],a:1,
+     w:'L(θₜ₊₁) ≤ Q(θₜ₊₁ | θₜ) ≤ Q(θₜ | θₜ) = L(θₜ). The first inequality needs Q ≥ L, the second comes from minimizing Q, and the equality needs touching at θₜ.'},
+    {q:'Bernoulli naive Bayes gives p(y=1|x) = σ(w₀ + wᵀx). Why is it still not the same as logistic regression?',o:['Its functional form is different','Logistic regression cannot take binary features','Same model family, but NB fits it by maximizing the joint likelihood, not the conditional likelihood','NB needs iterative optimization and LR does not'],a:2,
+     w:'NB sets the weights from counts (joint likelihood, closed form). LR chooses the weights that maximize p(y | x) on the training data, which needs iterative optimization.'}];
+  const box=$('#quiz-box');let score=0,done=0;
+  const sum=document.createElement('p');sum.className='note';sum.textContent='Pick an answer for each question.';
+  Q.forEach((it,qi)=>{
+    const d=document.createElement('div');d.className='q';
+    d.innerHTML='<p></p>';$('p',d).textContent=(qi+1)+'. '+it.q;
+    const why=document.createElement('p');why.className='why';why.hidden=true;why.textContent=it.w;
+    const btns=it.o.map((t,i)=>{const b=document.createElement('button');b.type='button';b.className='opt';b.textContent=t;d.appendChild(b);
+      b.addEventListener('click',()=>{
+        if(d.dataset.done)return;d.dataset.done='1';done++;
+        btns.forEach((x,j)=>{if(j===it.a)x.classList.add('right');});
+        if(i===it.a)score++;else b.classList.add('wrong');
+        why.hidden=false;sum.innerHTML='Score: <strong>'+score+' / '+Q.length+'</strong>'+(done===Q.length?' · done':' · '+(Q.length-done)+' to go');
+      });return b;});
+    d.appendChild(why);box.appendChild(d);
+  });
+  box.appendChild(sum);
+})();
+
+})();
+</script>
+</body>
+</html>
