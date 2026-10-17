@@ -1,0 +1,1864 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gaussian Discriminant Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky reading-level bar, a contents rail on wide screens, one prose column with full-width lab cards between paragraphs.
+   Colour: the interface is slate ink on cool paper. Chroma is reserved for the data classes: A orange, B blue, C green. */
+:root {
+  --bg: #F3F5F9; --surface: #FFFFFF; --plot: #FBFCFE; --fg: #141A26; --muted: #566073;
+  --rule: #D6DCE6; --soft: #E8ECF3; --ink: #1A2742; --on-ink: #FFFFFF; --grid: #E7EBF2; --axis: #C3CBD8;
+  --ca: #D55E00; --cb: #0072B2; --cc: #009E73; --warn: #8A4B00;
+  --display: 'Bricolage Grotesque', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+  --body: 'Source Serif 4', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --bar-h: 58px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1118; --surface: #151B26; --plot: #111723; --fg: #E5E9F0; --muted: #98A3B6;
+    --rule: #283042; --soft: #1D2431; --ink: #D9E3F8; --on-ink: #0D1118; --grid: #1B2230; --axis: #2F3A4E;
+    --ca: #F28C3D; --cb: #52B4F0; --cc: #3ED5A3; --warn: #F0B15A; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1118; --surface: #151B26; --plot: #111723; --fg: #E5E9F0; --muted: #98A3B6;
+  --rule: #283042; --soft: #1D2431; --ink: #D9E3F8; --on-ink: #0D1118; --grid: #1B2230; --axis: #2F3A4E;
+  --ca: #F28C3D; --cb: #52B4F0; --cc: #3ED5A3; --warn: #F0B15A; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { background: var(--bg); color: var(--fg); font: 400 18px/1.65 var(--body); -webkit-text-size-adjust: 100%; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+a { color: inherit; }
+.ca { --c: var(--ca); } .cb { --c: var(--cb); } .cc { --c: var(--cc); }
+
+/* ---------- level bar ---------- */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); border-bottom: 1px solid var(--rule); }
+.bar-in { max-width: 1180px; margin: 0 auto; padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
+.brand { font: 500 .72rem var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.lvl-pick { display: flex; align-items: center; gap: 10px; }
+.lp-l { font: 500 .72rem var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { font: 500 .84rem var(--display); padding: 7px 13px; border: 0; border-right: 1px solid var(--rule); background: transparent; color: var(--fg); cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button:hover { background: var(--soft); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+@media (max-width: 640px) { .lvl-pick { width: 100%; } .seg { flex: 1; } .seg button { flex: 1; padding-inline: 6px; } .lp-l { display: none; } }
+
+/* ---------- page frame ---------- */
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.hero { padding-block: 34px 8px; }
+.eyebrow { font: 500 .74rem var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+h1 { font: 700 clamp(2rem, 5.2vw, 3.5rem)/1.04 var(--display); letter-spacing: -.02em; margin: 0 0 14px; text-wrap: balance; max-width: 18ch; }
+.lede { font-size: 1.2rem; line-height: 1.55; max-width: 60ch; margin: 0 0 10px; }
+.hero small { display: block; color: var(--muted); font-size: .92rem; max-width: 62ch; }
+.shell { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 44px; padding-top: 20px; }
+.main { min-width: 0; max-width: 880px; padding-bottom: 90px; }
+.toc { display: none; }
+.toc nav, .toc { font: 500 .84rem/1.35 var(--display); }
+.toc a { display: flex; gap: 8px; padding: 5px 8px; border-radius: 6px; text-decoration: none; color: var(--muted); }
+.toc a:hover { background: var(--soft); color: var(--fg); }
+.toc a.on { background: var(--ink); color: var(--on-ink); }
+.toc a .n { font: 500 .72rem var(--mono); min-width: 2.6em; padding-top: 2px; opacity: .85; }
+.toc a.d2 { padding-left: 14px; } .toc a.d3 { padding-left: 26px; }
+.tocm { margin: 0 0 6px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); font: 500 .9rem var(--display); }
+.tocm summary { cursor: pointer; padding: 10px 14px; }
+.tocm div { padding: 0 6px 8px; display: grid; }
+.tocm a { text-decoration: none; padding: 7px 10px; color: var(--muted); }
+.tocm a .n { font: 500 .72rem var(--mono); display: inline-block; min-width: 2.8em; }
+.tocm a.d2 { padding-left: 18px; } .tocm a.d3 { padding-left: 30px; }
+@media (min-width: 980px) {
+  .shell { grid-template-columns: 220px minmax(0, 1fr); }
+  .toc { display: block; position: sticky; top: calc(var(--bar-h) + env(safe-area-inset-top, 0px) + 18px); align-self: start; max-height: calc(100vh - var(--bar-h) - 60px); overflow: auto; }
+  .tocm { display: none; }
+}
+
+/* ---------- sections ---------- */
+.sec { padding-top: 38px; scroll-margin-top: calc(var(--bar-h) + env(safe-area-inset-top, 0px) + 12px); }
+.sec h2 { font: 700 1.9rem/1.12 var(--display); letter-spacing: -.015em; margin: 0 0 14px; text-wrap: balance; display: flex; gap: 12px; align-items: baseline; }
+.sec.d2 h2 { font-size: 1.55rem; }
+.sec.d3 h2 { font-size: 1.28rem; }
+.sec h2 .num { font: 500 .82rem var(--mono); color: var(--muted); letter-spacing: .02em; flex: none; min-width: 2.7em; }
+.prose p { margin: 0 0 1em; max-width: 68ch; }
+.prose ul { margin: 0 0 1em; padding-left: 1.2em; max-width: 66ch; }
+.prose li { margin-bottom: .4em; }
+.app[data-level="kid"] .prose { font-size: 1.16rem; line-height: 1.78; }
+.app[data-level="ug"] .prose { font-size: 1.04rem; line-height: 1.7; }
+.lvl-note { display: none; }
+.app[data-level="kid"] .lvl:not([data-l="kid"]),
+.app[data-level="hs"] .lvl:not([data-l="hs"]),
+.app[data-level="ug"] .lvl:not([data-l="ug"]) { display: none; }
+.app[data-level="kid"] .tech { display: none !important; }
+.app[data-level="kid"] .ugonly, .app[data-level="hs"] .ugonly { display: none !important; }
+.app:not([data-level="kid"]) .kidonly { display: none !important; }
+.eq { margin: 14px 0; overflow-x: auto; text-align: center; padding: 4px 0; }
+.m { font-size: 1.04em; }
+math { font-family: 'STIX Two Math', 'Cambria Math', 'Latin Modern Math', 'Noto Sans Math', math, serif; }
+mi.b { font-style: normal; font-weight: 700; text-transform: none; }
+mi.fn { padding-inline-end: .17em; }
+.note { background: var(--soft); border-radius: 8px; padding: 10px 14px; font-size: .92rem; max-width: 68ch; margin: 0 0 1em; }
+.sw { display: inline-block; width: .72em; height: .72em; border-radius: 50%; background: var(--c); margin-right: .35em; vertical-align: baseline; }
+.sw.sq { border-radius: 2px; } .sw.tri { border-radius: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+
+/* ---------- labs ---------- */
+.lab { margin: 26px 0 6px; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 14px 16px; }
+.lab-cap { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+.lab-cap .tag { font: 500 .68rem var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+.lab-cap strong { font: 600 1.08rem var(--display); }
+.try { font-size: .94rem; color: var(--muted); line-height: 1.5; margin: 0 0 10px; max-width: 74ch; }
+.try b { color: var(--fg); font-family: var(--display); font-weight: 600; }
+.stage canvas { display: block; width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--rule); background: var(--plot); touch-action: pan-y; }
+.ctls { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 8px 24px; margin-top: 12px; align-items: center; }
+.ctl { display: grid; grid-template-columns: minmax(6.2em, 9.6em) minmax(0, 1fr) 3.9em; gap: 8px; align-items: center; font: 400 .84rem var(--display); }
+.ctl output { font: 500 .78rem var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.ctl input[type="range"] { width: 100%; min-width: 0; accent-color: var(--ink); margin: 0; }
+.ctl input:disabled { opacity: .45; }
+.sel { display: grid; grid-template-columns: minmax(6.2em, 9.6em) minmax(0, 1fr); gap: 8px; align-items: center; font: 400 .84rem var(--display); }
+.sel select { font: 400 .82rem var(--display); padding: 6px 8px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); color: var(--fg); min-width: 0; width: 100%; }
+.chk { display: flex; gap: 8px; align-items: center; font: 400 .84rem var(--display); }
+.chk input { accent-color: var(--ink); width: 16px; height: 16px; margin: 0; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.btn { font: 500 .78rem var(--mono); padding: 8px 12px; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); color: var(--fg); cursor: pointer; }
+.btn:hover { border-color: var(--ink); }
+.btn.pri { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+.readout { margin-top: 12px; font: 400 .88rem/1.5 var(--display); }
+.readout p { margin: 4px 0; }
+.readout b { font-weight: 600; }
+.tbl-wrap { overflow-x: auto; }
+.tbl { border-collapse: collapse; width: 100%; font: 400 .8rem var(--mono); font-variant-numeric: tabular-nums; }
+.tbl th, .tbl td { padding: 6px 9px; border-bottom: 1px solid var(--rule); text-align: left; white-space: nowrap; vertical-align: middle; }
+.tbl thead th { font-weight: 500; color: var(--muted); font-size: .72rem; letter-spacing: .03em; }
+.tbl tr.win th, .tbl tr.win td { background: var(--soft); }
+.tbl tr.win th { box-shadow: inset 3px 0 0 var(--ink); }
+.tbl.wrapth th[scope=row], .tbl.wrapth thead th { white-space: normal; }
+.tbl.wrapth th[scope=row] { min-width: 9em; }
+@media (max-width: 520px) { .tbl.wrapth th, .tbl.wrapth td { padding: 6px 5px; } .tbl.wrapth th[scope=row] { min-width: 0; } .tbl.wrapth { font-size: .74rem; } }
+.tbl .pv { display: inline-block; min-width: 3em; text-align: right; margin-left: 8px; }
+.pbar { display: inline-block; width: min(140px, 28vw); height: 8px; border-radius: 4px; background: var(--soft); vertical-align: middle; overflow: hidden; }
+.pbar i { display: block; height: 100%; background: var(--c); border-radius: 4px; }
+.verdict { margin-top: 8px; }
+.warn { color: var(--warn); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font: 400 .78rem var(--display); color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend svg { width: 28px; height: 10px; }
+.legend line { stroke: var(--fg); stroke-width: 2; }
+.cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
+@media (max-width: 720px) { .cmp { grid-template-columns: minmax(0, 1fr); } }
+.panel { min-width: 0; }
+.panel h4 { margin: 0 0 6px; font: 600 .86rem var(--display); }
+.pstats { margin-top: 8px; font: 400 .82rem/1.5 var(--display); }
+.pstats .big { font: 500 1.05rem var(--mono); font-variant-numeric: tabular-nums; }
+.err { color: var(--warn); font: 500 .9rem var(--display); }
+
+/* ---------- review ---------- */
+.cheat { margin: 10px 0 20px; }
+.cheat .tbl { font: 400 .86rem/1.4 var(--body); min-width: 620px; }
+.cheat .tbl th, .cheat .tbl td { white-space: normal; padding: 8px 10px; }
+.cheat .tbl thead th { font: 500 .72rem var(--mono); }
+.quiz { display: grid; gap: 14px; margin: 14px 0; }
+.q { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 14px; }
+.q p { margin: 0 0 10px; font-size: 1rem; max-width: 64ch; }
+.q .qn { font: 500 .7rem var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 4px; }
+.opts { display: grid; gap: 6px; }
+.opt { text-align: left; font: 400 .92rem/1.4 var(--display); padding: 9px 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--bg); color: var(--fg); cursor: pointer; }
+.opt:hover:not(:disabled) { border-color: var(--ink); }
+.opt:disabled { cursor: default; }
+.opt.good { border-color: var(--cc); box-shadow: inset 0 0 0 1px var(--cc); background: var(--surface); }
+.opt.bad { border-color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn); background: var(--surface); }
+.why { margin: 10px 0 0; font-size: .92rem; color: var(--muted); }
+.why b { color: var(--fg); font-family: var(--display); }
+.score { font: 500 .9rem var(--mono); }
+.reading { font-size: .95rem; color: var(--muted); }
+.reading li { margin-bottom: .3em; }
+footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--rule); color: var(--muted); font-size: .86rem; }
+</style>
+<style>html{-webkit-text-size-adjust:100%}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+</head>
+<body>
+
+
+<div class="app" id="app" data-level="hs">
+
+<div class="bar"><div class="bar-in">
+  <span class="brand">Gaussian Discriminant Lab</span>
+  <div class="lvl-pick" role="group" aria-label="Reading level">
+    <span class="lp-l">Reading level</span>
+    <div class="seg">
+      <button type="button" id="lv-kid" data-set="kid" aria-pressed="false">Elementary</button>
+      <button type="button" id="lv-hs" data-set="hs" aria-pressed="true">High school</button>
+      <button type="button" id="lv-ug" data-set="ug" aria-pressed="false">Undergrad</button>
+    </div>
+  </div>
+</div></div>
+
+<header class="hero"><div class="wrap">
+  <p class="eyebrow">Advanced machine learning study guide</p>
+  <h1>Gaussian Discriminant Analysis</h1>
+  <p class="lede">Classify a new point by asking which class's Gaussian cloud it most plausibly came from. This guide explains the idea at three reading levels and pairs each concept with a lab you can push around.</p>
+  <small>Use the switch above to change the reading level. The text and the lab prompts change with it. The labs themselves are the same at every level. Technical readouts appear from High school upward, and the matrix algebra appears at Undergrad.</small>
+</div></header>
+
+<div class="wrap"><div class="shell">
+
+<aside class="toc" id="toc" aria-label="Contents"></aside>
+
+<main class="main">
+<details class="tocm" id="tocm"><summary>Contents</summary><div id="tocm-list"></div></details>
+
+<!-- =============== 1 =============== -->
+<section class="sec d1" id="s1" data-num="1" data-title="What GDA is">
+<h2><span class="num">1</span>What Gaussian Discriminant Analysis is</h2>
+
+<div class="lvl prose" data-l="kid">
+<p>Picture a playground with three clubs. The soccer kids hang out near the field, the chess kids sit near the tables, and the art kids stay by the paint. Each club stands in a loose blob: lots of kids near the middle and a few wandering toward the edges.</p>
+<p>A new kid shows up. You cannot ask which club they like. You can only see where they are standing, so you make a guess in two steps. First, for each club you ask, "How normal would it be for a club kid to stand right here?" Second, you ask which clubs have more kids, because a bigger club is a safer bet. The club with the best answer wins.</p>
+<p>That is Gaussian Discriminant Analysis. "Gaussian" is a fancy word for a bell-shaped blob that is crowded in the middle and thin at the edges. "Discriminant" just means telling groups apart.</p>
+</div>
+
+<div class="lvl prose" data-l="hs">
+<p>Suppose every example has two measurements, such as height and weight, and a label such as goalkeeper or striker. A Gaussian is a bell curve. It has a center, the mean, and a width, the standard deviation. With two measurements the bell becomes a hill, and the contour lines of the hill are ovals.</p>
+<p>GDA fits one hill to each class using the training examples. To label a new point, it looks up the height of every hill at that point, multiplies each by how common its class is, and picks the tallest. That recipe is Bayes' rule:</p>
+<div class="eq"><div class="m block">P(\text{class}\mid\text{point})\;\propto\;p(\text{point}\mid\text{class})\,P(\text{class})</div></div>
+<p>Because the method describes how each class produces points, it is called a <em>generative</em> classifier. The center and the spread of each hill are all it has to learn.</p>
+</div>
+
+<div class="lvl prose" data-l="ug">
+<p>Let <span class="m">\mathbf{x}\in\mathbb{R}^{d}</span> and <span class="m">y\in\{1,\dots,K\}</span>. GDA is the generative model</p>
+<div class="eq"><div class="m block">y\sim\mathrm{Categorical}(\boldsymbol\pi),\qquad \mathbf{x}\mid y=k\;\sim\;\mathcal{N}(\boldsymbol{\mu}_k,\boldsymbol{\Sigma}_k).</div></div>
+<p>Bayes' rule gives the posterior, and the classifier returns its mode:</p>
+<div class="eq"><div class="m block">p(y=k\mid\mathbf{x})=\frac{\pi_k\,\mathcal{N}(\mathbf{x};\boldsymbol{\mu}_k,\boldsymbol{\Sigma}_k)}{\sum_{j=1}^{K}\pi_j\,\mathcal{N}(\mathbf{x};\boldsymbol{\mu}_j,\boldsymbol{\Sigma}_j)},\qquad \hat y=\argmax_{k}\,\delta_k(\mathbf{x})</div></div>
+<div class="eq"><div class="m block">\delta_k(\mathbf{x})=\log\pi_k-\frac{1}{2}\log|\boldsymbol{\Sigma}_k|-\frac{1}{2}(\mathbf{x}-\boldsymbol{\mu}_k)^{\top}\boldsymbol{\Sigma}_k^{-1}(\mathbf{x}-\boldsymbol{\mu}_k)</div></div>
+<p>Terms common to all classes, such as <span class="m">-\frac{d}{2}\log 2\pi</span>, cancel in the argmax and are dropped. The three remaining terms are a log-prior, a log-determinant penalty for wide classes, and a squared Mahalanobis distance to the class mean. Every other topic on this page is a choice about how to estimate or constrain <span class="m">\boldsymbol{\Sigma}_k</span>.</p>
+<p>A discriminative classifier such as logistic regression models <span class="m">p(y\mid\mathbf{x})</span> directly. GDA models the joint distribution <span class="m">p(\mathbf{x},y)</span>, so its maximum-likelihood fit has a closed form and needs no iterative optimizer.</p>
+<p class="note">Naming varies by course. Some notes use "GDA" only for the shared-covariance case, which is the model LDA fits. This page uses it for the whole family: QDA, LDA, Gaussian naive Bayes and nearest centroid are all special cases.</p>
+</div>
+
+<figure class="lab" id="lab1" data-lab="intro" data-n="1" data-title="Which blob?">
+  <div class="try">
+    <div class="lvl" data-l="kid"><b>Try this.</b> Drag the three round handles to move the clubs. Drag the black diamond to be the new kid. The bars show how sure the computer is about each club.</div>
+    <div class="lvl" data-l="hs"><b>Try this.</b> Drag the diamond across the picture and watch the three probabilities change. Make one group bigger with a size slider and watch its colored region grow into its neighbors.</div>
+    <div class="lvl" data-l="ug"><b>Try this.</b> Move the probe across a boundary and see which term of <span class="m">\delta_k</span> changes the winner. Rescale one class size and note that only the log-prior column moves, while the other two columns stay fixed.</div>
+  </div>
+</figure>
+</section>
+
+<!-- =============== 1.1 =============== -->
+<section class="sec d2" id="s11" data-num="1.1" data-title="Quadratic boundaries">
+<h2><span class="num">1.1</span>Gaussian quadratic boundaries</h2>
+
+<div class="lvl prose" data-l="kid">
+<p>Now give the clubs different shapes. The soccer kids spread out in a long, skinny stripe along the field. The chess kids huddle in a tight round clump in the middle of that stripe. Where should the border go?</p>
+<p>The chess kids only ever stand in their small patch. A kid standing even a little way outside that patch is probably a soccer kid. So the border has to wrap around the chess clump, and it comes out curved, like a circle, an oval or a banana. A curved border like this is called a <em>quadratic</em> boundary.</p>
+</div>
+
+<div class="lvl prose" data-l="hs">
+<p>The border between two classes is the set of points where both are equally likely: the two scaled hills have the same height. Take logs of both sides and each class contributes a squared distance written with its own spread matrix, <span class="m">(\mathbf{x}-\boldsymbol{\mu})^{\top}\boldsymbol{\Sigma}^{-1}(\mathbf{x}-\boldsymbol{\mu})</span>.</p>
+<p>When the two classes have different spreads, these squared terms do not cancel. What is left contains <span class="m">x^{2}</span>, <span class="m">xy</span> and <span class="m">y^{2}</span>, and an equation like that draws a conic section: an ellipse, a parabola, a hyperbola or a pair of lines. The narrow class can win in the middle while the wide class wins on both sides of it.</p>
+<p>The one-dimensional version is the easiest to picture. Two bell curves of different widths cross at two points, so the narrow one is taller only between them.</p>
+</div>
+
+<div class="lvl prose" data-l="ug">
+<p>Expanding each score shows what survives when two classes are compared:</p>
+<div class="eq"><div class="m block">\delta_k(\mathbf{x})=-\frac{1}{2}\mathbf{x}^{\top}\boldsymbol{\Sigma}_k^{-1}\mathbf{x}+\boldsymbol{\mu}_k^{\top}\boldsymbol{\Sigma}_k^{-1}\mathbf{x}-\frac{1}{2}\boldsymbol{\mu}_k^{\top}\boldsymbol{\Sigma}_k^{-1}\boldsymbol{\mu}_k-\frac{1}{2}\log|\boldsymbol{\Sigma}_k|+\log\pi_k</div></div>
+<p>The boundary between classes <span class="m">k</span> and <span class="m">l</span> is <span class="m">\delta_k=\delta_l</span>, a quadric:</p>
+<div class="eq"><div class="m block">\mathbf{x}^{\top}\mathbf{A}\,\mathbf{x}+\mathbf{b}^{\top}\mathbf{x}+c=0,\qquad \mathbf{A}=-\frac{1}{2}\left(\boldsymbol{\Sigma}_k^{-1}-\boldsymbol{\Sigma}_l^{-1}\right),\qquad \mathbf{b}=\boldsymbol{\Sigma}_k^{-1}\boldsymbol{\mu}_k-\boldsymbol{\Sigma}_l^{-1}\boldsymbol{\mu}_l</div></div>
+<div class="eq"><div class="m block">c=-\frac{1}{2}\boldsymbol{\mu}_k^{\top}\boldsymbol{\Sigma}_k^{-1}\boldsymbol{\mu}_k+\frac{1}{2}\boldsymbol{\mu}_l^{\top}\boldsymbol{\Sigma}_l^{-1}\boldsymbol{\mu}_l-\frac{1}{2}\log\frac{|\boldsymbol{\Sigma}_k|}{|\boldsymbol{\Sigma}_l|}+\log\frac{\pi_k}{\pi_l}</div></div>
+<p>In two dimensions the eigenvalues of <span class="m">\mathbf{A}</span> classify the curve. Two eigenvalues of the same sign give an ellipse, opposite signs give a hyperbola, exactly one zero eigenvalue gives a parabola, and <span class="m">\mathbf{A}=\mathbf{0}</span> gives a line. Although the boundary is quadratic in <span class="m">\mathbf{x}</span>, the log-odds is linear in the lifted features <span class="m">(\mathbf{x},\mathbf{x}\mathbf{x}^{\top})</span>.</p>
+<p>The price of this flexibility is parameters. A full covariance has <span class="m">d(d+1)/2</span> free entries per class, so QDA needs <span class="m">K\,d(d+1)/2</span> of them: 5,050 per class at <span class="m">d=100</span>.</p>
+</div>
+
+<figure class="lab" id="lab2" data-lab="boundary" data-preset="quad" data-n="2" data-title="Bend the boundary">
+  <div class="try">
+    <div class="lvl" data-l="kid"><b>Try this.</b> The orange blob is wide and the blue blob is small, so the border curves around the blue one. Tick "Same shape for both" to make blue copy orange's shape and watch the curve straighten out.</div>
+    <div class="lvl" data-l="hs"><b>Try this.</b> Make the two spreads very different and read the boundary type below the picture. Then make them equal and watch the curve flatten into a line.</div>
+    <div class="lvl" data-l="ug"><b>Try this.</b> Make <span class="m">\boldsymbol{\Sigma}_B</span> larger than <span class="m">\boldsymbol{\Sigma}_A</span> in one axis and smaller in the other to produce eigenvalues of opposite sign (a hyperbola). Then set one axis equal to get a zero eigenvalue and a parabola.</div>
+  </div>
+</figure>
+</section>
+
+<!-- =============== 1.2 =============== -->
+<section class="sec d2" id="s12" data-num="1.2" data-title="Linear boundaries">
+<h2><span class="num">1.2</span>Linear decision boundaries</h2>
+
+<div class="lvl prose" data-l="kid">
+<p>If every club has the same shape and only stands in a different place, the border turns out straight, like a rope laid across the playground.</p>
+<p>Where does the rope go? Halfway between the two club centers, if both clubs have the same number of kids. If one club is bigger, the rope slides toward the smaller club, because the bigger club gets the benefit of the doubt.</p>
+<p>The rope is not always at a right angle to the line between the centers. If the blobs are tilted ovals, the rope tilts too.</p>
+</div>
+
+<div class="lvl prose" data-l="hs">
+<p>When both classes use the same spread matrix <span class="m">\boldsymbol{\Sigma}</span>, the squared terms are identical and cancel as soon as you compare the classes. What survives has x and y only to the first power, which is a straight line (a plane in more dimensions):</p>
+<div class="eq"><div class="m block">\mathbf{w}^{\top}\mathbf{x}+w_0=0,\qquad \mathbf{w}=\boldsymbol{\Sigma}^{-1}(\boldsymbol{\mu}_1-\boldsymbol{\mu}_0)</div></div>
+<p>The line is perpendicular to <span class="m">\mathbf{w}</span>. That is not the same as being perpendicular to the segment joining the two centers. The matrix <span class="m">\boldsymbol{\Sigma}^{-1}</span> turns that segment, and leaves it alone only when the spread is round. With equal class sizes the line passes through the midpoint of the centers, and a larger prior for one class pushes the line away from it.</p>
+<p>The probability of class 1 follows an S-shaped curve of <span class="m">\mathbf{w}^{\top}\mathbf{x}+w_0</span>, the same shape logistic regression uses. GDA gets there by fitting each class's hill first.</p>
+</div>
+
+<div class="lvl prose" data-l="ug">
+<p>With <span class="m">\boldsymbol{\Sigma}_k=\boldsymbol{\Sigma}</span> the quadratic terms in <span class="m">\delta_1-\delta_0</span> cancel and the log-odds is linear:</p>
+<div class="eq"><div class="m block">\log\frac{p(y=1\mid\mathbf{x})}{p(y=0\mid\mathbf{x})}=\mathbf{w}^{\top}\mathbf{x}+w_0,\qquad \mathbf{w}=\boldsymbol{\Sigma}^{-1}(\boldsymbol{\mu}_1-\boldsymbol{\mu}_0)</div></div>
+<div class="eq"><div class="m block">w_0=-\frac{1}{2}(\boldsymbol{\mu}_1+\boldsymbol{\mu}_0)^{\top}\boldsymbol{\Sigma}^{-1}(\boldsymbol{\mu}_1-\boldsymbol{\mu}_0)+\log\frac{\pi_1}{\pi_0}</div></div>
+<p>So <span class="m">p(y=1\mid\mathbf{x})=\sigma(\mathbf{w}^{\top}\mathbf{x}+w_0)</span> with <span class="m">\sigma</span> the logistic function, the same functional form as logistic regression. The fits differ. GDA maximizes the joint likelihood <span class="m">p(\mathbf{x},y)</span> in closed form, while logistic regression maximizes the conditional likelihood <span class="m">p(y\mid\mathbf{x})</span> iteratively. If the Gaussian assumption is right, GDA uses the data more efficiently. If it is wrong, logistic regression is usually the safer choice.</p>
+<p>For <span class="m">K</span> classes the boundaries are the pairwise hyperplanes, and the posterior is a softmax of <span class="m">K</span> linear functions of <span class="m">\mathbf{x}</span>.</p>
+</div>
+
+<figure class="lab" id="lab3" data-lab="boundary" data-preset="linear" data-n="3" data-title="Straighten the boundary">
+  <div class="try">
+    <div class="lvl" data-l="kid"><b>Try this.</b> The two blobs share one shape here. Drag the blue center around and see that the border stays straight. Slide "Share of blue kids" to push the border toward the smaller club.</div>
+    <div class="lvl" data-l="hs"><b>Try this.</b> The black arrow is <span class="m">\mathbf{w}</span>, and the boundary is perpendicular to it. The dashed segment joins the two centers. Raise "A tilt" to tilt the shared blob and watch the arrow leave the dashed line.</div>
+    <div class="lvl" data-l="ug"><b>Try this.</b> Set the correlation to 0 and equal spreads in both axes, so <span class="m">\boldsymbol{\Sigma}\propto\mathbf{I}</span>, and confirm the angle between <span class="m">\mathbf{w}</span> and <span class="m">\boldsymbol{\mu}_B-\boldsymbol{\mu}_A</span> is 0. Then move the prior and note that <span class="m">\mathbf{w}</span> stays fixed while only <span class="m">w_0</span> changes.</div>
+  </div>
+</figure>
+</section>
+
+<!-- =============== 1.3 =============== -->
+<section class="sec d2" id="s13" data-num="1.3" data-title="Model fitting">
+<h2><span class="num">1.3</span>Model fitting for GDA</h2>
+
+<div class="lvl prose" data-l="kid">
+<p>To draw a blob for each club you need three facts: where the middle of the club is, how spread out the kids are, and how many kids are in the club. Fitting means working these out from kids you have already seen.</p>
+<p>The middle is the average spot: add up everyone's position and divide by the number of kids. The spread comes from how far kids usually stand from that middle. The club size is a head count.</p>
+<p>You can also let all clubs share one shape, or force the shapes to be simple. The next three parts show how.</p>
+</div>
+
+<div class="lvl prose" data-l="hs">
+<p>Fitting means choosing the numbers that describe each class's hill. The standard choice is maximum likelihood: pick the values that make the training data as probable as possible. For Gaussians the answers are simple.</p>
+<ul>
+<li>The class prior is the fraction of training examples in that class, <span class="m">\hat\pi_k=n_k/n</span>.</li>
+<li>The center is the average of that class's points.</li>
+<li>The spread matrix averages <span class="m">(\mathbf{x}-\hat{\boldsymbol{\mu}})(\mathbf{x}-\hat{\boldsymbol{\mu}})^{\top}</span> over the class's points. It records how much each coordinate varies and how much pairs of coordinates vary together.</li>
+</ul>
+<p>Count the numbers to estimate. In two dimensions a full spread matrix has 3 free numbers, and in 10 dimensions it has 55. More freedom lets the model bend to the data, and also lets it chase noise when examples are few. The next sections describe ways to spend fewer numbers.</p>
+</div>
+
+<div class="lvl prose" data-l="ug">
+<p>The joint log-likelihood separates by class, so every block has a closed-form maximizer:</p>
+<div class="eq"><div class="m block">\ell(\theta)=\sum_{i=1}^{n}\left[\log\pi_{y_i}+\log\mathcal{N}(\mathbf{x}_i;\boldsymbol{\mu}_{y_i},\boldsymbol{\Sigma}_{y_i})\right]</div></div>
+<div class="eq"><div class="m block">\hat\pi_k=\frac{n_k}{n},\qquad \hat{\boldsymbol{\mu}}_k=\frac{1}{n_k}\sum_{i:\,y_i=k}\mathbf{x}_i,\qquad \hat{\boldsymbol{\Sigma}}_k=\frac{1}{n_k}\sum_{i:\,y_i=k}(\mathbf{x}_i-\hat{\boldsymbol{\mu}}_k)(\mathbf{x}_i-\hat{\boldsymbol{\mu}}_k)^{\top}</div></div>
+<p>The MLE of <span class="m">\boldsymbol{\Sigma}_k</span> divides by <span class="m">n_k</span>, so it is biased low; dividing by <span class="m">n_k-1</span> removes the bias. Neither version is invertible when <span class="m">n_k\le d</span>, since the sample covariance has rank at most <span class="m">\min(n_k-1,d)</span>. That is where QDA breaks and constraints or priors become necessary.</p>
+<p>Constraining <span class="m">\boldsymbol{\Sigma}</span> trades variance for bias. The next three subsections cover the tied, diagonal and MAP routes, and the cheat sheet at the end lists the full ladder with parameter counts.</p>
+</div>
+
+<figure class="lab" id="lab4" data-lab="fit" data-map="0" data-n="4" data-title="Fit a Gaussian by hand">
+  <div class="try">
+    <div class="lvl" data-l="kid"><b>Try this.</b> Tap the playground to add kids. The ring wraps around where kids usually stand. Drag one kid far away and watch the ring stretch toward it.</div>
+    <div class="lvl" data-l="hs"><b>Try this.</b> Add points one at a time and watch the mean (the plus sign) and the ellipse update. Drag a single point far away and see how much one outlier moves the fit. Then remove points until only two are left.</div>
+    <div class="lvl" data-l="ug"><b>Try this.</b> With <span class="m">n\le 2</span> the ellipse collapses onto a line and <span class="m">\det\hat{\boldsymbol{\Sigma}}=0</span>. Add a third point off the line and the determinant becomes positive. Compare the error of the fit on 3 points against 30 points in the table.</div>
+  </div>
+</figure>
+</section>
+
+<!-- =============== 1.3.1 =============== -->
+<section class="sec d3" id="s131" data-num="1.3.1" data-title="Tied covariances">
+<h2><span class="num">1.3.1</span>Tied covariances</h2>
+
+<div class="lvl prose" data-l="kid">
+<p>Here is a shortcut. Pretend all the clubs have exactly the same shape, an oval with the same size and the same tilt, only standing in different places. Now every kid in every club helps you work out that one shape. More kids means a steadier guess.</p>
+<p>The shortcut has a cost. If the clubs really do have different shapes, your one shared shape is wrong for some of them. But when you have only a few kids from each club, the steadier guess often wins.</p>
+</div>
+
+<div class="lvl prose" data-l="hs">
+<p>"Tied" or "pooled" covariance means every class uses the same spread matrix. To estimate it, subtract each class's own mean from its points so that every class is centered at zero, then average the outer products over all training points together:</p>
+<div class="eq"><div class="m block">\hat{\boldsymbol{\Sigma}}=\frac{1}{n}\sum_{k=1}^{K}\sum_{i:\,y_i=k}(\mathbf{x}_i-\hat{\boldsymbol{\mu}}_k)(\mathbf{x}_i-\hat{\boldsymbol{\mu}}_k)^{\top}</div></div>
+<p>This is a weighted average of the class spread matrices, with each class counting in proportion to its size. Pooling builds one estimate from all <span class="m">n</span> points instead of <span class="m">K</span> estimates from about <span class="m">n/K</span> points each, so it is less noisy. In return the model can only draw straight boundaries (section 1.2). If the true spreads differ a lot, tying them leaves an error that more data cannot fix.</p>
+</div>
+
+<div class="lvl prose" data-l="ug">
+<p>The part of the log-likelihood that depends on a shared <span class="m">\boldsymbol{\Sigma}</span> is</p>
+<div class="eq"><div class="m block">-\frac{n}{2}\log|\boldsymbol{\Sigma}|-\frac{1}{2}\operatorname{tr}\left(\boldsymbol{\Sigma}^{-1}\sum_{k}\mathbf{S}_k\right),\qquad \mathbf{S}_k=\sum_{i:\,y_i=k}(\mathbf{x}_i-\hat{\boldsymbol{\mu}}_k)(\mathbf{x}_i-\hat{\boldsymbol{\mu}}_k)^{\top}</div></div>
+<p>This has the same form as a single Gaussian with scatter <span class="m">\sum_k\mathbf{S}_k</span> and <span class="m">n</span> points, so the maximizer is</p>
+<div class="eq"><div class="m block">\hat{\boldsymbol{\Sigma}}=\frac{1}{n}\sum_{k}\mathbf{S}_k=\sum_{k}\frac{n_k}{n}\,\hat{\boldsymbol{\Sigma}}_k</div></div>
+<p>That is the within-class scatter <span class="m">\mathbf{S}_W</span> divided by <span class="m">n</span>. Dividing by <span class="m">n-K</span> gives the unbiased version. The model has <span class="m">d(d+1)/2</span> covariance parameters whatever the value of <span class="m">K</span>, which makes LDA workable at moderate <span class="m">d</span>. Its boundaries are linear (section 1.2), and the same <span class="m">\mathbf{S}_W</span> returns as the denominator of Fisher's criterion in section 1.4.</p>
+</div>
+
+<figure class="lab" id="lab5" data-lab="compare" data-left="full" data-right="tied" data-scn="same" data-rho="0.5" data-nn="10" data-n="5" data-title="Full versus tied">
+  <div class="try">
+    <div class="lvl" data-l="kid"><b>Try this.</b> Both boxes use the same kids. The left box gives every club its own shape and the right box makes them share one. Press "New kids" a few times and see which box guesses better on brand-new kids.</div>
+    <div class="lvl" data-l="hs"><b>Try this.</b> With 10 points per class on the "Same shape" truth, compare test accuracy of the two models over several resamples. Then switch the truth to "Different shapes" and watch the tied model lose.</div>
+    <div class="lvl" data-l="ug"><b>Try this.</b> Sweep <span class="m">n</span> from 5 up to 150 on the "Same shape" truth. The full model's variance penalty shrinks, and the gap to the tied model closes. On "Different shapes" the gap stays open, because tying creates bias that more data does not remove.</div>
+  </div>
+</figure>
+</section>
+
+<!-- =============== 1.3.2 =============== -->
+<section class="sec d3" id="s132" data-num="1.3.2" data-title="Diagonal covariances">
+<h2><span class="num">1.3.2</span>Diagonal covariances</h2>
+
+<div class="lvl prose" data-l="kid">
+<p>Here is another way to keep the guess simple. Let each blob stretch left and right or up and down, but never tilt. Then for each club you only need two facts: how wide it is and how tall it is.</p>
+<p>That is much less to work out, so your guess stays steady even with only a few kids. But if the real clubs lean diagonally, the untilted blobs fit badly.</p>
+</div>
+
+<div class="lvl prose" data-l="hs">
+<p>A diagonal covariance matrix has zeros everywhere except the main diagonal:</p>
+<div class="eq"><div class="m block">\boldsymbol{\Sigma}_k=\mathrm{diag}\left(\sigma_{k1}^{2},\,\sigma_{k2}^{2},\,\ldots,\,\sigma_{kd}^{2}\right)</div></div>
+<p>It says the measurements vary independently of each other inside a class: once you know the class, a person's height tells you nothing more about their weight. Each measurement then gets its own bell curve, and the class hill is the product of those curves. The ovals stay lined up with the axes. Each variance is estimated on its own as the average squared distance from the class mean, so you need <span class="m">d</span> numbers per class instead of <span class="m">d(d+1)/2</span>.</p>
+<p>With different variances per class the boundary is still curved, and with one shared set of variances it is straight. Strong correlation between measurements breaks the independence assumption, and the lab shows how much that costs.</p>
+</div>
+
+<div class="lvl prose" data-l="ug">
+<p>Taking <span class="m">\boldsymbol{\Sigma}_k=\mathrm{diag}(\sigma_{k1}^{2},\dots,\sigma_{kd}^{2})</span> factorizes the class-conditional density:</p>
+<div class="eq"><div class="m block">p(\mathbf{x}\mid y=k)=\prod_{j=1}^{d}\mathcal{N}(x_j;\mu_{kj},\sigma_{kj}^{2})</div></div>
+<p>This is Gaussian naive Bayes: the features are independent given the label. The MLE decouples by coordinate, and the score becomes a sum over features:</p>
+<div class="eq"><div class="m block">\hat\sigma_{kj}^{2}=\frac{1}{n_k}\sum_{i:\,y_i=k}(x_{ij}-\hat\mu_{kj})^{2},\qquad \delta_k(\mathbf{x})=\log\pi_k-\frac{1}{2}\sum_{j=1}^{d}\left[\log\sigma_{kj}^{2}+\frac{(x_j-\mu_{kj})^{2}}{\sigma_{kj}^{2}}\right]</div></div>
+<p>The structures form a ladder of decreasing flexibility: full <span class="m">\boldsymbol{\Sigma}_k</span>, tied <span class="m">\boldsymbol{\Sigma}</span>, diagonal <span class="m">\boldsymbol{\Sigma}_k</span>, tied diagonal, spherical <span class="m">\sigma^{2}\mathbf{I}</span>, and the identity. Each step down costs bias and saves variance. Conditional independence is false whenever features correlate within a class, yet the classifier can still do well, because only the ordering of the scores has to be right and not the accuracy of the densities. It does hurt when the correlation changes the boundary, which the lab at this level makes visible.</p>
+</div>
+
+<figure class="lab" id="lab6" data-lab="compare" data-left="full" data-right="diag" data-scn="same" data-rho="0.85" data-nn="40" data-n="6" data-title="Full versus diagonal">
+  <div class="try">
+    <div class="lvl" data-l="kid"><b>Try this.</b> The left box lets blobs tilt and the right box does not. Slide "Tilt" toward zero and the real blobs stop leaning. Then slide it toward 0.9 and see the right box get confused.</div>
+    <div class="lvl" data-l="hs"><b>Try this.</b> With tilt (correlation) near 0 the diagonal model is almost as good as the full one with fewer numbers. At 0.85 it falls behind. Then lower the points per class to 6 and see whether the simpler model wins anyway.</div>
+    <div class="lvl" data-l="ug"><b>Try this.</b> At <span class="m">\rho=0</span> the diagonal model is correctly specified and matches the full model with half the variance parameters. At large <span class="m">|\rho|</span> it is misspecified. Find the <span class="m">n</span> below which its lower variance outweighs this bias.</div>
+  </div>
+</figure>
+</section>
+
+<!-- =============== 1.3.3 =============== -->
+<section class="sec d3" id="s133" data-num="1.3.3" data-title="MAP estimation">
+<h2><span class="num">1.3.3</span>MAP estimation</h2>
+
+<div class="lvl prose" data-l="kid">
+<p>Imagine you have only seen two kids from a club. You should not be very sure what the club's blob looks like. A smart guesser starts with a sensible hunch, such as "clubs are usually round blobs of medium size", and lets the kids they actually see move the hunch step by step.</p>
+<p>With just a few kids you stay close to your hunch. With lots of kids, what you see takes over. That is MAP estimation: a guess that starts from a hunch and learns from the data.</p>
+</div>
+
+<div class="lvl prose" data-l="hs">
+<p>Maximum likelihood looks only at the data. MAP (maximum a posteriori) estimation also uses a <em>prior</em>, a belief about the parameters before any data arrives. It picks the parameters that maximize likelihood times prior.</p>
+<p>A good way to read a prior is as imaginary extra data. Suppose your prior guess for a class center is a point <span class="m">\boldsymbol{\mu}_0</span>, and you trust it as much as <span class="m">\kappa_0</span> real examples. The MAP center is then a weighted average of the data average and the guess:</p>
+<div class="eq"><div class="m block">\hat{\boldsymbol{\mu}}_{\text{MAP}}=\frac{n\,\bar{\mathbf{x}}+\kappa_0\,\boldsymbol{\mu}_0}{n+\kappa_0}</div></div>
+<p>With few examples the guess pulls hard, and as <span class="m">n</span> grows the data dominate and the estimate approaches the plain average. Priors on the spread matrix work the same way, and they fix a real problem. With two points in two dimensions, the maximum-likelihood ellipse is a flat line, which is infinitely sure that nothing lies off it. A prior made of some imaginary round blobs keeps the ellipse from collapsing.</p>
+</div>
+
+<div class="lvl prose" data-l="ug">
+<div class="eq"><div class="m block">\hat\theta_{\text{MAP}}=\argmax_{\theta}\;\log p(\mathcal{D}\mid\theta)+\log p(\theta)</div></div>
+<p>For the class probabilities, a Dirichlet prior with parameters <span class="m">\alpha_k</span> gives <span class="m">\hat\pi_k=(n_k+\alpha_k-1)/(n+\sum_j\alpha_j-K)</span>, which is Laplace smoothing when every <span class="m">\alpha_k=2</span>. For the Gaussian parameters the conjugate choice is the normal-inverse-Wishart prior, <span class="m">\boldsymbol{\mu}_k\mid\boldsymbol{\Sigma}_k\sim\mathcal{N}(\boldsymbol{\mu}_0,\boldsymbol{\Sigma}_k/\kappa_0)</span> and <span class="m">\boldsymbol{\Sigma}_k\sim\mathrm{IW}(\boldsymbol{\Psi},\nu_0)</span>. The posterior is again normal-inverse-Wishart, and its joint mode is</p>
+<div class="eq"><div class="m block">\hat{\boldsymbol{\mu}}_k=\frac{n_k\bar{\mathbf{x}}_k+\kappa_0\boldsymbol{\mu}_0}{n_k+\kappa_0},\qquad \hat{\boldsymbol{\Sigma}}_k=\frac{\boldsymbol{\Psi}+\mathbf{S}_k+\frac{\kappa_0 n_k}{\kappa_0+n_k}(\bar{\mathbf{x}}_k-\boldsymbol{\mu}_0)(\bar{\mathbf{x}}_k-\boldsymbol{\mu}_0)^{\top}}{\nu_0+n_k+d+2}</div></div>
+<p>Reading the terms: <span class="m">\boldsymbol{\Psi}</span> acts like the scatter of <span class="m">\nu_0</span> pseudo-observations with covariance <span class="m">\boldsymbol{\Psi}/\nu_0</span>, and the denominator <span class="m">\nu_0+n_k+d+2</span> replaces the <span class="m">n_k</span> of the MLE. The last term in the numerator inflates the estimate when the class mean sits far from <span class="m">\boldsymbol{\mu}_0</span>. As <span class="m">n_k\to\infty</span> the MAP and ML estimates agree. When <span class="m">n_k\le d</span> the MAP covariance is still positive definite because <span class="m">\boldsymbol{\Psi}</span> is. Taking <span class="m">\boldsymbol{\Psi}=\lambda\mathbf{I}</span> with <span class="m">\kappa_0=\nu_0=0</span> gives ridge-style shrinkage, <span class="m">(\mathbf{S}_k+\lambda\mathbf{I})/(n_k+d+2)</span>, the idea behind regularized discriminant analysis.</p>
+<p>The lab uses <span class="m">\boldsymbol{\Psi}=\nu_0 s_0^{2}\mathbf{I}</span>, so <span class="m">s_0</span> is the radius of the prior blob. In two dimensions the denominator is <span class="m">\nu_0+n+4</span>.</p>
+</div>
+
+<figure class="lab" id="lab7" data-lab="fit" data-map="1" data-n="7" data-title="A hunch and the data">
+  <div class="try">
+    <div class="lvl" data-l="kid"><b>Try this.</b> Tap to add just two or three kids. The dashed ring (the plain average) goes flat and silly. The solid ring (hunch plus kids) stays sensible. Then add more kids and watch the two rings come together.</div>
+    <div class="lvl" data-l="hs"><b>Try this.</b> Start with 3 points and compare the dashed (maximum likelihood) and solid (MAP) ellipses against the dotted true one. Drag the "hunch" cross and raise the center trust to see the mean get pulled toward it. Then draw 60 points and see the two ellipses agree.</div>
+    <div class="lvl" data-l="ug"><b>Try this.</b> Use the typical-error row, which is the median KL divergence to the true Gaussian over 240 fresh samples of the same size. Find the value of <span class="m">n</span> where MLE catches up with MAP. Then set <span class="m">\nu_0=0</span> and <span class="m">\kappa_0=0</span> and note that MAP still divides by <span class="m">n+4</span> and so shrinks every variance slightly.</div>
+  </div>
+</figure>
+</section>
+
+<!-- =============== 1.4 =============== -->
+<section class="sec d2" id="s14" data-num="1.4" data-title="Nearest centroid and Fisher">
+<h2><span class="num">1.4</span>Nearest centroid classifier and Fisher's linear discriminant analysis</h2>
+
+<div class="lvl prose" data-l="kid">
+<p><b>Nearest centroid.</b> Find the middle of each club. That middle is called the centroid. A new kid joins the club whose middle is closest, like walking to the nearest campfire. It is very simple, and it works well when all the clubs are round blobs of the same size.</p>
+<p><b>Fisher's flashlight.</b> Imagine the kids are standing in the dark and you shine a flashlight from the side so their shadows land on a long wall. If you pick the angle well, the orange shadows pile up in one spot and the blue shadows pile up in another, so you can tell the clubs apart just by looking at the wall. Fisher's idea is to pick the angle that pulls the two shadow piles as far apart as possible while keeping each pile tight.</p>
+</div>
+
+<div class="lvl prose" data-l="hs">
+<p><b>Nearest centroid</b> sends each point to the class whose mean is closest in ordinary straight-line distance. It is GDA with the simplest possible hill: round blobs of equal size (<span class="m">\boldsymbol{\Sigma}=\sigma^{2}\mathbf{I}</span>) and equal class priors. The boundary is the perpendicular bisector of the segment joining the means. It works best when the measurements are on the same scale and spread evenly.</p>
+<p><b>Fisher's linear discriminant</b> asks a different question. Onto which line should we project the data so the classes are as well separated as possible? "Separated" means that the two projected means are far apart compared with how spread out each class is along that line:</p>
+<div class="eq"><div class="m block">J(\mathbf{w})=\frac{\left(\text{distance between projected means}\right)^{2}}{\text{total spread of the classes along the line}}</div></div>
+<p>The best direction is <span class="m">\mathbf{w}\propto\boldsymbol{\Sigma}_W^{-1}(\boldsymbol{\mu}_1-\boldsymbol{\mu}_0)</span>. When the blobs are round, this is the same direction as the line between the means. When they are tilted, the best direction turns away from the long axis of the spread so that the shadows overlap less. A threshold along this line is a classifier, and it is the same line that GDA with a shared spread matrix uses (section 1.2).</p>
+</div>
+
+<div class="lvl prose" data-l="ug">
+<p>The nearest-centroid rule is</p>
+<div class="eq"><div class="m block">\hat y=\argmin_{k}\,\|\mathbf{x}-\hat{\boldsymbol{\mu}}_k\|^{2}</div></div>
+<p>which is GDA with <span class="m">\boldsymbol{\Sigma}_k=\sigma^{2}\mathbf{I}</span> and equal priors, since then <span class="m">\delta_k=-\|\mathbf{x}-\boldsymbol{\mu}_k\|^{2}/(2\sigma^{2})+\log\pi_k</span>. Unequal priors add an offset <span class="m">2\sigma^{2}\log\pi_k</span> to the squared distance comparison. Replacing the Euclidean distance with the Mahalanobis distance of the pooled covariance gives LDA with equal priors. Equivalently, LDA is nearest centroid after whitening, <span class="m">\mathbf{x}^{*}=\boldsymbol{\Sigma}^{-1/2}\mathbf{x}</span>, up to the prior offset.</p>
+<p>Fisher's criterion for a projection direction <span class="m">\mathbf{w}</span> is the generalized Rayleigh quotient</p>
+<div class="eq"><div class="m block">J(\mathbf{w})=\frac{\mathbf{w}^{\top}\mathbf{S}_B\,\mathbf{w}}{\mathbf{w}^{\top}\mathbf{S}_W\,\mathbf{w}},\qquad \mathbf{S}_B=\sum_{k}n_k(\hat{\boldsymbol{\mu}}_k-\hat{\boldsymbol{\mu}})(\hat{\boldsymbol{\mu}}_k-\hat{\boldsymbol{\mu}})^{\top},\qquad \mathbf{S}_W=\sum_{k}\mathbf{S}_k</div></div>
+<p>Maximizers solve the generalized eigenproblem <span class="m">\mathbf{S}_B\mathbf{w}=\lambda\,\mathbf{S}_W\mathbf{w}</span>, so the directions are the top eigenvectors of <span class="m">\mathbf{S}_W^{-1}\mathbf{S}_B</span>. The between-class scatter <span class="m">\mathbf{S}_B</span> has rank at most <span class="m">K-1</span>, so there are at most <span class="m">K-1</span> useful directions, and Fisher's method is a supervised dimension reduction to at most <span class="m">K-1</span> dimensions. For two classes <span class="m">\mathbf{S}_B\propto(\hat{\boldsymbol{\mu}}_1-\hat{\boldsymbol{\mu}}_0)(\hat{\boldsymbol{\mu}}_1-\hat{\boldsymbol{\mu}}_0)^{\top}</span>, and the solution is</p>
+<div class="eq"><div class="m block">\mathbf{w}^{*}\propto\mathbf{S}_W^{-1}(\hat{\boldsymbol{\mu}}_1-\hat{\boldsymbol{\mu}}_0),\qquad J(\mathbf{w}^{*})\propto(\hat{\boldsymbol{\mu}}_1-\hat{\boldsymbol{\mu}}_0)^{\top}\mathbf{S}_W^{-1}(\hat{\boldsymbol{\mu}}_1-\hat{\boldsymbol{\mu}}_0)</div></div>
+<p>This is the same direction as the shared-covariance GDA weight vector in section 1.2, but the two derivations assume different things. Fisher uses only means and within-class scatter, makes no Gaussian assumption, and says nothing about where to put the threshold. GDA assumes Gaussian classes with a common covariance, which fixes both the threshold and the effect of the priors. With <span class="m">K</span> classes, the LDA decision rule lives in the <span class="m">(K-1)</span>-dimensional affine span of the class means, so projecting onto all Fisher directions and running nearest centroid there reproduces it, up to the prior offsets.</p>
+</div>
+
+<figure class="lab" id="lab8" data-lab="fisher" data-n="8" data-title="Fisher's flashlight">
+  <div class="try">
+    <div class="lvl" data-l="kid"><b>Try this.</b> Slide the angle to turn the flashlight and watch the two shadow hills on the wall at the bottom. Press "Best angle" to let Fisher's recipe pick the angle. The less the hills overlap, the easier it is to tell the clubs apart.</div>
+    <div class="lvl" data-l="hs"><b>Try this.</b> Set the correlation to 0 with equal spreads, then press "Best angle" and "Centroid angle". They agree. Raise the correlation to 0.8 and they separate. Compare the error rate at each angle.</div>
+    <div class="lvl" data-l="ug"><b>Try this.</b> Check that <span class="m">J</span> peaks at the angle of <span class="m">\boldsymbol{\Sigma}^{-1}(\boldsymbol{\mu}_B-\boldsymbol{\mu}_A)</span> and that its maximum equals the squared Mahalanobis distance between the means. The error rate shown is <span class="m">\Phi(-\Delta/2)</span> for equal priors, where <span class="m">\Delta=|\mathbf{w}^{\top}(\boldsymbol{\mu}_B-\boldsymbol{\mu}_A)|/\sqrt{\mathbf{w}^{\top}\boldsymbol{\Sigma}\mathbf{w}}</span> is the standardized separation along the line.</div>
+  </div>
+</figure>
+</section>
+
+<!-- =============== review =============== -->
+<section class="sec d1" id="review" data-num="" data-title="Cheat sheet and quiz">
+<h2>Cheat sheet and quiz</h2>
+
+<div class="prose">
+<p>Every model on this page is the same classifier with a different constraint on the covariance. Here <span class="m">K</span> is the number of classes and <span class="m">d</span> the number of features.</p>
+</div>
+<div class="cheat tbl-wrap">
+<table class="tbl">
+<thead><tr><th>Model</th><th>Covariance</th><th>Free covariance numbers</th><th>Boundary</th><th>Also called</th></tr></thead>
+<tbody>
+<tr><td>Full, per class</td><td><span class="m">\boldsymbol{\Sigma}_k</span></td><td><span class="m">K\,d(d+1)/2</span></td><td>Quadratic</td><td>QDA</td></tr>
+<tr><td>Tied</td><td><span class="m">\boldsymbol{\Sigma}</span></td><td><span class="m">d(d+1)/2</span></td><td>Linear</td><td>LDA</td></tr>
+<tr><td>Diagonal, per class</td><td><span class="m">\mathrm{diag}(\sigma_{kj}^{2})</span></td><td><span class="m">K\,d</span></td><td>Quadratic</td><td>Gaussian naive Bayes</td></tr>
+<tr><td>Tied diagonal</td><td><span class="m">\mathrm{diag}(\sigma_{j}^{2})</span></td><td><span class="m">d</span></td><td>Linear</td><td>Diagonal LDA</td></tr>
+<tr><td>Spherical, tied</td><td><span class="m">\sigma^{2}\mathbf{I}</span></td><td>1</td><td>Linear</td><td></td></tr>
+<tr><td>Identity, equal priors</td><td><span class="m">\mathbf{I}</span></td><td>0</td><td>Linear (perpendicular bisector)</td><td>Nearest centroid</td></tr>
+</tbody>
+</table>
+</div>
+<div class="lvl prose" data-l="ug">
+<p>Fitting recipes, with <span class="m">\mathbf{S}_k</span> the class scatter matrix:</p>
+<ul>
+<li><span class="m">\hat\pi_k=n_k/n</span> and <span class="m">\hat{\boldsymbol{\mu}}_k=\bar{\mathbf{x}}_k</span> for every model above.</li>
+<li>Full: <span class="m">\hat{\boldsymbol{\Sigma}}_k=\mathbf{S}_k/n_k</span>. Tied: <span class="m">\hat{\boldsymbol{\Sigma}}=\sum_k\mathbf{S}_k/n</span>. Diagonal: keep only the diagonal of those matrices.</li>
+<li>MAP: add pseudo-counts as in section 1.3.3 and divide by <span class="m">\nu_0+n_k+d+2</span>.</li>
+<li>Fisher, two classes: <span class="m">\mathbf{w}\propto\mathbf{S}_W^{-1}(\hat{\boldsymbol{\mu}}_1-\hat{\boldsymbol{\mu}}_0)</span>.</li>
+</ul>
+</div>
+
+<div class="prose"><p><b>Check yourself.</b> Eight questions, one tap each.</p></div>
+<div class="quiz" id="quiz"></div>
+<p class="score" id="quiz-score" aria-live="polite"></p>
+<button type="button" class="btn" id="quiz-reset">Reset quiz</button>
+
+<div class="prose" style="margin-top:28px">
+<p><b>Further reading.</b></p>
+<ul class="reading">
+<li>Hastie, Tibshirani and Friedman, <em>The Elements of Statistical Learning</em>, chapter 4: LDA, QDA, regularized discriminant analysis and reduced-rank LDA.</li>
+<li>Bishop, <em>Pattern Recognition and Machine Learning</em>, chapter 4: probabilistic generative models and Fisher's linear discriminant.</li>
+<li>Murphy, <em>Probabilistic Machine Learning: An Introduction</em>, chapter 9: LDA, QDA, naive Bayes and the generative versus discriminative comparison.</li>
+<li>Fisher, "The use of multiple measurements in taxonomic problems", <em>Annals of Eugenics</em>, 1936.</li>
+</ul>
+</div>
+</section>
+
+<footer>Everything on this page runs in your browser. The labs sample new data from fixed random seeds, so a refresh gives the same starting data.</footer>
+</main>
+</div></div>
+</div>
+
+<script>
+/* GDA engine: 2-D Gaussian discriminant analysis, MAP estimation and Fisher's criterion.
+   Symmetric 2x2 matrices are objects {xx, xy, yy}. Points are {x, y}. */
+const GDA = (function () {
+  'use strict';
+
+  // ---------- randomness ----------
+  function rng(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function randn(r) {
+    let u = 0;
+    while (u === 0) u = r();
+    const v = r();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  // n standard-normal pairs, stored so clouds can follow moving parameters
+  function zs(r, n) {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push([randn(r), randn(r)]);
+    return out;
+  }
+
+  // ---------- symmetric 2x2 algebra ----------
+  const cov = (sx, sy, rho) => ({ xx: sx * sx, xy: rho * sx * sy, yy: sy * sy });
+  const det = (S) => S.xx * S.yy - S.xy * S.xy;
+  const inv = (S) => { const d = det(S); return { xx: S.yy / d, xy: -S.xy / d, yy: S.xx / d }; };
+  const scale = (S, c) => ({ xx: S.xx * c, xy: S.xy * c, yy: S.yy * c });
+  const add = (A, B) => ({ xx: A.xx + B.xx, xy: A.xy + B.xy, yy: A.yy + B.yy });
+  const diagOf = (S) => ({ xx: S.xx, xy: 0, yy: S.yy });
+  const I2 = () => ({ xx: 1, xy: 0, yy: 1 });
+  const quad = (S, x, y) => S.xx * x * x + 2 * S.xy * x * y + S.yy * y * y;
+  const mulv = (S, v) => ({ x: S.xx * v.x + S.xy * v.y, y: S.xy * v.x + S.yy * v.y });
+
+  function eig(S) {
+    const m = (S.xx + S.yy) / 2;
+    const r = Math.hypot((S.xx - S.yy) / 2, S.xy);
+    return { l1: m + r, l2: m - r, ang: 0.5 * Math.atan2(2 * S.xy, S.xx - S.yy) };
+  }
+  function chol(S) {
+    const l11 = Math.sqrt(Math.max(S.xx, 1e-12));
+    const l21 = S.xy / l11;
+    const l22 = Math.sqrt(Math.max(S.yy - l21 * l21, 0));
+    return { l11, l21, l22 };
+  }
+  const place = (mu, L, z) => ({ x: mu.x + L.l11 * z[0], y: mu.y + L.l21 * z[0] + L.l22 * z[1] });
+  function sample(r, mu, S, n) {
+    const L = chol(S), out = [];
+    for (let i = 0; i < n; i++) out.push(place(mu, L, [randn(r), randn(r)]));
+    return out;
+  }
+  // keeps a covariance usable when the data are degenerate (rank-deficient fits)
+  function reg(S) {
+    if (det(S) > 1e-6) return S;
+    return { xx: S.xx + 1e-3, xy: S.xy, yy: S.yy + 1e-3 };
+  }
+
+  // ---------- sample statistics ----------
+  function stats(pts) {
+    const n = pts.length;
+    if (n === 0) return { n: 0, mean: { x: 0, y: 0 }, S: { xx: 0, xy: 0, yy: 0 } };
+    let mx = 0, my = 0;
+    for (const p of pts) { mx += p.x; my += p.y; }
+    mx /= n; my /= n;
+    let sxx = 0, sxy = 0, syy = 0;
+    for (const p of pts) {
+      const dx = p.x - mx, dy = p.y - my;
+      sxx += dx * dx; sxy += dx * dy; syy += dy * dy;
+    }
+    return { n, mean: { x: mx, y: my }, S: { xx: sxx, xy: sxy, yy: syy } }; // S is the scatter matrix
+  }
+
+  // ---------- classifier ----------
+  // delta_k(x) = log pi_k - 1/2 log|Sigma_k| - 1/2 (x-mu_k)' Sigma_k^-1 (x-mu_k)
+  function compile(m) {
+    const K = m.K;
+    m.Sr = m.S.map(reg);
+    m.Si = m.Sr.map(inv);
+    m.ld = m.Sr.map((S) => Math.log(det(S)));
+    m.lp = m.pri.map((p) => Math.log(Math.max(p, 1e-12)));
+    m.score = function (x, y, out) {
+      for (let k = 0; k < K; k++) {
+        const dx = x - m.mu[k].x, dy = y - m.mu[k].y, A = m.Si[k];
+        out[k] = m.lp[k] - 0.5 * m.ld[k] - 0.5 * (A.xx * dx * dx + 2 * A.xy * dx * dy + A.yy * dy * dy);
+      }
+    };
+    // fills out with posteriors, returns the argmax class
+    m.post = function (x, y, out) {
+      m.score(x, y, out);
+      let best = 0, mx = out[0];
+      for (let k = 1; k < K; k++) if (out[k] > mx) { mx = out[k]; best = k; }
+      let s = 0;
+      for (let k = 0; k < K; k++) { out[k] = Math.exp(out[k] - mx); s += out[k]; }
+      for (let k = 0; k < K; k++) out[k] /= s;
+      return best;
+    };
+    m.predict = function (x, y) {
+      const out = new Array(K);
+      m.score(x, y, out);
+      let best = 0;
+      for (let k = 1; k < K; k++) if (out[k] > out[best]) best = k;
+      return best;
+    };
+    // the three pieces of delta_k, for the scoreboard
+    m.parts = function (k, x, y) {
+      const dx = x - m.mu[k].x, dy = y - m.mu[k].y, A = m.Si[k];
+      const d2 = A.xx * dx * dx + 2 * A.xy * dx * dy + A.yy * dy * dy;
+      return { lp: m.lp[k], hld: -0.5 * m.ld[k], hd2: -0.5 * d2, d2 };
+    };
+    return m;
+  }
+
+  const TYPES = ['full', 'tied', 'diag', 'tieddiag', 'centroid'];
+  const COV_COUNT = (type, K) => ({ full: 3 * K, tied: 3, diag: 2 * K, tieddiag: 2, centroid: 0 })[type];
+
+  // classes: array (one entry per class) of arrays of points
+  function fit(classes, type) {
+    const K = classes.length;
+    const st = classes.map(stats);
+    const n = st.reduce((s, c) => s + c.n, 0);
+    const pri = st.map((c) => (n ? c.n / n : 1 / K));
+    let pooled = { xx: 0, xy: 0, yy: 0 };
+    for (const c of st) pooled = add(pooled, c.S);
+    pooled = scale(pooled, n ? 1 / n : 1);
+    let S, p = pri;
+    if (type === 'full') S = st.map((c) => (c.n ? scale(c.S, 1 / c.n) : I2()));
+    else if (type === 'tied') S = st.map(() => pooled);
+    else if (type === 'diag') S = st.map((c) => (c.n ? diagOf(scale(c.S, 1 / c.n)) : I2()));
+    else if (type === 'tieddiag') { const D = diagOf(pooled); S = st.map(() => D); }
+    else if (type === 'centroid') { S = st.map(() => I2()); p = st.map(() => 1 / K); }
+    else throw new Error('unknown model type ' + type);
+    return compile({ K, pri: p, mu: st.map((c) => c.mean), S, type });
+  }
+  // model from known parameters
+  function fromParams(pri, mu, S) { return compile({ K: pri.length, pri, mu, S, type: 'given' }); }
+
+  function accuracy(model, classes) {
+    let ok = 0, tot = 0;
+    for (let k = 0; k < classes.length; k++) {
+      for (const p of classes[k]) { if (model.predict(p.x, p.y) === k) ok++; tot++; }
+    }
+    return tot ? ok / tot : 0;
+  }
+
+  // ---------- boundary algebra for two classes (k versus l) ----------
+  // delta_k - delta_l = x'Ax + b'x + c with A = -1/2(Sk^-1 - Sl^-1)
+  function quadForm(m, k, l) {
+    const Sk = m.Si[k], Sl = m.Si[l];
+    const A = { xx: -0.5 * (Sk.xx - Sl.xx), xy: -0.5 * (Sk.xy - Sl.xy), yy: -0.5 * (Sk.yy - Sl.yy) };
+    const bk = mulv(Sk, m.mu[k]), bl = mulv(Sl, m.mu[l]);
+    const b = { x: bk.x - bl.x, y: bk.y - bl.y };
+    const q = (S, v) => v.x * (S.xx * v.x + S.xy * v.y) + v.y * (S.xy * v.x + S.yy * v.y);
+    const c = -0.5 * q(Sk, m.mu[k]) + 0.5 * q(Sl, m.mu[l]) - 0.5 * m.ld[k] + 0.5 * m.ld[l] + m.lp[k] - m.lp[l];
+    return { A, b, c };
+  }
+  const evalQuad = (q, x, y) => quad(q.A, x, y) + q.b.x * x + q.b.y * y + q.c;
+
+  // shared-covariance case: log-odds = w'x + w0
+  function linearForm(mu0, mu1, S, pi1) {
+    const Si = inv(S);
+    const d = { x: mu1.x - mu0.x, y: mu1.y - mu0.y };
+    const w = mulv(Si, d);
+    const mid = { x: mu0.x + mu1.x, y: mu0.y + mu1.y };
+    const w0 = -0.5 * (mid.x * w.x + mid.y * w.y) + Math.log(pi1 / (1 - pi1));
+    return { w, w0 };
+  }
+
+  // type of the curve delta_k = delta_l from the eigenvalues of A
+  function conic(A, tol) {
+    tol = tol == null ? 1e-6 : tol;
+    const e = eig(A);
+    const z1 = Math.abs(e.l1) < tol, z2 = Math.abs(e.l2) < tol;
+    let kind;
+    if (z1 && z2) kind = 'line';
+    else if (z1 || z2) kind = 'parabola';
+    else kind = e.l1 * e.l2 > 0 ? 'ellipse' : 'hyperbola';
+    return { kind, l1: e.l1, l2: e.l2 };
+  }
+
+  // ---------- one Gaussian: MLE and MAP ----------
+  function gaussMLE(pts) {
+    const s = stats(pts);
+    return { n: s.n, mu: s.mean, S: s.n ? scale(s.S, 1 / s.n) : { xx: 0, xy: 0, yy: 0 } };
+  }
+  // Normal-inverse-Wishart prior: mu | Sigma ~ N(mu0, Sigma/kappa0), Sigma ~ IW(nu0 * s0^2 * I, nu0).
+  // Joint posterior mode in d = 2 dimensions.
+  function gaussMAP(pts, hp) {
+    const s = stats(pts), n = s.n, d = 2;
+    const k0 = hp.kappa0, nu0 = hp.nu0, mu0 = hp.mu0;
+    const denomMu = n + k0;
+    const mu = denomMu > 0
+      ? { x: (n * s.mean.x + k0 * mu0.x) / denomMu, y: (n * s.mean.y + k0 * mu0.y) / denomMu }
+      : { x: mu0.x, y: mu0.y };
+    const dx = n ? s.mean.x - mu0.x : 0, dy = n ? s.mean.y - mu0.y : 0;
+    const shrink = denomMu > 0 ? (k0 * n) / denomMu : 0;
+    const Psi = { xx: nu0 * hp.s0 * hp.s0, xy: 0, yy: nu0 * hp.s0 * hp.s0 };
+    const num = {
+      xx: Psi.xx + s.S.xx + shrink * dx * dx,
+      xy: Psi.xy + s.S.xy + shrink * dx * dy,
+      yy: Psi.yy + s.S.yy + shrink * dy * dy
+    };
+    const den = nu0 + n + d + 2;
+    return { n, mu, S: scale(num, 1 / den) };
+  }
+  // KL( N(mt, St) || N(me, Se) )
+  function klGauss(mt, St, me, Se) {
+    const Sr = reg(Se), Si = inv(Sr);
+    const dx = me.x - mt.x, dy = me.y - mt.y;
+    const tr = Si.xx * St.xx + 2 * Si.xy * St.xy + Si.yy * St.yy;
+    return 0.5 * (tr + quad(Si, dx, dy) - 2 + Math.log(det(Sr) / det(St)));
+  }
+
+  // ---------- Fisher's criterion ----------
+  function fisher(mu0, mu1, S) {
+    const d = { x: mu1.x - mu0.x, y: mu1.y - mu0.y };
+    const w = mulv(inv(reg(S)), d);
+    return { w, d, Jmax: w.x * d.x + w.y * d.y };
+  }
+  // J(u) = (u'd)^2 / (u'Su) for the unit direction at angle theta
+  function Jdir(theta, d, S) {
+    const ux = Math.cos(theta), uy = Math.sin(theta);
+    const num = (ux * d.x + uy * d.y) ** 2;
+    return num / quad(S, ux, uy);
+  }
+
+  // ---------- normal distribution ----------
+  function erf(x) {
+    const s = x < 0 ? -1 : 1; x = Math.abs(x);
+    const t = 1 / (1 + 0.3275911 * x);
+    const y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+    return s * y;
+  }
+  const Phi = (z) => 0.5 * (1 + erf(z / Math.SQRT2));
+
+  return {
+    rng, randn, zs, cov, det, inv, scale, add, diagOf, I2, quad, mulv, eig, chol, place, sample, reg,
+    stats, compile, fit, fromParams, accuracy, TYPES, COV_COUNT,
+    quadForm, evalQuad, linearForm, conic, gaussMLE, gaussMAP, klGauss, fisher, Jdir, erf, Phi
+  };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = GDA;
+
+</script>
+<script>
+/* Small TeX-to-MathML converter for the notation used on this page.
+   It renders with the browser's own MathML engine, so it needs no library, fonts or network. */
+const TeX = (function () {
+  'use strict';
+
+  const GREEK = { alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ', iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', rho: 'ρ', sigma: 'σ', tau: 'τ', phi: 'φ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω' };
+  const GREEK_UP = { Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Xi: 'Ξ', Pi: 'Π', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω' };
+  const OPS = { cdot: '⋅', times: '×', le: '≤', leq: '≤', ge: '≥', geq: '≥', ne: '≠', neq: '≠', approx: '≈', propto: '∝', sim: '∼', in: '∈', to: '→', Rightarrow: '⇒', Leftrightarrow: '⇔', iff: '⟺', pm: '±', ldots: '…', dots: '…', cdots: '⋯', perp: '⟂', circ: '∘', equiv: '≡', lbrace: '{', rbrace: '}', '{': '{', '}': '}', '|': '‖', '%': '%', prime: '′', langle: '⟨', rangle: '⟩' };
+  const SYM = { infty: '∞', partial: '∂', nabla: '∇', ell: 'ℓ' };
+  const LIMITS = { sum: ['∑', false], prod: ['∏', false], argmax: ['arg max', true], argmin: ['arg min', true], max: ['max', true], min: ['min', true], lim: ['lim', true] };
+  const FUNCS = ['log', 'exp', 'det', 'sin', 'cos', 'Pr', 'tr', 'diag', 'rank'];
+  const BB = { R: 'ℝ', N: 'ℕ', Z: 'ℤ', E: '𝔼' };
+  const CAL = { N: '𝒩', D: '𝒟', L: 'ℒ', S: '𝒮', H: 'ℋ', J: '𝒥' };
+  const SPACE = { ',': '0.17em', ';': '0.28em', ':': '0.22em', ' ': '0.28em', quad: '1em', qquad: '2em' };
+
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  function tokenize(s) {
+    const toks = [];
+    const re = /\\text\{([^}]*)\}|\\(mathrm|operatorname|mathsf)\{([^}]*)\}|\\([a-zA-Z]+)|\\(.)|(\d+(?:\.\d+)?)|(\s+)|(.)/gs;
+    let m;
+    while ((m = re.exec(s))) {
+      if (m[1] !== undefined) toks.push({ t: 'text', v: m[1] });
+      else if (m[2] !== undefined) toks.push({ t: 'rm', v: m[3], fn: m[2] === 'operatorname' });
+      else if (m[4] !== undefined) toks.push({ t: 'cmd', v: m[4] });
+      else if (m[5] !== undefined) toks.push({ t: 'cmd', v: m[5] });
+      else if (m[6] !== undefined) toks.push({ t: 'num', v: m[6] });
+      else if (m[7] !== undefined) continue;
+      else toks.push({ t: 'ch', v: m[8] });
+    }
+    return toks;
+  }
+
+  function convert(src, display) {
+    const toks = tokenize(src);
+    const errors = [];
+    let p = 0;
+    const peek = () => toks[p];
+    const isCh = (t, c) => t && t.t === 'ch' && t.v === c;
+
+    const mi = (v, ctx) => (ctx.bold ? `<mi class="b">${v}</mi>` : `<mi>${v}</mi>`);
+    const miUp = (v, ctx) => `<mi mathvariant="normal"${ctx.bold ? ' class="b"' : ''}>${v}</mi>`;
+    const mo = (v, attrs) => `<mo${attrs ? ' ' + attrs : ''}>${esc(v)}</mo>`;
+
+    function seq(stop, ctx) {
+      const out = [];
+      let lastOp = true; // start of a row behaves like after an operator, so a leading minus is unary
+      while (p < toks.length && !stop(peek())) {
+        const a = withScripts(ctx, lastOp);
+        if (a) { out.push(a.html); lastOp = a.op; }
+      }
+      return out;
+    }
+    const row = (items) => (items.length === 1 ? items[0] : `<mrow>${items.join('')}</mrow>`);
+
+    function group(ctx) { // '{' ... '}'
+      p++; // consume '{'
+      const items = seq((t) => isCh(t, '}'), ctx);
+      p++; // consume '}'
+      return row(items);
+    }
+    function arg(ctx) { // a braced group or a single atom
+      if (isCh(peek(), '{')) return group(ctx);
+      const a = atom(ctx, false);
+      return a ? a.html : '';
+    }
+    function raw() { // letters inside {...}, for \mathbb and \mathcal
+      let s = '';
+      if (isCh(peek(), '{')) {
+        p++;
+        while (p < toks.length && !isCh(peek(), '}')) s += toks[p++].v;
+        p++;
+      } else s = toks[p++].v;
+      return s;
+    }
+
+    function withScripts(ctx, lastOp) {
+      const base = atom(ctx, lastOp);
+      if (!base) return null;
+      let sub = null, sup = null;
+      while (isCh(peek(), '^') || isCh(peek(), '_')) {
+        const which = toks[p++].v;
+        const a = arg(ctx);
+        if (which === '^') sup = a; else sub = a;
+      }
+      if (sub === null && sup === null) return base;
+      let html;
+      if (base.limits) {
+        if (sub !== null && sup !== null) html = `<munderover>${base.html}${sub}${sup}</munderover>`;
+        else if (sub !== null) html = `<munder>${base.html}${sub}</munder>`;
+        else html = `<mover>${base.html}${sup}</mover>`;
+      } else if (sub !== null && sup !== null) html = `<msubsup>${base.html}${sub}${sup}</msubsup>`;
+      else if (sub !== null) html = `<msub>${base.html}${sub}</msub>`;
+      else html = `<msup>${base.html}${sup}</msup>`;
+      return { html, op: false };
+    }
+
+    function delim(t) {
+      if (!t) return '';
+      if (t.t === 'ch') return t.v === '.' ? '' : t.v;
+      if (t.t === 'cmd') return OPS[t.v] || '';
+      return '';
+    }
+
+    function atom(ctx, lastOp) {
+      const t = toks[p++];
+      if (!t) return null;
+      if (t.t === 'num') return { html: `<mn>${t.v}</mn>`, op: false };
+      if (t.t === 'text') return { html: `<mtext>${esc(t.v.replace(/^ /, ' ').replace(/ $/, ' '))}</mtext>`, op: false };
+      if (t.t === 'rm') return { html: `<mi mathvariant="normal"${t.fn ? ' class="fn"' : ''}>${esc(t.v)}</mi>`, op: false };
+      if (t.t === 'ch') {
+        const c = t.v;
+        if (c === '{') { p--; return { html: group(ctx), op: false }; }
+        if (/[A-Za-z]/.test(c)) return { html: mi(c, ctx), op: false };
+        if (c === '-') return { html: lastOp ? mo('−', 'form="prefix"') : mo('−'), op: true };
+        if (c === '+') return { html: lastOp ? mo('+', 'form="prefix"') : mo('+'), op: true };
+        if (c === '(' || c === '[') return { html: mo(c, 'stretchy="false"'), op: true };
+        if (c === ')' || c === ']') return { html: mo(c, 'stretchy="false"'), op: false };
+        if (c === '|') return { html: mo('|', 'stretchy="false"'), op: false };
+        if (c === '*') return { html: mo('∗'), op: true };
+        if (c === "'") return { html: mo('′'), op: false };
+        if (c === '~') return { html: '<mspace width="0.28em"></mspace>', op: false };
+        if (c === '^' || c === '_' || c === '}') return null; // stray, ignore
+        return { html: mo(c), op: true };
+      }
+      // commands
+      const v = t.v;
+      if (GREEK[v]) return { html: mi(GREEK[v], ctx), op: false };
+      if (GREEK_UP[v]) return { html: miUp(GREEK_UP[v], ctx), op: false };
+      if (SYM[v]) return { html: miUp(SYM[v], ctx), op: false };
+      if (LIMITS[v]) {
+        const L = LIMITS[v];
+        return { html: `<mo${L[1] ? ' movablelimits="true"' : ''}>${L[0]}</mo>`, op: true, limits: true };
+      }
+      if (FUNCS.indexOf(v) >= 0) return { html: `<mi mathvariant="normal" class="fn">${v}</mi>`, op: false };
+      if (v === 'mid') return { html: '<mo lspace="0.28em" rspace="0.28em" stretchy="false">|</mo>', op: true };
+      if (v === 'top') return { html: '<mi mathvariant="normal">T</mi>', op: false };
+      if (OPS[v]) return { html: mo(OPS[v], 'stretchy="false"'), op: true };
+      if (SPACE[v] !== undefined) return { html: `<mspace width="${SPACE[v]}"></mspace>`, op: lastOp };
+      if (v === '!') return null;
+      switch (v) {
+        case 'frac': { const a = arg(ctx), b = arg(ctx); return { html: `<mfrac>${a}${b}</mfrac>`, op: false }; }
+        case 'sqrt': return { html: `<msqrt>${arg(ctx)}</msqrt>`, op: false };
+        case 'hat': return { html: `<mover accent="true">${arg(ctx)}<mo>^</mo></mover>`, op: false };
+        case 'tilde': return { html: `<mover accent="true">${arg(ctx)}<mo>~</mo></mover>`, op: false };
+        case 'bar': return { html: `<mover accent="true">${arg(ctx)}<mo>¯</mo></mover>`, op: false };
+        case 'mathbf': case 'boldsymbol': case 'bm': return { html: arg({ bold: true }), op: false };
+        case 'mathbb': { const k = raw(); return { html: miUp(BB[k] || k, ctx), op: false }; }
+        case 'mathcal': { const k = raw(); return { html: miUp(CAL[k] || k, ctx), op: false }; }
+        case 'left': {
+          const open = delim(toks[p++]);
+          const inner = seq((x) => x && x.t === 'cmd' && x.v === 'right', ctx);
+          p++; // \right
+          const close = delim(toks[p++]);
+          return {
+            html: `<mrow>${open ? mo(open, 'fence="true" stretchy="true"') : ''}${inner.join('')}${close ? mo(close, 'fence="true" stretchy="true"') : ''}</mrow>`,
+            op: false
+          };
+        }
+        case 'right': return null;
+        default:
+          errors.push('\\' + v);
+          return { html: `<mi mathvariant="normal">?${esc(v)}</mi>`, op: false };
+      }
+    }
+
+    const items = seq(() => false, {});
+    const html = `<math${display ? ' display="block"' : ''}><mrow>${items.join('')}</mrow></math>`;
+    return { html, errors };
+  }
+
+  function render(src, display) { return convert(src, display).html; }
+
+  function typeset(scope) {
+    const root = scope || document;
+    root.querySelectorAll('.m:not([data-done])').forEach(function (el) {
+      const tex = el.textContent;
+      el.setAttribute('aria-label', tex.replace(/\\/g, ' ').replace(/[{}]/g, ''));
+      el.innerHTML = render(tex, el.classList.contains('block'));
+      el.setAttribute('data-done', '1');
+    });
+  }
+
+  return { render, convert, typeset, tokenize };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = TeX;
+
+</script>
+<script>
+/* Page behaviour: canvas plotting, the five lab components, level switch, contents rail, quiz. */
+(function () {
+  'use strict';
+  const G = GDA;
+  const TAU = Math.PI * 2;
+
+  /* ---------- palette read from the CSS tokens, so canvases follow the theme ---------- */
+  let PAL = null;
+  const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function hexRGB(h) {
+    h = h.replace('#', '');
+    if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+    const n = parseInt(h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function pal() {
+    if (!PAL) {
+      const cls = [css('--ca'), css('--cb'), css('--cc')];
+      PAL = {
+        plot: css('--plot'), fg: css('--fg'), muted: css('--muted'), grid: css('--grid'), axis: css('--axis'),
+        ink: css('--ink'), surface: css('--surface'), cls, rgb: cls.map(hexRGB), fgRGB: hexRGB(css('--fg')),
+        mono: '"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace'
+      };
+    }
+    return PAL;
+  }
+  const redraws = [];
+  function themeChanged() { PAL = null; redraws.forEach((f) => f()); }
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeChanged); } catch (e) { /* older browsers */ }
+  new MutationObserver(themeChanged).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  /* ---------- small helpers ---------- */
+  const fmt = (v, d) => {
+    d = d == null ? 2 : d;
+    const s = (Math.abs(v) < 0.5 * Math.pow(10, -d) ? 0 : v).toFixed(d);
+    return s.replace('-', '−');
+  };
+  const pct = (v, d) => (100 * v).toFixed(d || 0) + '%';
+  const klTxt = (v) => (v > 99 ? '>99' : v.toFixed(2));
+  const CL = ['ca', 'cb', 'cc'];
+  const NAMES = ['A', 'B', 'C'];
+  const SW = ['', ' sq', ' tri'];
+  const swatch = (k) => `<span class="sw ${CL[k]}${SW[k]}"></span>`;
+  const normDeg = (a) => { while (a > 90) a -= 180; while (a <= -90) a += 180; return a; };
+
+  /* ---------- canvas plot ---------- */
+  class Plot {
+    constructor(canvas, o) {
+      o = o || {};
+      this.c = canvas;
+      this.ctx = canvas.getContext('2d');
+      this.xr = o.xr || [-6, 6];
+      this.yr = o.yr || [-4, 4];
+      this.aspect = o.aspect || (this.yr[1] - this.yr[0]) / (this.xr[1] - this.xr[0]);
+      this.handles = [];
+      this.active = null;
+      this.consumed = false;
+      this.drawFn = function () {};
+      this.W = 0; this.H = 0; this.dpr = 1;
+      this.off = document.createElement('canvas');
+      canvas.style.aspectRatio = String(1 / this.aspect);
+      this.ro = new ResizeObserver(() => this.resize());
+      this.ro.observe(canvas);
+      this.bind();
+      this.resize();
+      redraws.push(() => this.drawFn());
+    }
+    X(x) { return (x - this.xr[0]) * this.sx; }
+    Y(y) { return this.H - (y - this.yr[0]) * this.sy; }
+    ix(px) { return px / this.sx + this.xr[0]; }
+    iy(py) { return (this.H - py) / this.sy + this.yr[0]; }
+    resize() {
+      const w = Math.round(this.c.getBoundingClientRect().width) || 320;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (w === this.W && dpr === this.dpr) return;
+      this.W = w; this.H = Math.round(w * this.aspect); this.dpr = dpr;
+      this.c.width = Math.round(this.W * dpr);
+      this.c.height = Math.round(this.H * dpr);
+      this.sx = this.W / (this.xr[1] - this.xr[0]);
+      this.sy = this.H / (this.yr[1] - this.yr[0]);
+      this.drawFn();
+    }
+    request() {
+      if (this._raf) return;
+      this._raf = requestAnimationFrame(() => { this._raf = 0; this.drawFn(); });
+    }
+    bind() {
+      const c = this.c;
+      const pos = (e) => { const r = c.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+      const hit = (px, py) => {
+        let best = null, bd = 1e9;
+        for (const h of this.handles) {
+          const d = Math.hypot(this.X(h.x()) - px, this.Y(h.y()) - py);
+          if (d < (h.r || 16) && d < bd) { best = h; bd = d; }
+        }
+        return best;
+      };
+      c.addEventListener('pointerdown', (e) => {
+        this.consumed = false;
+        const p = pos(e), h = hit(p[0], p[1]);
+        if (h) {
+          this.active = h; this.consumed = true;
+          try { c.setPointerCapture(e.pointerId); } catch (_) { /* not critical */ }
+          e.preventDefault();
+        }
+      });
+      // stop the page from scrolling when a touch starts on a handle
+      c.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) return;
+        const r = c.getBoundingClientRect(), t = e.touches[0];
+        if (hit(t.clientX - r.left, t.clientY - r.top)) e.preventDefault();
+      }, { passive: false });
+      c.addEventListener('pointermove', (e) => {
+        const p = pos(e);
+        if (this.active) {
+          const x = Math.max(this.xr[0] + 0.15, Math.min(this.xr[1] - 0.15, this.ix(p[0])));
+          const y = Math.max(this.yr[0] + 0.15, Math.min(this.yr[1] - 0.15, this.iy(p[1])));
+          this.active.set(x, y);
+          this.request();
+          e.preventDefault();
+        } else if (e.pointerType === 'mouse') {
+          c.style.cursor = hit(p[0], p[1]) ? 'grab' : (this.cursor || 'default');
+        }
+      });
+      const end = () => { this.active = null; };
+      c.addEventListener('pointerup', end);
+      c.addEventListener('pointercancel', end);
+    }
+    frame() {
+      const P = pal(), c = this.ctx;
+      c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      c.setLineDash([]); c.globalAlpha = 1;
+      c.fillStyle = P.plot; c.fillRect(0, 0, this.W, this.H);
+      c.lineWidth = 1;
+      for (let x = Math.ceil(this.xr[0]); x <= this.xr[1]; x++) {
+        const px = Math.round(this.X(x)) + 0.5;
+        c.strokeStyle = x === 0 ? P.axis : P.grid;
+        c.beginPath(); c.moveTo(px, 0); c.lineTo(px, this.H); c.stroke();
+      }
+      for (let y = Math.ceil(this.yr[0]); y <= this.yr[1]; y++) {
+        const py = Math.round(this.Y(y)) + 0.5;
+        c.strokeStyle = y === 0 ? P.axis : P.grid;
+        c.beginPath(); c.moveTo(0, py); c.lineTo(this.W, py); c.stroke();
+      }
+      c.font = '10px ' + P.mono; c.fillStyle = P.muted; c.textBaseline = 'alphabetic';
+      c.textAlign = 'center';
+      for (let x = -4; x <= 4; x += 2) if (x !== 0) c.fillText(String(x).replace('-', '−'), this.X(x), this.H - 4);
+      c.textAlign = 'left';
+      for (let y = -2; y <= 2; y += 2) if (y !== 0) c.fillText(String(y).replace('-', '−'), 4, this.Y(y) - 3);
+    }
+    // shaded decision regions: colour = winning class, opacity = confidence; the border is drawn in ink
+    regions(m) {
+      const P = pal(), step = 2, gw = Math.ceil(this.W / step), gh = Math.ceil(this.H / step), K = m.K;
+      const off = this.off;
+      if (off.width !== gw || off.height !== gh) { off.width = gw; off.height = gh; }
+      const octx = off.getContext('2d'), img = octx.createImageData(gw, gh), d = img.data;
+      const lab = new Int8Array(gw * gh), out = new Array(K);
+      for (let j = 0; j < gh; j++) {
+        const y = this.iy((j + 0.5) * step);
+        for (let i = 0; i < gw; i++) {
+          const x = this.ix((i + 0.5) * step);
+          const k = m.post(x, y, out);
+          const conf = (out[k] - 1 / K) / (1 - 1 / K);
+          const o = (j * gw + i) * 4, col = P.rgb[k];
+          d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2];
+          d[o + 3] = Math.round(255 * (0.08 + 0.34 * conf));
+          lab[j * gw + i] = k;
+        }
+      }
+      const ink = P.fgRGB;
+      for (let j = 0; j < gh; j++) {
+        for (let i = 0; i < gw; i++) {
+          const k = lab[j * gw + i];
+          if ((i + 1 < gw && lab[j * gw + i + 1] !== k) || (j + 1 < gh && lab[(j + 1) * gw + i] !== k)) {
+            const o = (j * gw + i) * 4;
+            d[o] = ink[0]; d[o + 1] = ink[1]; d[o + 2] = ink[2]; d[o + 3] = 230;
+          }
+        }
+      }
+      octx.putImageData(img, 0, 0);
+      const c = this.ctx;
+      c.imageSmoothingEnabled = false;
+      c.drawImage(off, 0, 0, gw * step, gh * step);
+    }
+    ellipse(mu, S, k, stroke, w, dash) {
+      const e = G.eig(S), c = this.ctx;
+      const rx = Math.max(k * Math.sqrt(Math.max(e.l1, 0)) * this.sx, 0.6);
+      const ry = Math.max(k * Math.sqrt(Math.max(e.l2, 0)) * this.sx, 0.6);
+      c.save();
+      c.translate(this.X(mu.x), this.Y(mu.y));
+      c.rotate(-e.ang);
+      c.beginPath();
+      c.ellipse(0, 0, rx, ry, 0, 0, TAU);
+      c.restore();
+      c.strokeStyle = stroke; c.lineWidth = w || 1.5; c.setLineDash(dash || []);
+      c.stroke(); c.setLineDash([]);
+    }
+    marker(x, y, shape, color, r) {
+      const c = this.ctx, px = this.X(x), py = this.Y(y);
+      r = r || 3.6;
+      c.beginPath();
+      if (shape === 0) c.arc(px, py, r, 0, TAU);
+      else if (shape === 1) c.rect(px - r, py - r, 2 * r, 2 * r);
+      else { c.moveTo(px, py - r * 1.3); c.lineTo(px + r * 1.2, py + r * 0.9); c.lineTo(px - r * 1.2, py + r * 0.9); c.closePath(); }
+      c.globalAlpha = 0.88; c.fillStyle = color; c.fill(); c.globalAlpha = 1;
+      c.lineWidth = 1; c.strokeStyle = pal().plot; c.stroke();
+    }
+    cross(x, y, r, color, w) {
+      const c = this.ctx, px = this.X(x), py = this.Y(y);
+      c.beginPath(); c.moveTo(px - r, py); c.lineTo(px + r, py); c.moveTo(px, py - r); c.lineTo(px, py + r);
+      c.strokeStyle = color; c.lineWidth = w || 2; c.setLineDash([]); c.stroke();
+    }
+    dot(x, y, r, color) {
+      const c = this.ctx;
+      c.beginPath(); c.arc(this.X(x), this.Y(y), r, 0, TAU); c.fillStyle = color; c.fill();
+    }
+    handle(x, y, color, text) {
+      const c = this.ctx, P = pal(), px = this.X(x), py = this.Y(y);
+      c.beginPath(); c.arc(px, py, 11, 0, TAU); c.fillStyle = P.surface; c.fill();
+      c.lineWidth = 3; c.strokeStyle = color; c.setLineDash([]); c.stroke();
+      if (text) {
+        c.fillStyle = P.fg; c.font = '600 11px ' + P.mono; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillText(text, px, py + 0.5);
+      }
+    }
+    probe(x, y) {
+      const c = this.ctx, P = pal(), px = this.X(x), py = this.Y(y);
+      c.beginPath(); c.moveTo(px, py - 13); c.lineTo(px + 13, py); c.lineTo(px, py + 13); c.lineTo(px - 13, py); c.closePath();
+      c.fillStyle = P.fg; c.fill(); c.lineWidth = 2; c.strokeStyle = P.plot; c.setLineDash([]); c.stroke();
+      c.fillStyle = P.plot; c.font = '700 12px ' + P.mono; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('?', px, py + 0.5);
+    }
+    seg(x0, y0, x1, y1, color, w, dash, alpha) {
+      const c = this.ctx;
+      c.globalAlpha = alpha == null ? 1 : alpha;
+      c.beginPath(); c.moveTo(this.X(x0), this.Y(y0)); c.lineTo(this.X(x1), this.Y(y1));
+      c.strokeStyle = color; c.lineWidth = w || 1.5; c.setLineDash(dash || []); c.stroke(); c.setLineDash([]);
+      c.globalAlpha = 1;
+    }
+    arrow(x0, y0, x1, y1, color, w, dash) {
+      const c = this.ctx, ax = this.X(x0), ay = this.Y(y0), bx = this.X(x1), by = this.Y(y1);
+      const ang = Math.atan2(by - ay, bx - ax);
+      c.strokeStyle = color; c.fillStyle = color; c.lineWidth = w || 2; c.setLineDash(dash || []);
+      c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by); c.stroke(); c.setLineDash([]);
+      c.beginPath(); c.moveTo(bx, by);
+      c.lineTo(bx - 10 * Math.cos(ang - 0.4), by - 10 * Math.sin(ang - 0.4));
+      c.lineTo(bx - 10 * Math.cos(ang + 0.4), by - 10 * Math.sin(ang + 0.4));
+      c.closePath(); c.fill();
+    }
+    text(str, x, y, o) {
+      o = o || {};
+      const c = this.ctx, P = pal(), px = this.X(x) + (o.dx || 0), py = this.Y(y) + (o.dy || 0);
+      c.font = o.font || ('500 11px ' + P.mono); c.textAlign = o.align || 'left'; c.textBaseline = 'middle';
+      c.lineJoin = 'round'; c.lineWidth = 4; c.strokeStyle = P.plot; c.strokeText(str, px, py);
+      c.fillStyle = o.color || P.fg; c.fillText(str, px, py);
+    }
+  }
+
+  /* ---------- controls ---------- */
+  function controls(host, defs, onChange) {
+    host.innerHTML = defs.map((d) => {
+      const id = host.id + '-' + d.k;
+      if (d.type === 'check') {
+        return `<label class="chk"><input type="checkbox" id="${id}" data-k="${d.k}"${d.val ? ' checked' : ''}><span>${d.label}</span></label>`;
+      }
+      if (d.type === 'select') {
+        return `<label class="sel"><span>${d.label}</span><select id="${id}" data-k="${d.k}">${d.opts.map((o) => `<option value="${o[0]}"${o[0] === d.val ? ' selected' : ''}>${o[1]}</option>`).join('')}</select></label>`;
+      }
+      return `<label class="ctl"><span>${d.label}</span><input type="range" id="${id}" data-k="${d.k}" min="${d.min}" max="${d.max}" step="${d.step}" value="${d.val}"><output data-o="${d.k}"></output></label>`;
+    }).join('');
+    const q = (k) => host.querySelector('[data-k="' + k + '"]');
+    const api = {
+      get(k) {
+        const e = q(k);
+        return e.type === 'checkbox' ? e.checked : (e.tagName === 'SELECT' ? e.value : parseFloat(e.value));
+      },
+      set(k, v) {
+        const e = q(k);
+        if (e.type === 'checkbox') e.checked = !!v; else e.value = v;
+        api.refresh();
+      },
+      disable(ks, on) { ks.forEach((k) => { q(k).disabled = on; }); },
+      refresh() {
+        defs.forEach((d) => {
+          if (d.type) return;
+          const o = host.querySelector('[data-o="' + d.k + '"]');
+          if (o) o.textContent = (d.fmt || String)(api.get(d.k));
+        });
+      }
+    };
+    host.addEventListener('input', (e) => {
+      const k = e.target && e.target.dataset && e.target.dataset.k;
+      if (!k) return;
+      api.refresh();
+      onChange(k);
+    });
+    api.refresh();
+    return api;
+  }
+  const S = (k, label, min, max, step, val, f) => ({ k, label, min, max, step, val, fmt: f || ((v) => v.toFixed(2)) });
+
+  function shell(host, body) {
+    host.insertAdjacentHTML('afterbegin', `<div class="lab-cap"><span class="tag">Lab ${host.dataset.n}</span><strong>${host.dataset.title}</strong></div>`);
+    host.insertAdjacentHTML('beforeend', body);
+  }
+  const legend = (items) => '<div class="legend">' + items.map((i) =>
+    `<span><svg viewBox="0 0 28 10" aria-hidden="true"><line x1="0" y1="5" x2="28" y2="5"${i[0] ? ` stroke-dasharray="${i[0]}"` : ''}></line></svg>${i[1]}</span>`).join('') + '</div>';
+
+  /* ============ Lab 1: which blob? (three classes, scoreboard) ============ */
+  function labIntro(host) {
+    shell(host, `<div class="stage"><canvas role="img" aria-label="Three groups of points on a plane with colored regions, three draggable centers and a draggable test point"></canvas></div>
+      <div class="readout" id="${host.id}-r"></div><div class="ctls" id="${host.id}-c"></div>`);
+    const plot = new Plot(host.querySelector('canvas'));
+    const mu = [{ x: -2.7, y: 1.0 }, { x: 2.6, y: 1.3 }, { x: 0.1, y: -2.1 }];
+    const sd = [[1.15, 0.7, 0.5], [0.8, 0.8, 0], [1.7, 0.55, -0.3]];
+    const Z = [0, 1, 2].map((k) => G.zs(G.rng(100 + k), 34));
+    const probe = { x: 0.6, y: 0.2 };
+    const ctl = controls(host.querySelector('.ctls'),
+      [0, 1, 2].map((k) => S('w' + k, 'Size of ' + NAMES[k], 0.2, 3, 0.1, 1, (v) => v.toFixed(1) + '×')),
+      () => plot.request());
+    const readout = host.querySelector('.readout');
+    function model() {
+      const w = [ctl.get('w0'), ctl.get('w1'), ctl.get('w2')], s = w[0] + w[1] + w[2];
+      return G.fromParams(w.map((x) => x / s), mu, sd.map((a) => G.cov(a[0], a[1], a[2])));
+    }
+    plot.drawFn = function () {
+      const P = pal(), m = model();
+      plot.frame();
+      plot.regions(m);
+      for (let k = 0; k < 3; k++) {
+        const L = G.chol(m.S[k]);
+        for (const z of Z[k]) { const p = G.place(mu[k], L, z); plot.marker(p.x, p.y, k, P.cls[k]); }
+        plot.ellipse(mu[k], m.S[k], 1, P.cls[k], 2.2);
+        plot.ellipse(mu[k], m.S[k], 2, P.cls[k], 1.2, [4, 4]);
+      }
+      for (let k = 0; k < 3; k++) plot.handle(mu[k].x, mu[k].y, P.cls[k], NAMES[k]);
+      plot.probe(probe.x, probe.y);
+      const out = new Array(3), win = m.post(probe.x, probe.y, out);
+      let rows = '';
+      for (let k = 0; k < 3; k++) {
+        const q = m.parts(k, probe.x, probe.y);
+        rows += `<tr class="${k === win ? 'win' : ''}"><th scope="row">${swatch(k)}${NAMES[k]}</th>
+          <td class="tech">${pct(m.pri[k])}</td><td class="tech">${fmt(q.lp)}</td><td class="tech">${fmt(q.hld)}</td><td class="tech">${fmt(q.hd2)}</td><td class="tech">${fmt(q.lp + q.hld + q.hd2)}</td>
+          <td><span class="pbar ${CL[k]}"><i style="width:${(out[k] * 100).toFixed(1)}%"></i></span><span class="pv">${pct(out[k])}</span></td></tr>`;
+      }
+      readout.innerHTML = `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Club</th><th class="tech">share</th><th class="tech">log prior</th><th class="tech">−½ log|Σ|</th><th class="tech">−½ distance²</th><th class="tech">score δ</th><th>chance for the diamond</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <p class="verdict">The diamond goes to ${swatch(win)}<b>${NAMES[win]}</b>.<span class="tech"> Distance is measured in units of each class's own spread (Mahalanobis).</span></p>`;
+    };
+    plot.handles = [0, 1, 2].map((k) => ({ x: () => mu[k].x, y: () => mu[k].y, set: (x, y) => { mu[k].x = x; mu[k].y = y; } }))
+      .concat([{ x: () => probe.x, y: () => probe.y, set: (x, y) => { probe.x = x; probe.y = y; }, r: 20 }]);
+    plot.drawFn();
+  }
+
+  /* ============ Labs 2 and 3: two classes, quadratic versus linear boundary ============ */
+  function labBoundary(host) {
+    const linear = host.dataset.preset === 'linear';
+    shell(host, `<div class="stage"><canvas role="img" aria-label="Two groups of points with shaded regions and the boundary between them; the two centers and the test point can be dragged"></canvas></div>
+      <div class="readout" id="${host.id}-r"></div><div class="ctls" id="${host.id}-c"></div>`);
+    const plot = new Plot(host.querySelector('canvas'));
+    const mu0 = linear ? { x: -1.9, y: -0.7 } : { x: -1.0, y: -0.1 };
+    const mu1 = linear ? { x: 1.9, y: 0.8 } : { x: 0.9, y: 0.35 };
+    const probe = linear ? { x: 0.3, y: 1.9 } : { x: 2.6, y: 1.2 };
+    const Z0 = G.zs(G.rng(31), 60), Z1 = G.zs(G.rng(32), 60);
+    const readout = host.querySelector('.readout');
+    const ctl = controls(host.querySelector('.ctls'), [
+      S('sx0', 'A width<span class="tech"> σx</span>', 0.3, 3, 0.05, linear ? 1.2 : 2.1),
+      S('sy0', 'A height<span class="tech"> σy</span>', 0.3, 3, 0.05, linear ? 0.8 : 1.2),
+      S('r0', 'A tilt<span class="tech"> ρ</span>', -0.9, 0.9, 0.05, linear ? 0.5 : 0.45),
+      S('sx1', 'B width<span class="tech"> σx</span>', 0.3, 3, 0.05, linear ? 1.2 : 0.7),
+      S('sy1', 'B height<span class="tech"> σy</span>', 0.3, 3, 0.05, linear ? 0.8 : 0.7),
+      S('r1', 'B tilt<span class="tech"> ρ</span>', -0.9, 0.9, 0.05, linear ? 0.5 : 0),
+      S('pi1', 'Share of blue kids<span class="tech"> π<sub>B</sub></span>', 0.05, 0.95, 0.05, 0.5, (v) => Math.round(v * 100) + '%'),
+      { k: 'tie', type: 'check', label: 'Same shape for both', val: linear }
+    ], () => { sync(); plot.request(); });
+    function sync() {
+      const tie = ctl.get('tie');
+      ctl.disable(['sx1', 'sy1', 'r1'], tie);
+      if (tie) { ctl.set('sx1', ctl.get('sx0')); ctl.set('sy1', ctl.get('sy0')); ctl.set('r1', ctl.get('r0')); }
+    }
+    sync();
+    const KIND = { line: 'a straight line', parabola: 'a parabola (one open curve)', ellipse: 'an ellipse (a closed loop)', hyperbola: 'a hyperbola (two open curves)' };
+    plot.drawFn = function () {
+      const P = pal(), tie = ctl.get('tie'), p1 = ctl.get('pi1');
+      const A = G.cov(ctl.get('sx0'), ctl.get('sy0'), ctl.get('r0'));
+      const B = tie ? A : G.cov(ctl.get('sx1'), ctl.get('sy1'), ctl.get('r1'));
+      const m = G.fromParams([1 - p1, p1], [mu0, mu1], [A, B]);
+      plot.frame();
+      plot.regions(m);
+      const parts = [[mu0, A, Z0, 0], [mu1, B, Z1, 1]];
+      for (const pt of parts) {
+        const L = G.chol(pt[1]);
+        for (const z of pt[2]) { const p = G.place(pt[0], L, z); plot.marker(p.x, p.y, pt[3], P.cls[pt[3]]); }
+        plot.ellipse(pt[0], pt[1], 1, P.cls[pt[3]], 2.2);
+        plot.ellipse(pt[0], pt[1], 2, P.cls[pt[3]], 1.2, [4, 4]);
+      }
+      let extra = '';
+      const dm = { x: mu1.x - mu0.x, y: mu1.y - mu0.y };
+      if (tie) {
+        const lf = G.linearForm(mu0, mu1, A, p1), wl = Math.hypot(lf.w.x, lf.w.y) || 1;
+        const mid = { x: (mu0.x + mu1.x) / 2, y: (mu0.y + mu1.y) / 2 };
+        plot.seg(mu0.x, mu0.y, mu1.x, mu1.y, P.muted, 1.6, [5, 4]);
+        plot.arrow(mid.x, mid.y, mid.x + 1.9 * lf.w.x / wl, mid.y + 1.9 * lf.w.y / wl, P.fg, 2.6);
+        plot.text('w', mid.x + 2.15 * lf.w.x / wl, mid.y + 2.15 * lf.w.y / wl, { align: 'center', font: '700 13px ' + P.mono });
+        const dl = Math.hypot(dm.x, dm.y) || 1;
+        const cosv = Math.max(-1, Math.min(1, (lf.w.x * dm.x + lf.w.y * dm.y) / (wl * dl)));
+        extra = `<p class="tech">Black arrow: <b>w</b> = Σ⁻¹(μ<sub>B</sub> − μ<sub>A</sub>) = (${fmt(lf.w.x)}, ${fmt(lf.w.y)}). Dashed segment: joins the two centers. Angle between them: <b>${fmt(Math.acos(cosv) * 180 / Math.PI, 1)}°</b>. The boundary is perpendicular to the arrow.</p>`;
+      }
+      plot.handle(mu0.x, mu0.y, P.cls[0], 'A');
+      plot.handle(mu1.x, mu1.y, P.cls[1], 'B');
+      plot.probe(probe.x, probe.y);
+      const q = G.quadForm(m, 1, 0), cn = G.conic(q.A);
+      const out = [0, 0], win = m.post(probe.x, probe.y, out);
+      readout.innerHTML =
+        `<p>The border between the two groups is <b>${KIND[cn.kind]}</b>.</p>` +
+        `<p class="ugonly">With <b>A</b> = −½(Σ<sub>B</sub>⁻¹ − Σ<sub>A</sub>⁻¹), the eigenvalues are λ<sub>1</sub> = ${fmt(cn.l1, 3)} and λ<sub>2</sub> = ${fmt(cn.l2, 3)}.</p>` +
+        extra +
+        `<p>The diamond goes to ${swatch(win)}<b>${NAMES[win]}</b>. Chance of ${swatch(0)}A: ${pct(out[0])}, chance of ${swatch(1)}B: ${pct(out[1])}.</p>`;
+    };
+    plot.handles = [
+      { x: () => mu0.x, y: () => mu0.y, set: (x, y) => { mu0.x = x; mu0.y = y; } },
+      { x: () => mu1.x, y: () => mu1.y, set: (x, y) => { mu1.x = x; mu1.y = y; } },
+      { x: () => probe.x, y: () => probe.y, set: (x, y) => { probe.x = x; probe.y = y; }, r: 20 }
+    ];
+    plot.drawFn();
+  }
+
+  /* ============ Labs 4 and 7: fit one Gaussian by hand (MLE, and MLE versus MAP) ============ */
+  function labFit(host) {
+    const withMap = host.dataset.map === '1';
+    shell(host, `<div class="stage"><canvas role="img" aria-label="Points on a plane with a fitted Gaussian ellipse; tap to add points and drag points to move them"></canvas></div>
+      <div id="${host.id}-lg"></div>
+      <div class="readout" id="${host.id}-r"></div>
+      <div class="ctls" id="${host.id}-c"></div>
+      <div class="btns" id="${host.id}-b"></div>`);
+    const plot = new Plot(host.querySelector('canvas'));
+    const truth = { mu: { x: 1.0, y: 0.4 }, S: G.cov(1.5, 0.8, 0.6) };
+    const Lt = G.chol(truth.S);
+    const prior = { x: -1.6, y: -1.2 };
+    let rnd = G.rng(11), reseed = 11;
+    let pts = G.sample(rnd, truth.mu, truth.S, withMap ? 4 : 6);
+    const bank = [];
+    { const r = G.rng(777); for (let t = 0; t < 240; t++) bank.push(G.zs(r, 60)); }
+    let cache = { key: '', val: null };
+
+    const defs = [
+      S('n', 'Points<span class="tech"> n</span>', 0, 60, 1, pts.length, (v) => String(v)),
+      { k: 'truth', type: 'check', label: 'Show the true blob (dotted)', val: true }
+    ];
+    if (withMap) {
+      defs.push(S('k0', 'Center trust<span class="tech"> κ₀</span>', 0, 20, 0.5, 2, (v) => v.toFixed(1)));
+      defs.push(S('nu0', 'Shape trust<span class="tech"> ν₀</span>', 0, 30, 1, 4, (v) => String(v)));
+      defs.push(S('s0', 'Hunch size<span class="tech"> s₀</span>', 0.3, 3, 0.1, 1.2, (v) => v.toFixed(1)));
+    }
+    const ctl = controls(host.querySelector('.ctls'), defs, (k) => {
+      if (k === 'n') {
+        const n = ctl.get('n');
+        while (pts.length < n) pts.push(G.sample(rnd, truth.mu, truth.S, 1)[0]);
+        if (pts.length > n) pts.length = n;
+        rebuild();
+      }
+      plot.request();
+    });
+    host.querySelector('#' + host.id + '-lg').innerHTML = withMap
+      ? legend([['7 5', 'Plain average (MLE)'], ['', 'Hunch plus data (MAP)'], ['2 4', 'True blob'], ['8 3 2 3', 'The hunch']])
+      : legend([['', 'Fitted ellipse at 1 and 2 standard deviations'], ['2 4', 'True blob']]);
+
+    const bar = host.querySelector('.btns');
+    bar.innerHTML = '<button type="button" class="btn pri" data-a="new"><span class="kidonly">New kids</span><span class="tech">New sample from the true blob</span></button>' +
+      '<button type="button" class="btn" data-a="undo">Remove last</button><button type="button" class="btn" data-a="clear">Clear</button>';
+    bar.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      const a = b.dataset.a;
+      if (a === 'new') { rnd = G.rng(++reseed * 977); const n = ctl.get('n') || 4; pts = G.sample(rnd, truth.mu, truth.S, n); ctl.set('n', n); }
+      else if (a === 'undo') { pts.pop(); ctl.set('n', pts.length); }
+      else if (a === 'clear') { pts = []; ctl.set('n', 0); }
+      rebuild(); plot.request();
+    });
+    plot.c.addEventListener('click', (e) => {
+      if (plot.consumed) { plot.consumed = false; return; }
+      if (pts.length >= 60) return;
+      const r = plot.c.getBoundingClientRect();
+      pts.push({ x: plot.ix(e.clientX - r.left), y: plot.iy(e.clientY - r.top) });
+      ctl.set('n', pts.length); rebuild(); plot.request();
+    });
+    function rebuild() {
+      plot.handles = pts.map((p) => ({ x: () => p.x, y: () => p.y, set: (x, y) => { p.x = x; p.y = y; }, r: 13 }));
+      if (withMap) plot.handles.push({ x: () => prior.x, y: () => prior.y, set: (x, y) => { prior.x = x; prior.y = y; }, r: 18 });
+    }
+    rebuild();
+
+    function hyper() { return { kappa0: ctl.get('k0'), nu0: ctl.get('nu0'), s0: ctl.get('s0'), mu0: { x: prior.x, y: prior.y } }; }
+    function typical(n, hp) {
+      if (n < 1) return null;
+      const key = [n, hp ? [hp.kappa0, hp.nu0, hp.s0, hp.mu0.x.toFixed(2), hp.mu0.y.toFixed(2)].join(',') : ''].join('|');
+      if (cache.key === key) return cache.val;
+      const a = [], b = [];
+      for (let t = 0; t < bank.length; t++) {
+        const sm = new Array(n);
+        for (let i = 0; i < n; i++) sm[i] = G.place(truth.mu, Lt, bank[t][i]);
+        const e = G.gaussMLE(sm);
+        a.push(G.klGauss(truth.mu, truth.S, e.mu, e.S));
+        if (hp) { const f = G.gaussMAP(sm, hp); b.push(G.klGauss(truth.mu, truth.S, f.mu, f.S)); }
+      }
+      const med = (x) => x.sort((u, v) => u - v)[x.length >> 1];
+      cache = { key, val: { mle: med(a), map: hp ? med(b) : null } };
+      return cache.val;
+    }
+    const readout = host.querySelector('.readout');
+    plot.drawFn = function () {
+      const P = pal(), n = pts.length, hp = withMap ? hyper() : null;
+      plot.frame();
+      if (ctl.get('truth')) {
+        plot.ellipse(truth.mu, truth.S, 1, P.muted, 1.8, [2, 4]);
+        plot.ellipse(truth.mu, truth.S, 2, P.muted, 1.2, [2, 4]);
+      }
+      if (withMap) {
+        const Sp = G.cov(hp.s0, hp.s0, 0);
+        plot.ellipse(prior, Sp, 1, P.muted, 1.6, [8, 3, 2, 3]);
+        plot.ellipse(prior, Sp, 2, P.muted, 1.1, [8, 3, 2, 3]);
+      }
+      for (const p of pts) plot.marker(p.x, p.y, 0, P.cls[0]);
+      const mle = n ? G.gaussMLE(pts) : null, map = n && withMap ? G.gaussMAP(pts, hp) : null;
+      if (mle) {
+        if (withMap) { plot.ellipse(mle.mu, mle.S, 1, P.ink, 1.8, [7, 5]); plot.cross(mle.mu.x, mle.mu.y, 6, P.ink, 1.6); }
+        else { plot.ellipse(mle.mu, mle.S, 1, P.ink, 2.6); plot.ellipse(mle.mu, mle.S, 2, P.ink, 1.3, [4, 4]); plot.cross(mle.mu.x, mle.mu.y, 7, P.ink, 2.2); }
+      }
+      if (map) {
+        plot.ellipse(map.mu, map.S, 1, P.ink, 2.8); plot.ellipse(map.mu, map.S, 2, P.ink, 1.3);
+        plot.dot(map.mu.x, map.mu.y, 3.5, P.ink);
+      }
+      if (withMap) { plot.cross(prior.x, prior.y, 9, P.fg, 2.6); plot.text('hunch', prior.x, prior.y, { dy: -16, align: 'center' }); }
+
+      // readout
+      let msg;
+      if (n === 0) msg = 'Tap the picture to add points.';
+      else if (n === 1) msg = 'One point gives a center but no spread, so the ring has no size.';
+      else if (n === 2) msg = `<span class="warn">With two points the plain-average ring is flat: it has no width across the line joining them.</span>${withMap ? ' The solid MAP ring stays open because of the hunch.' : ''}`;
+      else msg = `${n} points.`;
+      let tbl = '';
+      if (n) {
+        const cell = (g, f) => `<td>${f(g)}</td>`;
+        const klOf = (g) => klTxt(G.klGauss(truth.mu, truth.S, g.mu, g.S));
+        const ty = typical(n, hp);
+        const rowsDef = [
+          ['Mean x', (g) => fmt(g.mu.x)],
+          ['Mean y', (g) => fmt(g.mu.y)],
+          ['Variance x', (g) => fmt(g.S.xx)],
+          ['Variance y', (g) => fmt(g.S.yy)],
+          ['Covariance xy', (g) => fmt(g.S.xy)],
+          ['Determinant (0 = flat)', (g) => fmt(G.det(g.S), 3)],
+          ['Error vs true blob (KL), this sample', klOf]
+        ];
+        let body = rowsDef.map((r) => `<tr><th scope="row">${r[0]}</th>${cell(mle, r[1])}${map ? cell(map, r[1]) : ''}</tr>`).join('');
+        body += `<tr><th scope="row">Typical error for ${n} random points (median KL of 240 samples)</th><td>${klTxt(ty.mle)}</td>${withMap ? `<td>${klTxt(ty.map)}</td>` : ''}</tr>`;
+        tbl = `<div class="tbl-wrap tech"><table class="tbl wrapth"><thead><tr><th></th><th>${withMap ? 'Plain average (MLE)' : 'Fitted by MLE'}</th>${withMap ? '<th>Hunch plus data (MAP)</th>' : ''}</tr></thead><tbody>${body}</tbody></table></div>`;
+      }
+      readout.innerHTML = `<p>${msg}</p>${tbl}`;
+    };
+    plot.drawFn();
+  }
+
+  /* ============ Labs 5 and 6: two models side by side on the same data ============ */
+  function labCompare(host) {
+    const MODELS = [['full', 'Full (QDA)'], ['tied', 'Tied (LDA)'], ['diag', 'Diagonal (naive Bayes)'], ['tieddiag', 'Tied diagonal'], ['centroid', 'Nearest centroid']];
+    const MODEL_NAME = {}; MODELS.forEach((m) => { MODEL_NAME[m[0]] = m[1]; });
+    const panel = (s) => `<div class="panel"><h4 id="${host.id}-h${s}"></h4><div class="stage"><canvas role="img" aria-label="${s === 'L' ? 'Left' : 'Right'} model: fitted ellipses and decision regions"></canvas></div><div class="pstats" id="${host.id}-s${s}"></div></div>`;
+    shell(host, `<div class="ctls" id="${host.id}-c"></div>
+      <div class="btns" id="${host.id}-b"></div>
+      <div class="cmp" style="margin-top:14px">${panel('L')}${panel('R')}</div>
+      <p class="readout" id="${host.id}-r"></p>`);
+    const cv = host.querySelectorAll('canvas');
+    const plots = [new Plot(cv[0]), new Plot(cv[1])];
+    let seed = 3, Z = null;
+    function bank() { Z = [G.zs(G.rng(seed * 13 + 1), 150), G.zs(G.rng(seed * 13 + 2), 150)]; }
+    bank();
+    const ctl = controls(host.querySelector('.ctls'), [
+      { k: 'mL', type: 'select', label: 'Left model', opts: MODELS, val: host.dataset.left },
+      { k: 'mR', type: 'select', label: 'Right model', opts: MODELS, val: host.dataset.right },
+      { k: 'scn', type: 'select', label: 'True shapes', opts: [['same', 'Same shape'], ['diff', 'Different shapes']], val: host.dataset.scn },
+      S('rho', 'Tilt<span class="tech"> (correlation ρ)</span>', -0.95, 0.95, 0.05, parseFloat(host.dataset.rho)),
+      S('nn', 'Points per class<span class="tech"> n</span>', 4, 150, 1, parseInt(host.dataset.nn, 10), (v) => String(v)),
+      { k: 'truth', type: 'check', label: 'Show the true shapes (dotted)', val: false }
+    ], () => update());
+    const bar = host.querySelector('.btns');
+    bar.innerHTML = '<button type="button" class="btn pri" data-a="new"><span class="kidonly">New kids</span><span class="tech">New sample</span></button>';
+    bar.addEventListener('click', () => { seed++; bank(); update(); });
+
+    let cur = null, train = null, test = null, models = null, best = 0, tkey = '';
+    function truthOf() {
+      if (ctl.get('scn') === 'same') {
+        const Sg = G.cov(1.3, 0.9, ctl.get('rho'));
+        return { mu: [{ x: -1.5, y: -0.6 }, { x: 1.5, y: 0.6 }], S: [Sg, Sg] };
+      }
+      return { mu: [{ x: -0.8, y: -0.1 }, { x: 0.5, y: 0.2 }], S: [G.cov(2.2, 1.3, 0.5), G.cov(0.65, 0.65, 0)] };
+    }
+    function update() {
+      ctl.disable(['rho'], ctl.get('scn') === 'diff');
+      cur = truthOf();
+      const n = ctl.get('nn');
+      train = [0, 1].map((k) => { const L = G.chol(cur.S[k]); return Z[k].slice(0, n).map((z) => G.place(cur.mu[k], L, z)); });
+      const key = ctl.get('scn') + ctl.get('rho');
+      if (key !== tkey) {
+        test = [0, 1].map((k) => G.sample(G.rng(4242 + k), cur.mu[k], cur.S[k], 400));
+        best = G.accuracy(G.fromParams([0.5, 0.5], cur.mu, cur.S), test);
+        tkey = key;
+      }
+      models = [G.fit(train, ctl.get('mL')), G.fit(train, ctl.get('mR'))];
+      ['L', 'R'].forEach((s, i) => {
+        const type = ctl.get(i ? 'mR' : 'mL'), m = models[i];
+        host.querySelector('#' + host.id + '-h' + s).textContent = (i ? 'Right: ' : 'Left: ') + MODEL_NAME[type];
+        const mat = (S2) => `[${fmt(S2.xx)}, ${fmt(S2.xy)}; ${fmt(S2.xy)}, ${fmt(S2.yy)}]`;
+        host.querySelector('#' + host.id + '-s' + s).innerHTML =
+          `<div><span class="kidonly">New kids guessed right: </span><span class="tech">Test accuracy </span><span class="big">${pct(G.accuracy(m, test))}</span></div>` +
+          `<div><span class="kidonly">Seen kids guessed right: </span><span class="tech">Training accuracy </span><span class="big">${pct(G.accuracy(m, train))}</span></div>` +
+          `<div class="tech">Covariance numbers fitted: <b>${G.COV_COUNT(type, 2)}</b></div>` +
+          `<div class="ugonly">Σ̂<sub>A</sub> = ${mat(m.Sr[0])}<br>Σ̂<sub>B</sub> = ${mat(m.Sr[1])}</div>`;
+      });
+      host.querySelector('#' + host.id + '-r').innerHTML = `Best possible with the true parameters, on the same new points: <b>${pct(best)}</b>.`;
+      plots.forEach((p) => p.request());
+    }
+    function drawPanel(i) {
+      const P = pal(), pl = plots[i], m = models && models[i];
+      if (!m) return;
+      pl.frame();
+      pl.regions(m);
+      if (ctl.get('truth')) for (let k = 0; k < 2; k++) pl.ellipse(cur.mu[k], cur.S[k], 1, P.muted, 1.8, [2, 4]);
+      for (let k = 0; k < 2; k++) for (const p of train[k]) pl.marker(p.x, p.y, k, P.cls[k]);
+      for (let k = 0; k < 2; k++) {
+        pl.ellipse(m.mu[k], m.Sr[k], 1, P.cls[k], 2.4);
+        pl.ellipse(m.mu[k], m.Sr[k], 2, P.cls[k], 1.2, [4, 4]);
+      }
+    }
+    plots.forEach((p, i) => { p.drawFn = () => drawPanel(i); });
+    update();
+  }
+
+  /* ============ Lab 8: Fisher's flashlight ============ */
+  function labFisher(host) {
+    shell(host, `<div class="stage"><canvas role="img" aria-label="Two groups of points with a projection line through them; the two centers can be dragged"></canvas></div>
+      <div class="stage" style="margin-top:10px"><canvas role="img" aria-label="The two groups projected onto the line, shown as two overlapping bell curves"></canvas></div>
+      <div class="readout" id="${host.id}-r"></div><div class="ctls" id="${host.id}-c"></div><div class="btns" id="${host.id}-b"></div>`);
+    const cv = host.querySelectorAll('canvas');
+    const plot = new Plot(cv[0]);
+    const proj = new Plot(cv[1], { xr: [-7.5, 7.5], yr: [0, 1], aspect: 0.3 });
+    const muA = { x: -1.7, y: -0.2 }, muB = { x: 1.7, y: 0.2 };
+    const ZA = G.zs(G.rng(51), 70), ZB = G.zs(G.rng(52), 70);
+    const state = { theta: 0 };
+    const centroidDeg = () => Math.atan2(muB.y - muA.y, muB.x - muA.x) * 180 / Math.PI;
+    state.theta = normDeg(centroidDeg());
+    const ctl = controls(host.querySelector('.ctls'), [
+      S('sx', 'Spread x<span class="tech"> σx</span>', 0.4, 2.5, 0.05, 1.4),
+      S('sy', 'Spread y<span class="tech"> σy</span>', 0.4, 2.5, 0.05, 1.0),
+      S('rho', 'Tilt<span class="tech"> (correlation ρ)</span>', -0.95, 0.95, 0.05, 0.75),
+      S('th', 'Flashlight angle<span class="tech"> θ</span>', -90, 90, 0.5, state.theta, (v) => fmt(v, 0) + '°')
+    ], (k) => {
+      if (k === 'th') state.theta = ctl.get('th');
+      plot.request(); proj.request();
+    });
+    const bar = host.querySelector('.btns');
+    bar.innerHTML = '<button type="button" class="btn pri" data-a="fisher">Best angle<span class="tech"> (Fisher)</span></button><button type="button" class="btn" data-a="centroid">Centroid angle</button>';
+    function geom() {
+      const Sg = G.cov(ctl.get('sx'), ctl.get('sy'), ctl.get('rho'));
+      const d = { x: muB.x - muA.x, y: muB.y - muA.y };
+      const f = G.fisher(muA, muB, Sg);
+      const fAng = normDeg(Math.atan2(f.w.y, f.w.x) * 180 / Math.PI);
+      return { Sg, d, f, fAng };
+    }
+    bar.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      const g = geom();
+      state.theta = b.dataset.a === 'fisher' ? g.fAng : normDeg(centroidDeg());
+      ctl.set('th', state.theta);
+      plot.request(); proj.request();
+    });
+    function line() {
+      const g = geom(), th = state.theta * Math.PI / 180;
+      let u = { x: Math.cos(th), y: Math.sin(th) };
+      const m = { x: (muA.x + muB.x) / 2, y: (muA.y + muB.y) / 2 };
+      const dot = u.x * g.d.x + u.y * g.d.y;
+      const uo = dot < 0 ? { x: -u.x, y: -u.y } : u;     // orient so class B lands on the right
+      const s = Math.sqrt(G.quad(g.Sg, u.x, u.y));
+      return { g, u, uo, m, s, D: Math.abs(dot) };
+    }
+    plot.drawFn = function () {
+      const P = pal(), L = line(), g = L.g;
+      plot.frame();
+      const LA = G.chol(g.Sg);
+      const A = ZA.map((z) => G.place(muA, LA, z)), B = ZB.map((z) => G.place(muB, LA, z));
+      for (const set of [A, B]) {
+        for (const p of set) {
+          const t = (p.x - L.m.x) * L.u.x + (p.y - L.m.y) * L.u.y;
+          plot.seg(p.x, p.y, L.m.x + t * L.u.x, L.m.y + t * L.u.y, P.fg, 1, null, 0.13);
+        }
+      }
+      plot.ellipse(muA, g.Sg, 2, P.cls[0], 1.2, [4, 4]);
+      plot.ellipse(muB, g.Sg, 2, P.cls[1], 1.2, [4, 4]);
+      plot.seg(L.m.x - 14 * L.u.x, L.m.y - 14 * L.u.y, L.m.x + 14 * L.u.x, L.m.y + 14 * L.u.y, P.fg, 2.4);
+      for (const p of A) plot.marker(p.x, p.y, 0, P.cls[0], 3.2);
+      for (const p of B) plot.marker(p.x, p.y, 1, P.cls[1], 3.2);
+      const dl = Math.hypot(g.d.x, g.d.y);
+      if (dl > 1e-6) {
+        const wl = Math.hypot(g.f.w.x, g.f.w.y) || 1, len = 2.5;
+        plot.arrow(L.m.x, L.m.y, L.m.x + len * g.d.x / dl, L.m.y + len * g.d.y / dl, P.muted, 2.2, [5, 4]);
+        plot.arrow(L.m.x, L.m.y, L.m.x + len * g.f.w.x / wl, L.m.y + len * g.f.w.y / wl, P.fg, 2.8);
+        plot.text('centroid', L.m.x + (len + 0.25) * g.d.x / dl, L.m.y + (len + 0.25) * g.d.y / dl, { color: P.muted, dy: 12 });
+        plot.text('Fisher', L.m.x + (len + 0.25) * g.f.w.x / wl, L.m.y + (len + 0.25) * g.f.w.y / wl, { dy: -10 });
+      }
+      plot.handle(muA.x, muA.y, P.cls[0], 'A');
+      plot.handle(muB.x, muB.y, P.cls[1], 'B');
+      readout(L);
+    };
+    plot.handles = [
+      { x: () => muA.x, y: () => muA.y, set: (x, y) => { muA.x = x; muA.y = y; proj.request(); } },
+      { x: () => muB.x, y: () => muB.y, set: (x, y) => { muB.x = x; muB.y = y; proj.request(); } }
+    ];
+    proj.drawFn = function () {
+      const P = pal(), c = proj.ctx, W = proj.W, H = proj.H, L = line(), g = L.g;
+      c.setTransform(proj.dpr, 0, 0, proj.dpr, 0, 0); c.setLineDash([]); c.globalAlpha = 1;
+      c.fillStyle = P.plot; c.fillRect(0, 0, W, H);
+      const base = H - 22, top = 12, tx = (t) => (t - proj.xr[0]) * proj.sx;
+      // vertical scale is fixed by the narrowest possible projection, so heights are comparable across angles
+      const e = G.eig(g.Sg), sMin = Math.sqrt(Math.max(e.l2, 1e-4));
+      const ymax = 1.1 / (sMin * Math.sqrt(TAU));
+      const ty = (v) => base - (v / ymax) * (base - top);
+      const mA = -L.D / 2, mB = L.D / 2, s = Math.max(L.s, 1e-3);
+      const pdf = (t, m) => Math.exp(-0.5 * ((t - m) / s) * ((t - m) / s)) / (s * Math.sqrt(TAU));
+      c.strokeStyle = P.axis; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(0, base + 0.5); c.lineTo(W, base + 0.5); c.stroke();
+      c.font = '10px ' + P.mono; c.fillStyle = P.muted; c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+      for (let t = -6; t <= 6; t += 2) { c.fillText(String(t).replace('-', '−'), tx(t), H - 6); c.beginPath(); c.moveTo(tx(t) + 0.5, base); c.lineTo(tx(t) + 0.5, base + 4); c.stroke(); }
+      c.setLineDash([4, 4]); c.beginPath(); c.moveTo(tx(0) + 0.5, top); c.lineTo(tx(0) + 0.5, base); c.stroke(); c.setLineDash([]);
+      const curve = (m, k) => {
+        c.beginPath(); c.moveTo(0, base);
+        for (let px = 0; px <= W; px += 2) c.lineTo(px, ty(pdf(proj.ix(px), m)));
+        c.lineTo(W, base); c.closePath();
+        c.globalAlpha = 0.24; c.fillStyle = P.cls[k]; c.fill(); c.globalAlpha = 1;
+        c.beginPath();
+        for (let px = 0; px <= W; px += 2) { const y = ty(pdf(proj.ix(px), m)); if (px === 0) c.moveTo(px, y); else c.lineTo(px, y); }
+        c.strokeStyle = P.cls[k]; c.lineWidth = 2.2; c.stroke();
+      };
+      // overlap of the two hills
+      c.beginPath(); c.moveTo(0, base);
+      for (let px = 0; px <= W; px += 2) { const t = proj.ix(px); c.lineTo(px, ty(Math.min(pdf(t, mA), pdf(t, mB)))); }
+      c.lineTo(W, base); c.closePath(); c.globalAlpha = 0.34; c.fillStyle = P.fg; c.fill(); c.globalAlpha = 1;
+      curve(mA, 0); curve(mB, 1);
+      // projected points as a rug
+      const LA = G.chol(g.Sg);
+      [[ZA, muA, 0], [ZB, muB, 1]].forEach((q) => {
+        c.strokeStyle = P.cls[q[2]]; c.lineWidth = 1.4; c.globalAlpha = 0.65;
+        for (const z of q[0]) {
+          const p = G.place(q[1], LA, z), t = (p.x - L.m.x) * L.uo.x + (p.y - L.m.y) * L.uo.y;
+          c.beginPath(); c.moveTo(tx(t), base); c.lineTo(tx(t), base - 8); c.stroke();
+        }
+        c.globalAlpha = 1;
+      });
+      c.font = '500 11px ' + P.mono; c.fillStyle = P.muted; c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.fillText('position along the line', 8, top + 4);
+    };
+    const readoutEl = host.querySelector('.readout');
+    function readout(L) {
+      const g = L.g, J = g.f.Jmax > 0 ? (L.D * L.D) / (L.s * L.s) : 0;
+      const err = G.Phi(-Math.sqrt(J) / 2), errBest = G.Phi(-Math.sqrt(g.f.Jmax) / 2);
+      readoutEl.innerHTML =
+        `<p>Mistakes if you split the shadow hills in the middle: <b>${pct(err, 1)}</b>. Best possible on any line: <b>${pct(errBest, 1)}</b>.</p>` +
+        `<p class="tech">Separation score J = <b>${fmt(J)}</b>, which is ${pct(g.f.Jmax > 0 ? J / g.f.Jmax : 0, 0)} of the best value J<sub>max</sub> = ${fmt(g.f.Jmax)}.</p>` +
+        `<p class="tech">Fisher direction <b>w</b> = Σ⁻¹(μ<sub>B</sub> − μ<sub>A</sub>) = (${fmt(g.f.w.x)}, ${fmt(g.f.w.y)}), angle ${fmt(g.fAng, 1)}°. Centroid direction μ<sub>B</sub> − μ<sub>A</sub> has angle ${fmt(normDeg(centroidDeg()), 1)}°. The flashlight is at ${fmt(state.theta, 1)}°.</p>`;
+    }
+    plot.drawFn(); proj.drawFn();
+  }
+
+  /* ---------- quiz ---------- */
+  const QUIZ = [
+    { q: 'Two classes share the same covariance matrix but have different means. What shape is the GDA decision boundary?',
+      o: ['A straight line (a hyperplane in higher dimensions)', 'An ellipse around the smaller class', 'A parabola', 'It depends on the class priors'], a: 0,
+      why: 'The quadratic terms cancel when the covariances are equal. The priors only shift the line.' },
+    { q: 'Which change turns QDA into LDA?',
+      o: ['Using equal priors', 'Forcing every class to use one shared covariance matrix', 'Making every covariance diagonal', 'Dividing by n − 1 instead of n'], a: 1,
+      why: 'LDA is GDA with a tied covariance, which is what makes the boundary linear.' },
+    { q: 'A class has n<sub>k</sub> = 2 training points in d = 2 dimensions. What happens to its maximum-likelihood covariance?',
+      o: ['It is singular (the ellipse is flat), so QDA breaks', 'It becomes the identity matrix', 'It is unbiased and well conditioned', 'It becomes diagonal'], a: 0,
+      why: 'Two points span only a line, so the scatter matrix has rank 1. A prior (MAP) or a shared covariance repairs this.' },
+    { q: 'Gaussian naive Bayes corresponds to which covariance structure?',
+      o: ['Σ<sub>k</sub> = σ²I with equal priors', 'Σ<sub>k</sub> diagonal: features are independent given the class', 'Σ<sub>k</sub> = Σ shared and full', 'Σ<sub>k</sub> = I'], a: 1,
+      why: 'A diagonal covariance factorizes the class density into one bell curve per feature.' },
+    { q: 'With d = 10 features and K = 3 classes, how many free covariance parameters does the tied (LDA) model have?',
+      o: ['10', '30', '55', '165'], a: 2,
+      why: 'd(d+1)/2 = 55, shared by all classes. Full per-class would be 3 × 55 = 165, and diagonal per-class would be 30.' },
+    { q: 'As the number of training points per class grows, how does the MAP estimate compare with the MLE?',
+      o: ['They converge, because the data outweigh the prior', 'The MAP estimate stays fixed at the prior', 'The MLE converges to the prior', 'They diverge'], a: 0,
+      why: 'The prior acts like a fixed number of pseudo-observations, so its influence fades as n grows.' },
+    { q: 'For two classes, Fisher’s best projection direction is proportional to which vector?',
+      o: ['μ<sub>1</sub> − μ<sub>0</sub>', 'Σ<sub>W</sub><sup>−1</sup>(μ<sub>1</sub> − μ<sub>0</sub>)', 'Σ<sub>W</sub>(μ<sub>1</sub> − μ<sub>0</sub>)', 'The top principal component of all the data'], a: 1,
+      why: 'μ<sub>1</sub> − μ<sub>0</sub> is the nearest-centroid direction. Fisher corrects it for the within-class spread. PCA ignores the labels.' },
+    { q: 'Nearest centroid classification is GDA with which assumptions?',
+      o: ['Σ<sub>k</sub> = σ²I and equal priors', 'A full Σ<sub>k</sub> per class', 'Diagonal Σ<sub>k</sub> with different variances', 'A tied full Σ'], a: 0,
+      why: 'Then δ<sub>k</sub> depends only on the Euclidean distance to μ<sub>k</sub>, so the nearest mean wins.' }
+  ];
+  function initQuiz() {
+    const host = document.getElementById('quiz'), score = document.getElementById('quiz-score');
+    let answered = 0, right = 0;
+    function build() {
+      answered = 0; right = 0;
+      host.innerHTML = QUIZ.map((x, i) => `<div class="q" id="q${i}"><span class="qn">Question ${i + 1} of ${QUIZ.length}</span><p>${x.q}</p><div class="opts">${x.o.map((t, j) => `<button type="button" class="opt" data-q="${i}" data-j="${j}">${t}</button>`).join('')}</div><p class="why" hidden></p></div>`).join('');
+      score.textContent = '';
+    }
+    host.addEventListener('click', (e) => {
+      const b = e.target.closest('.opt');
+      if (!b || b.disabled) return;
+      const i = +b.dataset.q, j = +b.dataset.j, item = QUIZ[i], box = document.getElementById('q' + i);
+      box.querySelectorAll('.opt').forEach((o, idx) => {
+        o.disabled = true;
+        if (idx === item.a) o.classList.add('good'); else if (idx === j) o.classList.add('bad');
+      });
+      const why = box.querySelector('.why');
+      why.hidden = false;
+      why.innerHTML = `<b>${j === item.a ? 'Correct.' : 'Not quite.'}</b> ${item.why}`;
+      answered++; if (j === item.a) right++;
+      score.textContent = answered === QUIZ.length ? `Score: ${right} of ${QUIZ.length}` : `${answered} of ${QUIZ.length} answered`;
+    });
+    document.getElementById('quiz-reset').addEventListener('click', build);
+    build();
+  }
+
+  /* ---------- page: level switch, contents rail ---------- */
+  function initPage() {
+    const app = document.getElementById('app');
+    const btns = Array.prototype.slice.call(document.querySelectorAll('.seg button'));
+    function setLevel(l, save) {
+      app.dataset.level = l;
+      btns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.set === l)));
+      if (save) { try { localStorage.setItem('gda-level', l); } catch (e) { /* storage may be blocked */ } }
+    }
+    let l0 = 'hs';
+    try { const s = localStorage.getItem('gda-level'); if (s === 'kid' || s === 'hs' || s === 'ug') l0 = s; } catch (e) { /* ignore */ }
+    setLevel(l0, false);
+    btns.forEach((b) => b.addEventListener('click', () => setLevel(b.dataset.set, true)));
+
+    const bar = document.querySelector('.bar');
+    const setH = () => document.documentElement.style.setProperty('--bar-h', bar.offsetHeight + 'px');
+    new ResizeObserver(setH).observe(bar); setH();
+
+    const secs = Array.prototype.slice.call(document.querySelectorAll('section.sec'));
+    const link = (s) => {
+      const num = s.dataset.num, depth = num ? num.split('.').length : 1;
+      return `<a href="#${s.id}" data-id="${s.id}" class="d${depth}">${num ? `<span class="n">${num}</span>` : ''}${s.dataset.title}</a>`;
+    };
+    const html = secs.map(link).join('');
+    document.getElementById('toc').innerHTML = html;
+    document.getElementById('tocm-list').innerHTML = html;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.querySelectorAll('#toc a, #tocm-list a').forEach((a) => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById(a.dataset.id).scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+        document.getElementById('tocm').open = false;
+      });
+    });
+    const io = new IntersectionObserver((es) => {
+      es.forEach((en) => {
+        if (en.isIntersecting) document.querySelectorAll('#toc a').forEach((a) => a.classList.toggle('on', a.dataset.id === en.target.id));
+      });
+    }, { rootMargin: '-25% 0px -65% 0px' });
+    secs.forEach((s) => io.observe(s));
+  }
+
+  /* ---------- start ---------- */
+  initPage();
+  const LABS = { intro: labIntro, boundary: labBoundary, fit: labFit, compare: labCompare, fisher: labFisher };
+  document.querySelectorAll('figure.lab').forEach((f) => {
+    try { LABS[f.dataset.lab](f); }
+    catch (err) {
+      f.insertAdjacentHTML('beforeend', '<p class="err">This lab could not start in your browser.</p>');
+      if (window.console) console.error(err);
+    }
+  });
+  initQuiz();
+  TeX.typeset(document);
+})();
+
+</script>
+
+</body>
+</html>
