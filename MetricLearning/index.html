@@ -1,0 +1,2145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Metric Learning Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=STIX+Two+Text:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* Layout concept: a lab notebook. A sticky rail lists the course topics in order.
+   Each topic is a band: three-level explanation on top, a live instrument below. */
+:root {
+  --bg: #F2F5F9;
+  --surface: #FFFFFF;
+  --surface2: #E9EFF6;
+  --ink: #13203A;
+  --muted: #566782;
+  --line: #D3DCE8;
+  --accent: #2349C8;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E1E9FB;
+  --c1: #0B6BBF;
+  --c2: #C97F00;
+  --c3: #0A9B72;
+  --cu: #C2468A;
+  --good: #0A8F5B;
+  --warn: #A86B00;
+  --bad: #C23B3B;
+  --grid: #E3E9F1;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --f-math: "STIX Two Text", "Cambria Math", "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1420; --surface: #141D2D; --surface2: #1B263A; --ink: #E5EBF5; --muted: #9AA9C0;
+    --line: #26324A; --accent: #8CA7FF; --accent-ink: #0D1420; --accent-soft: #1E2A4A;
+    --c1: #4FA6EC; --c2: #F0B03A; --c3: #2DCB9C; --cu: #E37DB4;
+    --good: #38C48A; --warn: #E3B04B; --bad: #EF7B7B; --grid: #1C2740;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1420; --surface: #141D2D; --surface2: #1B263A; --ink: #E5EBF5; --muted: #9AA9C0;
+  --line: #26324A; --accent: #8CA7FF; --accent-ink: #0D1420; --accent-soft: #1E2A4A;
+  --c1: #4FA6EC; --c2: #F0B03A; --c3: #2DCB9C; --cu: #E37DB4;
+  --good: #38C48A; --warn: #E3B04B; --bad: #EF7B7B; --grid: #1C2740;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 1rem/1.62 var(--f-body);
+  -webkit-text-size-adjust: 100%;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 30; background: var(--bg);
+}
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; }
+p { margin: 0 0 .85em; }
+b, strong { font-weight: 600; }
+a { color: var(--accent); }
+code, .mono { font-family: var(--f-mono); font-size: .9em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+.wrap {
+  max-width: 1200px; margin-inline: auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* ---------- sticky bar ---------- */
+.bar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+}
+.bar .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding-block: 10px; }
+.brand { font: 700 1.05rem var(--f-display); letter-spacing: -.01em; color: var(--ink); text-decoration: none; margin-right: auto; }
+.seg {
+  display: flex; gap: 2px; padding: 3px; border-radius: 999px;
+  background: var(--surface2); border: 1px solid var(--line);
+}
+.seg button {
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  font: 500 .8125rem var(--f-body); padding: 6px 13px; border-radius: 999px; white-space: nowrap;
+}
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.chips { display: flex; gap: 6px; overflow-x: auto; width: 100%; padding-bottom: 2px; scrollbar-width: thin; }
+.chips a {
+  flex: 0 0 auto; text-decoration: none; color: var(--muted); font-size: .8125rem;
+  border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; background: var(--surface);
+}
+.chips a[aria-current="true"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+
+/* ---------- intro ---------- */
+.intro { padding-block: 36px 8px; }
+.eyebrow { font: 600 .75rem var(--f-body); text-transform: uppercase; letter-spacing: .09em; color: var(--accent); margin-bottom: 10px; }
+.intro h1 { font-size: clamp(2rem, 5vw, 3.1rem); line-height: 1.06; letter-spacing: -.03em; max-width: 18ch; margin-bottom: 14px; }
+.intro p { max-width: 64ch; color: var(--muted); font-size: 1.0625rem; }
+
+/* ---------- page grid ---------- */
+.page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; padding-block: 20px 80px; }
+.rail { display: none; }
+@media (min-width: 980px) {
+  .page { grid-template-columns: 210px minmax(0, 1fr); gap: 44px; }
+  .rail { display: block; position: sticky; align-self: start; top: calc(env(safe-area-inset-top, 0px) + var(--hdr, 56px) + 20px); }
+  .chips { display: none; }
+}
+.rail p { font: 600 .6875rem var(--f-body); text-transform: uppercase; letter-spacing: .09em; color: var(--muted); margin: 0 0 8px 8px; }
+.rail ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.rail a {
+  display: grid; grid-template-columns: 22px 1fr; gap: 6px; align-items: baseline; text-decoration: none;
+  color: var(--muted); padding: 6px 8px; border-radius: 6px; font-size: .875rem; line-height: 1.3;
+}
+.rail a .n { font: 500 .75rem var(--f-mono); color: var(--accent); }
+.rail a[aria-current="true"] { background: var(--surface2); color: var(--ink); font-weight: 600; }
+main { min-width: 0; }
+
+/* ---------- topic band ---------- */
+.topic { padding-block: 36px 40px; border-top: 1px solid var(--line); scroll-margin-top: calc(var(--hdr, 110px) + 4px); }
+.topic:first-child { border-top: 0; padding-top: 8px; }
+.topic-head { display: flex; gap: 14px; align-items: baseline; margin-bottom: 18px; }
+.num { font: 600 .9rem var(--f-mono); color: var(--accent); min-width: 2ch; }
+.topic h2 { font-size: clamp(1.5rem, 3.2vw, 2.05rem); line-height: 1.12; letter-spacing: -.02em; }
+.sum { color: var(--muted); margin: 6px 0 0; max-width: 60ch; }
+
+.explain { display: grid; gap: 14px; margin-bottom: 22px; min-width: 0; }
+.lvl { display: none; max-width: 72ch; min-width: 0; }
+body[data-level="kid"] .lvl[data-lvl="kid"],
+body[data-level="hs"] .lvl[data-lvl="hs"],
+body[data-level="ug"] .lvl[data-lvl="ug"],
+body[data-level="all"] .lvl { display: block; }
+body[data-level="all"] .lvl { max-width: none; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px 6px; }
+.lvl-tag { display: block; font: 600 .6875rem var(--f-body); text-transform: uppercase; letter-spacing: .09em; color: var(--accent); margin-bottom: 8px; }
+.lvl ul { margin: 0 0 .9em; padding-left: 1.2em; }
+.lvl li { margin-bottom: .35em; }
+.lvl h4 { font: 600 .9375rem var(--f-body); margin: 1.1em 0 .4em; }
+.eq {
+  font: italic 400 1.1rem/1.5 var(--f-math); background: var(--surface2); border-radius: 6px;
+  padding: 10px 14px; margin: .2em 0 1em; overflow-x: auto; max-width: 100%;
+}
+.eq .u { font-style: normal; }
+.eq small { display: block; font: 400 .8125rem var(--f-body); font-style: normal; color: var(--muted); margin-top: 2px; }
+.cite { color: var(--muted); font-size: .8125rem; }
+
+/* ---------- lab panel ---------- */
+.lab { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; min-width: 0; }
+.lab h3 { font-size: 1.1rem; letter-spacing: -.01em; margin-bottom: 4px; }
+.lab h3 .k { font: 600 .6875rem var(--f-body); text-transform: uppercase; letter-spacing: .09em; color: var(--accent); display: block; margin-bottom: 2px; }
+.lab .lede { color: var(--muted); font-size: .9375rem; margin: 0 0 14px; max-width: 70ch; }
+.lab h4 { font: 600 .9375rem var(--f-body); margin: 22px 0 8px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; margin-bottom: 12px; }
+.ctl { display: inline-flex; align-items: center; gap: 8px; font-size: .875rem; }
+.ctl > span { color: var(--muted); font-weight: 500; }
+.ctl output { font: 500 .875rem var(--f-mono); min-width: 3.2ch; font-variant-numeric: tabular-nums; }
+.chk { display: inline-flex; align-items: center; gap: 7px; font-size: .875rem; cursor: pointer; }
+input[type="range"] { accent-color: var(--accent); width: min(210px, 42vw); }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 16px; height: 16px; }
+select {
+  font: inherit; font-size: .875rem; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; max-width: 100%;
+}
+.btn {
+  font: 600 .8125rem var(--f-body); padding: 7px 14px; border-radius: 7px; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+}
+.btn.sec { background: transparent; color: var(--accent); }
+.btn.sec[aria-pressed="true"], .btn.sec[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+.btn:disabled { opacity: .45; cursor: default; }
+.modes { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+canvas.plot {
+  display: block; width: 100%; height: auto; aspect-ratio: var(--ar, 4 / 3);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+}
+canvas.drag { touch-action: none; cursor: crosshair; }
+.lab canvas.plot { max-width: 760px; }
+.lab canvas.plot.wide { max-width: none; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.pair figure { margin: 0; min-width: 0; }
+.pair figcaption { font-size: .8125rem; color: var(--muted); margin-top: 5px; }
+.readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+.stat { background: var(--surface2); border-radius: 8px; padding: 9px 12px; min-width: 0; }
+.stat .k { display: block; font: 600 .6875rem var(--f-body); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.stat .v { display: block; font: 500 1.02rem var(--f-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat .s { display: block; font-size: .75rem; color: var(--muted); }
+.try { margin: 14px 0 0; padding-top: 12px; border-top: 1px dashed var(--line); font-size: .9rem; color: var(--muted); max-width: 78ch; }
+.try b { color: var(--ink); }
+.note { font-size: .8125rem; color: var(--muted); margin: 8px 0 0; max-width: 78ch; }
+.verdict { display: inline-block; font: 600 .75rem var(--f-body); letter-spacing: .04em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; }
+.verdict.good { background: color-mix(in srgb, var(--good) 18%, transparent); color: var(--good); }
+.verdict.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.verdict.bad { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+.verdict.unk { background: color-mix(in srgb, var(--cu) 18%, transparent); color: var(--cu); }
+
+.sw { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--bc); vertical-align: -1px; margin-right: 6px; }
+.c0 { --bc: var(--c1); } .c1 { --bc: var(--c2); } .c2 { --bc: var(--c3); } .cu { --bc: var(--cu); }
+.vrow { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr) 3.6rem; align-items: center; gap: 10px; font-size: .875rem; margin: 5px 0; }
+.vbar { height: 10px; border-radius: 5px; background: var(--surface2); overflow: hidden; }
+.vbar i { display: block; height: 100%; background: var(--bc, var(--accent)); width: 0; }
+.vrow .n { font: 500 .8125rem var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; }
+
+.split { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) { .split.two { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); } }
+
+.tbl { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.tbl th { text-align: left; font: 600 .6875rem var(--f-body); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.tbl td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.tbl td.num2 { font: 500 .8125rem var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tblwrap { overflow-x: auto; max-width: 100%; }
+.mbar { height: 12px; border-radius: 6px; background: var(--accent); min-width: 3px; }
+.mtrack { width: min(220px, 40vw); background: var(--surface2); border-radius: 6px; }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.sia svg { width: 100%; height: auto; display: block; max-width: 680px; }
+.sia text { font-family: var(--f-body); fill: var(--ink); font-size: 13px; }
+.sia .mono { font-family: var(--f-mono); }
+.sia .box { fill: var(--surface2); stroke: var(--line); }
+.sia .net { fill: var(--accent-soft); stroke: var(--accent); }
+.sia .wire { stroke: var(--muted); fill: none; stroke-width: 1.5; }
+.sia .share { stroke: var(--accent); stroke-dasharray: 5 4; fill: none; stroke-width: 1.6; }
+.sia .muted { fill: var(--muted); }
+
+/* ---------- quiz ---------- */
+.q { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin: 0 0 12px; min-inline-size: 0; }
+.q p.stem { font-weight: 600; margin-bottom: 10px; }
+.q label { display: flex; gap: 9px; align-items: flex-start; padding: 6px 8px; border-radius: 7px; cursor: pointer; font-size: .9375rem; }
+.q label:hover { background: var(--surface2); }
+.q .fb { margin: 8px 0 0; font-size: .9rem; }
+.q .fb.good { color: var(--good); } .q .fb.bad { color: var(--bad); }
+.score { font: 500 1rem var(--f-mono); margin: 14px 0; }
+
+footer.wrap { padding-block: 10px 40px; color: var(--muted); font-size: .8125rem; }
+
+/* ---------- phone ---------- */
+@media (max-width: 640px) {
+  .bar .wrap { gap: 6px 12px; padding-block: 8px; }
+  .seg { width: 100%; }
+  .seg button { flex: 1 1 0; padding: 6px 4px; font-size: .75rem; }
+  .lab { padding: 14px 12px; }
+  .vrow { grid-template-columns: 5.2rem minmax(0, 1fr) 3.2rem; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+<header class="bar" id="bar">
+  <div class="wrap">
+    <a class="brand" href="#top">Metric Learning Lab</a>
+    <div class="seg" role="group" aria-label="Explanation level" id="levels">
+      <button type="button" data-level="kid" aria-pressed="false">Elementary</button>
+      <button type="button" data-level="hs" aria-pressed="false">High school</button>
+      <button type="button" data-level="ug" aria-pressed="true">Undergrad</button>
+      <button type="button" data-level="all" aria-pressed="false">All three</button>
+    </div>
+    <nav class="chips" aria-label="Topics">
+      <a href="#knn">1 · KNN</a><a href="#curse">2 · Dimensions</a><a href="#speed">3 · Speed &amp; memory</a>
+      <a href="#openset">4 · Open set</a><a href="#dml">5 · Deep metric</a><a href="#classloss">6 · Classification loss</a>
+      <a href="#ranking">7 · Ranking losses</a><a href="#lda">LDA link</a><a href="#quiz">Quiz</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap intro" id="top">
+  <p class="eyebrow">Advanced machine learning · course companion</p>
+  <h1>How a machine learns what “similar” means</h1>
+  <p>Seven ideas share one thread: if you can measure distance well, a nearest neighbor can classify almost anything. Each topic has three explanations (pick a level in the bar above) and an instrument you can drag, slide and train. Linear discriminant analysis is the linear starting point of this story, and the section near the end ties it to everything else.</p>
+</div>
+
+<div class="wrap page">
+  <aside class="rail" aria-label="Topics">
+    <p>Course order</p>
+    <ol>
+      <li><a href="#knn"><span class="n">1</span>K‑nearest neighbor</a></li>
+      <li><a href="#curse"><span class="n">2</span>Curse of dimensionality</a></li>
+      <li><a href="#speed"><span class="n">3</span>Speed and memory</a></li>
+      <li><a href="#openset"><span class="n">4</span>Open set recognition</a></li>
+      <li><a href="#dml"><span class="n">5</span>Deep metric learning</a></li>
+      <li><a href="#classloss"><span class="n">6</span>Classification loss</a></li>
+      <li><a href="#ranking"><span class="n">7</span>Ranking losses</a></li>
+      <li><a href="#lda"><span class="n">+</span>Where LDA fits</a></li>
+      <li><a href="#quiz"><span class="n">?</span>Check yourself</a></li>
+    </ol>
+  </aside>
+
+  <main>
+
+  <!-- ===================== 1. KNN ===================== -->
+  <section class="topic" id="knn">
+    <div class="topic-head"><span class="num">1</span><div><h2>K‑Nearest Neighbor Classification</h2><p class="sum">Label a new example by letting its closest labeled examples vote.</p></div></div>
+    <div class="explain">
+      <div class="lvl" data-lvl="kid"><span class="lvl-tag">Elementary school</span>
+        <p>Imagine you are new at school and you don’t know which lunch table to join. So you look at the 3 kids sitting closest to you. Two of them are in the chess club and one is in the art club. Your best guess? You are probably a chess kid!</p>
+        <p>That is <b>k‑nearest neighbors</b>. The computer keeps a big pile of examples that already have names. When something new shows up, it finds the <b>k</b> examples that look most like it, lets them vote, and goes with the winner. The letter <b>k</b> is just how many neighbors get a vote.</p>
+      </div>
+      <div class="lvl" data-lvl="hs"><span class="lvl-tag">High school senior</span>
+        <p>KNN stores every labeled example it has ever seen. To classify a new point, it measures the distance from that point to every stored point, picks the <b>k</b> closest, and takes a majority vote. Distance is usually the straight‑line (Euclidean) distance you know from the Pythagorean theorem.</p>
+        <p>The choice of <b>k</b> matters. With <b>k = 1</b> the model copies its single nearest neighbor, so one mislabeled point can make a strange island in the map. With a large <b>k</b> the boundaries get smooth, but small groups can get outvoted and disappear. KNN has no training step at all (it is a “lazy learner”): all of the work happens when you ask it a question.</p>
+      </div>
+      <div class="lvl" data-lvl="ug"><span class="lvl-tag">Undergraduate</span>
+        <p>Given training pairs (x<sub>i</sub>, y<sub>i</sub>) and a metric d, let N<sub>k</sub>(x) be the k training points closest to x. The classifier is a plurality vote, optionally weighted by w<sub>i</sub> = 1/d(x, x<sub>i</sub>)<sup>2</sup>:</p>
+        <div class="eq">ŷ(x) = argmax<sub>c</sub> Σ<sub>i ∈ N<sub>k</sub>(x)</sub> w<sub>i</sub> · 𝟙[y<sub>i</sub> = c]</div>
+        <ul>
+          <li><b>Bias–variance in k.</b> Small k gives low bias and high variance (jagged boundary). Large k smooths the boundary and raises bias. Pick k by cross‑validation.</li>
+          <li><b>Consistency.</b> As N → ∞ with k → ∞ and k/N → 0, KNN approaches the Bayes error. For k = 1 the asymptotic two‑class error is at most 2R*(1 − R*), where R* is the Bayes error (Cover and Hart, 1967).</li>
+          <li><b>The metric is the model.</b> Euclidean distance treats every feature equally, so unscaled features dominate. A Mahalanobis metric d<sub>M</sub>(x, x′) = √((x − x′)<sup>T</sup> M (x − x′)) with M ⪰ 0 reweights and rotates the space. <b>Learning M (or a nonlinear map) is metric learning</b>, and LDA gives one particular choice of M.</li>
+          <li><b>Cost.</b> No training, but each query costs O(N·d) in time and the full dataset stays in memory.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="lab" aria-labelledby="knn-t">
+      <h3 id="knn-t"><span class="k">Instrument</span>Vote with your neighbors</h3>
+      <p class="lede">Three classes live on the plane: ○ A, □ B, △ C. Drag the black diamond (the query) and watch which neighbors vote. Switch to an “Add” mode to place your own training points.</p>
+      <div class="controls">
+        <label class="ctl"><span>k</span><input id="knn-k" type="range" min="1" max="25" value="5"><output id="knn-k-o" for="knn-k">5</output></label>
+        <label class="ctl"><span>Distance</span><select id="knn-metric"><option value="l2">Euclidean (L2)</option><option value="l1">Manhattan (L1)</option><option value="linf">Chebyshev (L∞)</option></select></label>
+        <label class="chk"><input id="knn-w" type="checkbox"> Weight votes by 1/distance</label>
+        <label class="chk"><input id="knn-reg" type="checkbox" checked> Show decision regions</label>
+      </div>
+      <div class="modes" id="knn-modes" role="group" aria-label="What a click or tap does">
+        <button class="btn sec" type="button" data-mode="move" aria-pressed="true">Move the query</button>
+        <button class="btn sec" type="button" data-mode="add0" aria-pressed="false">Add ○ A</button>
+        <button class="btn sec" type="button" data-mode="add1" aria-pressed="false">Add □ B</button>
+        <button class="btn sec" type="button" data-mode="add2" aria-pressed="false">Add △ C</button>
+        <button class="btn sec" type="button" id="knn-reset">Reset data</button>
+      </div>
+      <canvas class="plot drag" id="knn-cv" style="--ar: 4 / 3" role="img" aria-label="Scatter plot of three classes with a movable query point and its k nearest neighbors"></canvas>
+      <div id="knn-out"></div>
+      <p class="try"><b>Try this.</b> Put the query between two clusters and set k = 1, then k = 25. The prediction can flip, and the shaded regions change from jagged to smooth. Then switch the distance to Manhattan and watch the circle around the neighbors turn into a diamond.</p>
+    </div>
+  </section>
+
+  <!-- ===================== 2. CURSE ===================== -->
+  <section class="topic" id="curse">
+    <div class="topic-head"><span class="num">2</span><div><h2>The Curse of Dimensionality</h2><p class="sum">With many features, almost everything is far from everything else, and “nearest” stops meaning much.</p></div></div>
+    <div class="explain">
+      <div class="lvl" data-lvl="kid"><span class="lvl-tag">Elementary school</span>
+        <p>Hide a marble somewhere along a short hallway. Easy to find! Now hide it on a big classroom floor. Harder. Now hide it in a giant room where you can also go up, and up‑up, and sideways‑sideways, in a hundred directions at once. There is <i>so much room</i> that your toys end up very far away from each other.</p>
+        <p>When everything is far away from everything, “the closest friend” is hardly closer than anybody else. That is the curse: the more directions you have, the less “nearby” means.</p>
+      </div>
+      <div class="lvl" data-lvl="hs"><span class="lvl-tag">High school senior</span>
+        <p>Every new feature adds a new direction (a new axis). To keep your data equally crowded, you need <b>exponentially</b> more of it: ten points per axis is 10 points in 1‑D, 100 in 2‑D, and 10<sup>10</sup> in 10‑D.</p>
+        <p>There is a second, stranger effect. When you pick random points in a high‑dimensional box, the distances between them all bunch up around the same value. The nearest neighbor and the farthest neighbor end up almost the same distance away, so “closest” carries very little information. The instrument below shows this happening.</p>
+      </div>
+      <div class="lvl" data-lvl="ug"><span class="lvl-tag">Undergraduate</span>
+        <ul>
+          <li><b>Sparsity.</b> To capture a fraction r of the unit hypercube with a sub‑cube you need edge length r<sup>1/d</sup>. For r = 0.1: 0.79 at d = 10, 0.977 at d = 100. “Local” neighborhoods are no longer local.</li>
+          <li><b>Distance concentration.</b> For i.i.d. coordinates, (d<sub>max</sub> − d<sub>min</sub>) / d<sub>min</sub> → 0 in probability as d → ∞ (Beyer et al., 1999). For uniform points on [0,1]<sup>d</sup>, E‖x − y‖² = d/6, while the relative spread of the distance shrinks like 1/√d.</li>
+          <li><b>Geometry.</b> The volume of the unit ball, V<sub>d</sub> = π<sup>d/2</sup> / Γ(d/2 + 1), tends to 0, and a fraction 1 − (1 − ε)<sup>d</sup> of it lies within ε of the surface. Mass lives in the shell and in the corners.</li>
+        </ul>
+        <div class="eq">(d<sub>max</sub> − d<sub>min</sub>) / d<sub>min</sub> → 0 &nbsp; as &nbsp; d → ∞</div>
+        <p><b>Ways out.</b> Real data usually lies near a low‑dimensional manifold (the manifold hypothesis), so reduce dimension (PCA, LDA, random projections), use a learned embedding (the whole point of deep metric learning), try L1 or fractional norms, or use cosine similarity on well‑normalized features.</p>
+      </div>
+    </div>
+    <div class="lab" aria-labelledby="curse-t">
+      <h3 id="curse-t"><span class="k">Instrument</span>Watch distances bunch up</h3>
+      <p class="lede">200 random points are drawn inside a unit box with the number of dimensions you choose, plus one random query. The left chart shows how far each point is from the query, as a multiple of the average distance.</p>
+      <div class="controls">
+        <label class="ctl"><span>Dimensions d</span><input id="cd-d" type="range" min="0" max="10" value="3"><output id="cd-d-o" for="cd-d">5</output></label>
+        <button class="btn sec" type="button" id="cd-resample">Resample points</button>
+      </div>
+      <div class="pair">
+        <figure><canvas class="plot" id="cd-hist" style="--ar: 4 / 3" role="img" aria-label="Histogram of distances from a query to 200 random points"></canvas><figcaption>Distance from query ÷ average distance. A narrow spike means “everything is equally far”.</figcaption></figure>
+        <figure><canvas class="plot" id="cd-curve" style="--ar: 4 / 3" role="img" aria-label="Line chart of relative distance contrast versus dimension"></canvas><figcaption>Contrast (farthest − nearest) ÷ nearest, versus dimension (both axes logarithmic). Your current d is the dot.</figcaption></figure>
+      </div>
+      <div id="cd-out"></div>
+      <p class="try"><b>Try this.</b> Start at d = 1 and slide to the right. The histogram turns from a wide spread into a narrow spike, and the farthest ÷ nearest ratio falls toward 1. Watch the “side length needed” bar: to catch just 10% of the data you must span almost the full range of every axis.</p>
+    </div>
+  </section>
+
+  <!-- ===================== 3. SPEED & MEMORY ===================== -->
+  <section class="topic" id="speed">
+    <div class="topic-head"><span class="num">3</span><div><h2>Reducing Speed and Memory Requirements</h2><p class="sum">Brute‑force KNN compares against everything it has ever stored. There are three ways to cheat well.</p></div></div>
+    <div class="explain">
+      <div class="lvl" data-lvl="kid"><span class="lvl-tag">Elementary school</span>
+        <p>If you had to ask every kid in the whole school “who looks most like me?”, it would take forever. And you would have to remember every single face!</p>
+        <p>Computers use shortcuts. They can <b>remember only the most helpful kids</b> (the ones standing at the edges of each group). They can <b>keep a smaller picture</b> of each kid, like a tiny thumbnail. And they can <b>ask only the kids in the right hallway</b> instead of the whole school. The answer might be a tiny bit wrong sometimes, but it comes super fast.</p>
+      </div>
+      <div class="lvl" data-lvl="hs"><span class="lvl-tag">High school senior</span>
+        <p>Brute‑force KNN compares the query to all <b>N</b> stored points, each with <b>d</b> numbers. That means N × d work for every question and N × d numbers to keep in memory. Three families of fixes:</p>
+        <ul>
+          <li><b>Store fewer points.</b> Throw away examples deep inside a class and keep the ones near the boundary (“prototype selection” or “condensing”).</li>
+          <li><b>Store fewer or smaller numbers.</b> Shrink each point with dimensionality reduction like PCA, or save each number with less precision (for example 8 bits instead of 32).</li>
+          <li><b>Search smarter.</b> Organize points into a tree, a grid or a graph so you only check candidates near the query. This is <b>approximate nearest neighbor</b> search: it trades a little accuracy for a big speedup.</li>
+        </ul>
+        <p>Both instruments below let you see the trade.</p>
+      </div>
+      <div class="lvl" data-lvl="ug"><span class="lvl-tag">Undergraduate</span>
+        <h4>Fewer points (reduce N)</h4>
+        <ul>
+          <li><b>Hart’s condensed NN (1968)</b> keeps a subset S that classifies the rest correctly under 1‑NN. <b>Wilson editing (ENN)</b> removes points whose k neighbors disagree with them (noise), and is often run first.</li>
+          <li>Cluster centroids (k‑means) as prototypes; learning vector quantization.</li>
+        </ul>
+        <h4>Fewer or cheaper dimensions (reduce d)</h4>
+        <ul>
+          <li>PCA or LDA (at most C − 1 dimensions). <b>Random projections</b>: by Johnson–Lindenstrauss, m = O(ε<sup>−2</sup> log N) dimensions preserve all pairwise distances within a factor 1 ± ε.</li>
+          <li><b>Learned embeddings</b> (topics 5–7) map a 150,000‑pixel image to roughly 128 numbers. This is the largest saving of all.</li>
+          <li><b>Quantization:</b> float32 → float16 or int8 (2–4× smaller); <b>product quantization</b> splits a vector into m parts and stores one 8‑bit codebook index per part (m bytes per vector); binary codes use Hamming distance via popcount.</li>
+        </ul>
+        <h4>Smarter search (reduce work per query)</h4>
+        <ul>
+          <li><b>Exact trees</b> (k‑d tree, ball tree) work well up to roughly 20 dimensions, then degrade toward brute force: the curse again.</li>
+          <li><b>Approximate:</b> locality‑sensitive hashing; inverted files (IVF: cluster, then search only the nprobe nearest clusters); graph search (HNSW, about O(log N) per query). Libraries such as FAISS combine these (for instance IVF + PQ).</li>
+        </ul>
+        <div class="eq">IVF cost per query ≈ n<sub>list</sub> + n<sub>probe</sub> · N / n<sub>list</sub> &nbsp; distance computations<small>Compare n<sub>list</sub> centroids, then scan the n<sub>probe</sub> closest lists. Larger n<sub>probe</sub> raises recall and cost together.</small></div>
+      </div>
+    </div>
+    <div class="lab" aria-labelledby="sp-t">
+      <h3 id="sp-t"><span class="k">Instrument A</span>Keep fewer points: condensing</h3>
+      <p class="lede">120 training points, 3 classes. Choose which ones to store. Faded hollow points are thrown away; shaded regions show what a 1‑NN classifier would do using only the stored (solid) points. Accuracy is measured on 120 separate test points.</p>
+      <div class="controls">
+        <label class="ctl"><span>Store</span><select id="sp-mode"><option value="all">Every point</option><option value="hart">Condensed (Hart)</option><option value="random">Random subset</option></select></label>
+        <label class="chk"><input id="sp-wilson" type="checkbox"> Clean noisy points first (Wilson editing)</label>
+        <label class="ctl" id="sp-m-wrap"><span>Subset size</span><input id="sp-m" type="range" min="3" max="120" value="40"><output id="sp-m-o" for="sp-m">40</output></label>
+        <button class="btn sec" type="button" id="sp-shuffle">New random draw</button>
+      </div>
+      <canvas class="plot" id="sp-cv" style="--ar: 4 / 3" role="img" aria-label="Training points with stored prototypes highlighted and 1-NN decision regions"></canvas>
+      <div class="readouts" id="sp-out"></div>
+      <p class="try"><b>Try this.</b> Choose “Condensed”, then tick “Clean noisy points first”. The stored set shrinks to a handful of points near the class boundaries with accuracy as good as storing everything. Now pick “Random subset” and match that size: a random sample rarely does as well.</p>
+
+      <h4>Instrument B · Memory and search cost for a real index</h4>
+      <div class="controls">
+        <label class="ctl"><span>Vectors N</span><select id="mem-n"><option value="1000000">1 million</option><option value="10000000" selected>10 million</option><option value="100000000">100 million</option><option value="1000000000">1 billion</option></select></label>
+        <label class="ctl"><span>Dimensions D</span><select id="mem-d"><option value="64">64</option><option value="128">128</option><option value="256">256</option><option value="512" selected>512</option><option value="1024">1024</option><option value="2048">2048</option></select></label>
+        <label class="ctl"><span>PQ bytes m</span><input id="mem-m" type="range" min="8" max="128" step="8" value="32"><output id="mem-m-o" for="mem-m">32</output></label>
+        <label class="ctl"><span>IVF probes</span><input id="mem-p" type="range" min="1" max="64" value="8"><output id="mem-p-o" for="mem-p">8</output></label>
+      </div>
+      <div class="tblwrap"><table class="tbl"><thead><tr><th>How each vector is stored</th><th>Bytes / vector</th><th>Total memory</th><th>Relative size</th></tr></thead><tbody id="mem-body"></tbody></table></div>
+      <div class="readouts" id="mem-out"></div>
+      <p class="note">Search cost is a back‑of‑envelope model (distance computations per query). Real recall depends on the data and index settings, and graph indexes such as HNSW store extra links on top of the vectors.</p>
+    </div>
+  </section>
+
+  <!-- ===================== 4. OPEN SET ===================== -->
+  <section class="topic" id="openset">
+    <div class="topic-head"><span class="num">4</span><div><h2>Open Set Recognition</h2><p class="sum">Classify the things you know, and say “I’ve never seen that” about the things you don’t.</p></div></div>
+    <div class="explain">
+      <div class="lvl" data-lvl="kid"><span class="lvl-tag">Elementary school</span>
+        <p>Suppose you have only ever seen cats and dogs. Then you meet a giraffe! One kid says, “It’s a dog!” because a dog is the closest thing they know. A smarter kid says, “I have never seen this before. It’s something new.”</p>
+        <p><b>Open set recognition</b> teaches computers to be the smarter kid. They name the things they know, and they say “I don’t know” when something is too different from everything they have seen.</p>
+      </div>
+      <div class="lvl" data-lvl="hs"><span class="lvl-tag">High school senior</span>
+        <p>An ordinary (“closed set”) classifier assumes every test example belongs to a class it saw in training. Real life is not like that: a new person walks up to a door camera, or a new species shows up in a wildlife photo. A closed‑set model has to pick a known label anyway, so it is confidently wrong.</p>
+        <p>With nearest neighbors there is a simple fix. Measure the distance to the closest known example. If it is farther than a <b>threshold</b>, answer “unknown”. The threshold is a trade‑off: a strict one catches nearly every stranger but also rejects some genuine members of known classes, and a loose one does the opposite. Slide the threshold in the instrument and watch both rates change.</p>
+      </div>
+      <div class="lvl" data-lvl="ug"><span class="lvl-tag">Undergraduate</span>
+        <p>Let 𝒦 be the training classes. The test distribution may contain classes outside 𝒦, and the goal is a map f : 𝒳 → 𝒦 ∪ {unknown} that keeps <i>open space risk</i> low, meaning it does not label regions far from any training data as known (Scheirer et al., 2013).</p>
+        <div class="eq">f(x) = ŷ(x) if min<sub>i</sub> d(φ(x), φ(x<sub>i</sub>)) ≤ τ, &nbsp; otherwise unknown</div>
+        <ul>
+          <li><b>Why softmax is a weak unknown detector.</b> Probabilities must sum to one, and ReLU networks are piecewise linear, so confidence can grow along a ray far from all training data. High softmax confidence does not imply “near known data”.</li>
+          <li><b>Why metric learning fits.</b> Distances in an embedding φ give a natural novelty score: nearest‑neighbor distance, distance to a class mean or prototype, or a Mahalanobis distance. New identities can be enrolled by storing embeddings, with no retraining (face recognition, person re‑identification).</li>
+          <li><b>Other scores:</b> OpenMax (Bendale and Boult, 2016), EVT/Weibull calibration (W‑SVM), energy score, max‑logit. Vaze et al. (2022) showed that a strong closed‑set classifier with a simple max‑logit score is a very competitive open‑set baseline.</li>
+          <li><b>Evaluation:</b> AUROC of known vs. unknown, TPR at a fixed FPR, OSCR, or open‑set F1. Choose τ on validation data, ideally with some held‑out “known unknowns”. Related but distinct problems: out‑of‑distribution detection and novelty detection (these do not also classify the known classes).</li>
+        </ul>
+      </div>
+    </div>
+    <div class="lab" aria-labelledby="os-t">
+      <h3 id="os-t"><span class="k">Instrument</span>Set the “I don’t know” threshold</h3>
+      <p class="lede">Solid ○ □ △ are stored, labeled training examples in an embedding space. Hollow ○ □ △ are new known‑class test points. Magenta ◇ are examples of classes the model never saw. Each stored point projects a halo of radius τ: inside any halo means “known”.</p>
+      <div class="controls">
+        <label class="ctl"><span>Threshold τ</span><input id="os-t-r" type="range" min="0.1" max="4" step="0.05" value="1"><output id="os-t-o" for="os-t-r">1.00</output></label>
+        <label class="chk"><input id="os-halo" type="checkbox" checked> Show halos</label>
+      </div>
+      <div class="split two">
+        <canvas class="plot drag" id="os-cv" style="--ar: 4 / 3" role="img" aria-label="Embedding plot with known classes, unknown test points, and a draggable query"></canvas>
+        <div>
+          <canvas class="plot" id="os-curve" style="--ar: 4 / 3" role="img" aria-label="Known kept and unknown rejected rates versus threshold"></canvas>
+          <p class="note">Green: known test points correctly accepted. Magenta: unknown points correctly rejected.</p>
+        </div>
+      </div>
+      <div class="readouts" id="os-out"></div>
+      <p class="try"><b>Try this.</b> Drag the black diamond (the query) into the empty gap between clusters, then out to the far corner. Next sweep τ from small to large: the magenta curve falls as you accept more strangers while the green curve rises. The best threshold is wherever the two costs balance for your application.</p>
+    </div>
+  </section>
+
+  <!-- ===================== 5. DEEP METRIC LEARNING ===================== -->
+  <section class="topic" id="dml">
+    <div class="topic-head"><span class="num">5</span><div><h2>Deep Metric Learning</h2><p class="sum">Train a neural network to draw a map where similar things are close and different things are far.</p></div></div>
+    <div class="explain">
+      <div class="lvl" data-lvl="kid"><span class="lvl-tag">Elementary school</span>
+        <p>Imagine a huge table where every kid has to pick a seat. We tell the computer: “Friends should sit close together, and kids who are not friends should sit far apart.” After lots of practice, the computer learns a seating chart that really does put similar kids together.</p>
+        <p>Once it has learned, a brand‑new kid shows up and the computer can find where they belong, just by asking <i>“who is sitting closest?”</i>, even though it never met that kid before.</p>
+      </div>
+      <div class="lvl" data-lvl="hs"><span class="lvl-tag">High school senior</span>
+        <p><b>Metric learning</b> means learning what “close” should mean. A neural network (the <b>embedding function</b>) turns each input, like a photo, into a short list of numbers: a point on a map. We train it so photos of the same thing land near each other and photos of different things land far apart.</p>
+        <p>Afterwards we can use nearest neighbors on those points. This works even for categories that were not in the training set, because we compare distances instead of choosing from a fixed list of answers. It powers face unlock, “find similar products”, and song matching.</p>
+        <p>In the instrument, a small network takes 2‑D points and learns a new 2‑D map. Watch the classes pull apart.</p>
+      </div>
+      <div class="lvl" data-lvl="ug"><span class="lvl-tag">Undergraduate</span>
+        <p>Learn f<sub>θ</sub> : 𝒳 → ℝ<sup>D</sup> so that the induced distance is small for same‑class pairs and large otherwise:</p>
+        <div class="eq">d<sub>θ</sub>(x, x′) = ‖f<sub>θ</sub>(x) − f<sub>θ</sub>(x′)‖<sub>2</sub></div>
+        <p>This is a valid pseudo‑metric by construction (non‑negative, symmetric, triangle inequality).</p>
+        <ul>
+          <li><b>Classical (linear) case.</b> If f(x) = Lx then d<sub>θ</sub> is a Mahalanobis distance with M = L<sup>T</sup>L. LMNN, NCA and ITML learn M; <b>LDA is a closed‑form linear special case</b> that maximizes between‑class over within‑class scatter under Gaussian assumptions.</li>
+          <li><b>Deep case.</b> f<sub>θ</sub> is a CNN or transformer, usually followed by L2 normalization onto the unit hypersphere. Three design choices define a method: the <b>loss</b> (topics 6 and 7), the <b>sampling or mining</b> strategy, and the embedding dimension.</li>
+          <li><b>Evaluation.</b> Recall@K, NMI and mAP@R are computed on <i>held‑out classes</i> (a zero‑shot split). Retrieval quality on unseen classes is the whole point.</li>
+          <li><b>Caution.</b> Musgrave et al. (“A Metric Learning Reality Check”, 2020) found that many reported gains shrink under fair comparisons, so a strong classification baseline (topic 6) is worth having.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="lab" aria-labelledby="dml-t">
+      <h3 id="dml-t"><span class="k">Instrument</span>Train an embedding in your browser</h3>
+      <p class="lede">A tiny neural network (2 → 24 → 24 → 2) is trained live. Left: the original 2‑D inputs. Right: where the network puts those same points. Solid points are training data; hollow points are held‑out test data the network has never trained on.</p>
+      <div class="controls">
+        <label class="ctl"><span>Data</span><select id="dml-data"><option value="rings">Concentric rings (3 classes)</option><option value="xor">XOR corners (2 classes)</option><option value="moons">Two moons (2 classes)</option></select></label>
+        <label class="ctl"><span>Loss</span><select id="dml-loss"><option value="triplet">Triplet</option><option value="contrastive">Pairwise (contrastive)</option><option value="npairs">N‑pairs</option></select></label>
+        <label class="ctl" id="dml-m-wrap"><span>Margin</span><input id="dml-m" type="range" min="0.2" max="2.5" step="0.1" value="1"><output id="dml-m-o" for="dml-m">1.0</output></label>
+      </div>
+      <div class="modes">
+        <button class="btn" type="button" id="dml-go">Train</button>
+        <button class="btn sec" type="button" id="dml-step">+100 steps</button>
+        <button class="btn sec" type="button" id="dml-reset">Reset network</button>
+      </div>
+      <div class="pair">
+        <figure><canvas class="plot" id="dml-in" style="--ar: 1 / 1" role="img" aria-label="Original input space"></canvas><figcaption>Input space (what the network is given)</figcaption></figure>
+        <figure><canvas class="plot" id="dml-emb" style="--ar: 1 / 1" role="img" aria-label="Learned embedding space"></canvas><figcaption>Embedding space (what the network produces)</figcaption></figure>
+      </div>
+      <div class="readouts" id="dml-out"></div>
+      <canvas class="plot wide" id="dml-loss-cv" style="--ar: 6 / 1; margin-top: 12px" role="img" aria-label="Training loss over time"></canvas>
+      <p class="note">Triplet and pairwise losses here use squared distances (as in FaceNet). “Spread ratio” is the average distance between same‑class points divided by the average distance between different‑class points: lower means tighter, better separated clusters. With this much data, plain 5‑NN is already accurate in the raw space, so look at the geometry: the network turns each class into a compact clump.</p>
+      <p class="try"><b>Try this.</b> Pick “XOR corners”. In the input space each class is split between two opposite corners, so a straight‑line (linear) method such as LDA cannot separate them. Press Train and watch the network pull the two corners of each class into one clump.</p>
+    </div>
+  </section>
+
+  <!-- ===================== 6. CLASSIFICATION LOSS ===================== -->
+  <section class="topic" id="classloss">
+    <div class="topic-head"><span class="num">6</span><div><h2>Classification Loss</h2><p class="sum">Teach the embedding by playing a guessing game: “which class is this?”</p></div></div>
+    <div class="explain">
+      <div class="lvl" data-lvl="kid"><span class="lvl-tag">Elementary school</span>
+        <p>One way to teach a computer the seating chart is to play a guessing game. Show it a picture and ask, “Is this a cat, a dog, or a bird?” If it guesses wrong, we tell it, and it tries to do better next time.</p>
+        <p>To get good at the game, the computer’s inner “picture map” ends up putting cats near cats and dogs near dogs. The map is a happy side effect of playing the game.</p>
+      </div>
+      <div class="lvl" data-lvl="hs"><span class="lvl-tag">High school senior</span>
+        <p>Train an ordinary classifier. The network gives each class a score, <b>softmax</b> turns the scores into probabilities that add up to 100%, and the <b>cross‑entropy loss</b> is large when the probability of the correct class is small (the loss is −ln of that probability).</p>
+        <p>Then remove the last layer and use the layer before it as the embedding. This is simple, stable and fast. The weak spots: the model only learns to <i>separate</i> the training classes, not to make tight clusters, and the last layer grows with the number of classes (a million identities means a million‑row layer).</p>
+        <p>Modern fixes force the features onto a circle (or sphere) and add an <b>angular margin</b>: the correct class must win by a safety gap. Try the second instrument.</p>
+      </div>
+      <div class="lvl" data-lvl="ug"><span class="lvl-tag">Undergraduate</span>
+        <div class="eq">L = −log [ exp(w<sub>y</sub><sup>T</sup>f + b<sub>y</sub>) / Σ<sub>c</sub> exp(w<sub>c</sub><sup>T</sup>f + b<sub>c</sub>) ] &nbsp;, &nbsp; ∂L/∂z<sub>c</sub> = p<sub>c</sub> − 𝟙[c = y]</div>
+        <p>Here f = f<sub>θ</sub>(x) is the penultimate feature (the embedding) and the class weight vectors w<sub>c</sub> act as learned <b>proxies</b> for each class.</p>
+        <ul>
+          <li><b>Limitation.</b> Softmax cares about linear separability, not compactness. Norms and angles are entangled, so Euclidean or cosine distance on f can be noisy.</li>
+          <li><b>Normalize, then add a margin.</b> NormFace uses logits s·cos θ<sub>c</sub>. Margin variants penalize the target class: SphereFace (multiplicative angle), CosFace (s·(cos θ<sub>y</sub> − m)) and ArcFace:</li>
+        </ul>
+        <div class="eq">L<sub>arc</sub> = −log [ e<sup>s·cos(θ<sub>y</sub> + m)</sup> / ( e<sup>s·cos(θ<sub>y</sub> + m)</sup> + Σ<sub>c≠y</sub> e<sup>s·cos θ<sub>c</sub></sup> ) ]</div>
+        <ul>
+          <li><b>Proxy‑based metric learning</b> (Proxy‑NCA, SoftTriple, Proxy‑Anchor) keeps one or more learned proxies per class: O(N·C) cost instead of the O(N²) or O(N³) of pairs and triplets. Zhai and Wu (2019) showed that classification is a strong baseline for deep metric learning.</li>
+          <li><b>Drawbacks.</b> The proxy matrix grows with C, and it is not directly trained to rank unseen classes.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="lab" aria-labelledby="cl-t">
+      <h3 id="cl-t"><span class="k">Instrument A</span>Softmax and cross‑entropy</h3>
+      <p class="lede">Set the three raw scores (logits) the network produced, then say which class is actually correct.</p>
+      <div class="controls" id="cl-sliders"></div>
+      <div class="controls"><span class="ctl"><span>True class</span></span>
+        <label class="chk"><input type="radio" name="cl-true" value="0" checked> A</label>
+        <label class="chk"><input type="radio" name="cl-true" value="1"> B</label>
+        <label class="chk"><input type="radio" name="cl-true" value="2"> C</label>
+      </div>
+      <div id="cl-out"></div>
+      <p class="try"><b>Try this.</b> Make the wrong class’s score larger than the correct one’s and watch the loss jump. Then make the correct score much larger: the loss approaches zero and the gradient (p − target) fades, so the network stops learning from examples it already gets right.</p>
+
+      <h4>Instrument B · Angular margin on a circle</h4>
+      <p class="lede">Features and class weights are normalized, so each class is a direction on a circle. Drag the black dot (or use the slider) to move a feature. Logits are s·cos θ, and the margin version adds m to the true class’s angle before taking the cosine.</p>
+      <div class="controls">
+        <label class="ctl"><span>Feature angle</span><input id="am-phi" type="range" min="0" max="359" value="105"><output id="am-phi-o" for="am-phi">105°</output></label>
+        <label class="ctl"><span>Scale s</span><input id="am-s" type="range" min="4" max="48" value="20"><output id="am-s-o" for="am-s">20</output></label>
+        <label class="ctl"><span>Margin m</span><input id="am-m" type="range" min="0" max="60" value="25"><output id="am-m-o" for="am-m">25°</output></label>
+        <label class="ctl"><span>True class</span><select id="am-y"><option value="0">A</option><option value="1">B</option><option value="2">C</option></select></label>
+      </div>
+      <div class="split two">
+        <canvas class="plot drag" id="am-cv" style="--ar: 1 / 1" role="img" aria-label="Unit circle with three class directions and a movable feature"></canvas>
+        <div id="am-out"></div>
+      </div>
+      <p class="try"><b>Try this.</b> Place the feature a little off the true class direction, so the plain loss is already small. Now raise the margin: the margin loss stays large until the feature sits much closer to its class direction. That extra pressure is what tightens the clusters.</p>
+    </div>
+  </section>
+
+  <!-- ===================== 7. RANKING ===================== -->
+  <section class="topic" id="ranking">
+    <div class="topic-head"><span class="num">7</span><div><h2>Ranking Loss</h2><p class="sum">Skip the class labels. Train on comparisons: who should be closer to whom?</p></div></div>
+    <div class="explain">
+      <div class="lvl" data-lvl="kid"><span class="lvl-tag">Elementary school</span>
+        <p>Instead of asking “what is it?”, we ask “who is <i>closer</i>?” There are a few ways to play:</p>
+        <ul>
+          <li><b>Pairs.</b> Show two pictures. If they are friends, pull them together. If not, push them apart, but only until they are far enough. No need to keep pushing forever.</li>
+          <li><b>Twins (Siamese network).</b> Two identical copies of the same brain look at the two pictures. Because they are exact twins with the same brain, they treat both pictures fairly.</li>
+          <li><b>Triplets.</b> Show three: you, a friend, and a stranger. The rule: the friend must be closer to you than the stranger, with a little gap to spare.</li>
+          <li><b>N‑pairs.</b> You, one friend, and <i>lots</i> of strangers all at once. Your friend has to be the closest of everyone!</li>
+        </ul>
+      </div>
+      <div class="lvl" data-lvl="hs"><span class="lvl-tag">High school senior</span>
+        <ul>
+          <li><b>Siamese network.</b> Two identical copies of one network (same weights) each turn one input into a point. We then measure the distance between the two points. Using the same weights guarantees both inputs are treated the same way.</li>
+          <li><b>Pairwise (contrastive) loss.</b> For a similar pair the loss is the distance squared, which pulls them together. For a different pair the loss is (margin − distance)² while they are closer than the margin, and zero once they are farther. The margin keeps us from pushing strangers away forever.</li>
+          <li><b>Triplet loss.</b> Take an anchor <b>a</b>, a positive <b>p</b> (same class) and a negative <b>n</b> (different class). The loss is max(0, d(a,p) − d(a,n) + margin). It is zero once the positive is closer than the negative by at least the margin. Most random triplets are already satisfied and teach nothing, so training picks the <b>hard</b> ones.</li>
+          <li><b>N‑pairs loss.</b> Use one positive and many negatives (one per other class) at once and turn their similarities into probabilities with softmax. The network learns from many negatives per step, which makes training faster.</li>
+        </ul>
+      </div>
+      <div class="lvl" data-lvl="ug"><span class="lvl-tag">Undergraduate</span>
+        <h4>Siamese architecture and contrastive loss</h4>
+        <p>A Siamese network applies the same f<sub>θ</sub> (shared parameters) to both inputs, so gradients from both branches add into one update of θ and the induced distance is symmetric by construction (Bromley et al., 1993; Chopra et al., 2005). With y = 1 for similar pairs (Hadsell, Chopra and LeCun, 2006):</p>
+        <div class="eq">L = y · ½ d² + (1 − y) · ½ max(0, m − d)²<small>Weaknesses: pairs are scored independently, the margin m is in absolute units, there are O(N²) pairs, and most pairs are negatives.</small></div>
+        <h4>Triplet loss</h4>
+        <div class="eq">L = [ ‖f(a) − f(p)‖² − ‖f(a) − f(n)‖² + α ]<sub>+</sub><small>FaceNet (Schroff et al., 2015) squares the distances; LMNN (Weinberger and Saul) is the linear ancestor.</small></div>
+        <p>It is a <i>relative</i> constraint. There are O(N³) triplets, and most are already satisfied, so <b>mining</b> matters. A negative is <b>hard</b> if d(a,n) &lt; d(a,p), <b>semi‑hard</b> if d(a,p) &lt; d(a,n) &lt; d(a,p) + α, and <b>easy</b> otherwise. Online batch‑hard mining within P×K batches (Hermans et al., 2017) is standard. Using only the very hardest negatives early in training can collapse the embedding, and semi‑hard is the safer start.</p>
+        <h4>N‑pair loss (Sohn, 2016)</h4>
+        <p>A batch holds N (anchor, positive) pairs from N distinct classes. Each anchor treats the other N − 1 positives as negatives:</p>
+        <div class="eq">L = (1/N) Σ<sub>i</sub> log( 1 + Σ<sub>j≠i</sub> exp( f<sub>i</sub><sup>T</sup> f<sub>j</sub><sup>+</sup> − f<sub>i</sub><sup>T</sup> f<sub>i</sub><sup>+</sup> ) )<small>This is softmax cross‑entropy over similarities. With N = 2 it is a smoothed triplet loss. An L2 penalty on embeddings keeps norms from growing. The same idea with a temperature τ is InfoNCE / NT‑Xent in contrastive self‑supervised learning (SimCLR).</small></div>
+        <p>Other pair‑based losses you will meet: lifted structured loss, multi‑similarity loss, circle loss.</p>
+      </div>
+    </div>
+    <div class="lab" aria-labelledby="rk-t">
+      <h3 id="rk-t"><span class="k">Instrument</span>Pull, push and compare</h3>
+      <p class="lede">Choose a loss. Drag the points around the embedding space and watch the loss change. Blue ○ are the anchor and its positive; orange □ are negatives.</p>
+      <div class="tabs" role="tablist" aria-label="Ranking loss">
+        <button class="btn sec" type="button" role="tab" data-rk="pair" aria-selected="true">Pairwise</button>
+        <button class="btn sec" type="button" role="tab" data-rk="siam" aria-selected="false">Siamese network</button>
+        <button class="btn sec" type="button" role="tab" data-rk="trip" aria-selected="false">Triplet</button>
+        <button class="btn sec" type="button" role="tab" data-rk="npair" aria-selected="false">N‑pairs</button>
+      </div>
+
+      <div id="rk-canvas-panel">
+        <div class="controls" id="rk-controls"></div>
+        <canvas class="plot drag" id="rk-cv" style="--ar: 4 / 3" role="img" aria-label="Embedding space with draggable anchor, positive and negative points"></canvas>
+        <div id="rk-out"></div>
+      </div>
+
+      <div id="rk-siam-panel" hidden>
+        <div class="sia" id="rk-svg-wrap">
+          <svg viewBox="0 0 680 250" role="img" aria-label="Two identical networks with shared weights embedding two inputs, then a distance and a loss">
+            <rect class="box" x="20" y="20" width="110" height="52" rx="8"/>
+            <text x="75" y="42" text-anchor="middle">input x₁</text>
+            <text x="75" y="60" text-anchor="middle" class="mono" id="sv-x1">1.50</text>
+            <rect class="box" x="20" y="178" width="110" height="52" rx="8"/>
+            <text x="75" y="200" text-anchor="middle">input x₂</text>
+            <text x="75" y="218" text-anchor="middle" class="mono" id="sv-x2">−1.00</text>
+            <path class="wire" d="M130 46 L200 46"/><path class="wire" d="M130 204 L200 204"/>
+            <rect class="net" x="200" y="18" width="150" height="56" rx="8"/>
+            <text x="275" y="42" text-anchor="middle">network f</text>
+            <text x="275" y="60" text-anchor="middle" class="mono" id="sv-w1">w = 1.00</text>
+            <rect class="net" x="200" y="176" width="150" height="56" rx="8"/>
+            <text x="275" y="200" text-anchor="middle">network f (same)</text>
+            <text x="275" y="218" text-anchor="middle" class="mono" id="sv-w2">w = 1.00</text>
+            <path class="share" d="M275 74 L275 176"/>
+            <text x="287" y="130" class="muted">shared weights</text>
+            <path class="wire" d="M350 46 L420 46"/><path class="wire" d="M350 204 L420 204"/>
+            <rect class="box" x="420" y="20" width="100" height="52" rx="8"/>
+            <text x="470" y="42" text-anchor="middle">z₁ = w·x₁</text>
+            <text x="470" y="60" text-anchor="middle" class="mono" id="sv-z1">1.50</text>
+            <rect class="box" x="420" y="178" width="100" height="52" rx="8"/>
+            <text x="470" y="200" text-anchor="middle">z₂ = w·x₂</text>
+            <text x="470" y="218" text-anchor="middle" class="mono" id="sv-z2">−1.00</text>
+            <path class="wire" d="M520 46 L565 46 L565 112"/><path class="wire" d="M520 204 L565 204 L565 140"/>
+            <rect class="box" x="520" y="112" width="140" height="28" rx="8"/>
+            <text x="590" y="131" text-anchor="middle" class="mono" id="sv-d">d = 2.50</text>
+          </svg>
+        </div>
+        <div class="controls">
+          <label class="ctl"><span>x₁</span><input id="sv-in1" type="range" min="-3" max="3" step="0.1" value="1.5"><output id="sv-in1-o" for="sv-in1">1.5</output></label>
+          <label class="ctl"><span>x₂</span><input id="sv-in2" type="range" min="-3" max="3" step="0.1" value="-1"><output id="sv-in2-o" for="sv-in2">−1.0</output></label>
+          <label class="ctl"><span>Shared weight w</span><input id="sv-w" type="range" min="-2" max="2" step="0.05" value="1"><output id="sv-w-o" for="sv-w">1.00</output></label>
+        </div>
+        <div class="controls">
+          <label class="chk"><input type="radio" name="sv-lab" value="1" checked> Similar pair</label>
+          <label class="chk"><input type="radio" name="sv-lab" value="0"> Different pair</label>
+          <label class="ctl"><span>Margin m</span><input id="sv-m" type="range" min="0.5" max="4" step="0.1" value="2"><output id="sv-m-o" for="sv-m">2.0</output></label>
+          <button class="btn" type="button" id="sv-step">Take one gradient step on w</button>
+        </div>
+        <div id="sv-out"></div>
+        <p class="note">A one‑number network f(x) = w·x keeps the idea visible: both branches use the same w, so each branch contributes a piece of the gradient and the two pieces add up. Real Siamese networks do exactly this with millions of weights.</p>
+      </div>
+
+      <p class="try" id="rk-try"></p>
+    </div>
+  </section>
+
+  <!-- ===================== LDA ===================== -->
+  <section class="topic" id="lda">
+    <div class="topic-head"><span class="num">+</span><div><h2>Where LDA Fits</h2><p class="sum">Linear discriminant analysis is metric learning with a straight‑line map and a closed‑form answer.</p></div></div>
+    <div class="explain">
+      <div class="lvl" data-lvl="kid"><span class="lvl-tag">Elementary school</span>
+        <p>Imagine shining a flashlight on a bunch of red and blue marbles so their shadows land on a wall. If you hold the flashlight at a bad angle, the red and blue shadows pile on top of each other. If you hold it at a <i>good</i> angle, the red shadows land on one side of the wall and the blue shadows on the other.</p>
+        <p>LDA is a way of finding that best flashlight angle. Try it in the instrument below!</p>
+      </div>
+      <div class="lvl" data-lvl="hs"><span class="lvl-tag">High school senior</span>
+        <p>LDA squashes your data onto a line (or a flat sheet) so that the classes end up as separate as possible. It looks for a direction where the <b>class averages are far apart</b> and each class’s own <b>spread is small</b>. That is different from PCA, which only looks for the direction with the most spread overall, and that direction can easily mix the classes together.</p>
+        <p>After LDA squashes the data, you can classify with the nearest class average or with KNN. Deep metric learning does the same job, but the “squashing” is a neural network, so it can bend and fold space instead of only projecting it.</p>
+      </div>
+      <div class="lvl" data-lvl="ug"><span class="lvl-tag">Undergraduate</span>
+        <p>With within‑class scatter S<sub>W</sub> and between‑class scatter S<sub>B</sub>, Fisher’s criterion chooses the projection W that maximizes</p>
+        <div class="eq">J(W) = tr[ (W<sup>T</sup> S<sub>W</sub> W)<sup>−1</sup> (W<sup>T</sup> S<sub>B</sub> W) ]<small>For two classes: w ∝ S<sub>W</sub><sup>−1</sup>(μ₁ − μ₀). In general, W holds the top eigenvectors of S<sub>W</sub><sup>−1</sup>S<sub>B</sub>, and there are at most C − 1 useful ones.</small></div>
+        <ul>
+          <li><b>As metric learning.</b> The induced metric is Mahalanobis with M = WW<sup>T</sup>. Under Gaussian classes with equal covariance, LDA is Bayes‑optimal and nearest‑class‑mean in the projected space is the matching decision rule.</li>
+          <li><b>Limits.</b> It is linear, assumes one Gaussian blob per class, produces at most C − 1 dimensions, and needs S<sub>W</sub> to be invertible (regularize when d is large).</li>
+          <li><b>Deep metric learning</b> replaces W with a network f<sub>θ</sub>, replaces J with a classification or ranking loss, and handles classes that are not blobs (the XOR example in topic 5). The same distance‑based machinery (KNN, open‑set thresholds, approximate search) then runs on the learned embedding.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="lab" aria-labelledby="lda-t">
+      <h3 id="lda-t"><span class="k">Instrument</span>Find the best projection direction</h3>
+      <p class="lede">Two classes of 2‑D points. Rotate the projection line and watch how well the two classes separate along it. The Fisher score J is the squared gap between class means divided by the within‑class spread, both measured along the line.</p>
+      <div class="controls">
+        <label class="ctl"><span>Direction</span><input id="lda-a" type="range" min="0" max="179" value="20"><output id="lda-a-o" for="lda-a">20°</output></label>
+        <button class="btn sec" type="button" id="lda-pca">Snap to PCA</button>
+        <button class="btn sec" type="button" id="lda-lda">Snap to LDA</button>
+        <button class="btn sec" type="button" id="lda-new">New sample</button>
+      </div>
+      <div class="pair">
+        <figure><canvas class="plot" id="lda-cv" style="--ar: 1 / 1" role="img" aria-label="Two classes of points with a projection line"></canvas><figcaption>Points and the projection line (dashed). Thin segments drop each point onto the line.</figcaption></figure>
+        <figure><canvas class="plot" id="lda-hist" style="--ar: 1 / 1" role="img" aria-label="Histograms of the two classes after projection onto the line"></canvas><figcaption>The same points after projecting onto the line. Less overlap is better.</figcaption></figure>
+      </div>
+      <canvas class="plot wide" id="lda-j" style="--ar: 6 / 1.6; margin-top: 12px" role="img" aria-label="Fisher criterion as a function of direction"></canvas>
+      <div class="readouts" id="lda-out"></div>
+      <p class="try"><b>Try this.</b> Press “Snap to PCA”: the line follows the long axis of the whole cloud, and the two classes overlap almost completely. Then press “Snap to LDA”: the line tilts to where the class means are far apart relative to the spread, and the classes separate. The curve at the bottom shows J for every direction and peaks at the LDA angle.</p>
+    </div>
+  </section>
+
+  <!-- ===================== QUIZ ===================== -->
+  <section class="topic" id="quiz">
+    <div class="topic-head"><span class="num">?</span><div><h2>Check yourself</h2><p class="sum">Nine questions, one per idea. Pick an answer to see why.</p></div></div>
+    <div id="quiz-body"></div>
+    <p class="score" id="quiz-score" aria-live="polite"></p>
+    <button class="btn sec" type="button" id="quiz-reset">Reset quiz</button>
+  </section>
+
+  </main>
+</div>
+<footer class="wrap">References: Cover and Hart 1967 · Hart 1968 · Beyer et al. 1999 · Bromley et al. 1993 · Hadsell et al. 2006 · Scheirer et al. 2013 · Schroff et al. 2015 (FaceNet) · Sohn 2016 · Bendale and Boult 2016 · Hermans et al. 2017 · Musgrave et al. 2020 · Vaze et al. 2022.</footer>
+
+<script>
+/* ============================================================
+   CORE: pure logic, no DOM. Everything the labs compute lives here.
+   ============================================================ */
+function mulberry32(seed) {
+  var a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function randn(rng) {
+  var u = 0, v = rng();
+  while (u === 0) u = rng();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function shuffle(arr, rng) {
+  for (var i = arr.length - 1; i > 0; i--) {
+    var j = Math.floor(rng() * (i + 1));
+    var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
+}
+function range(n) { var a = []; for (var i = 0; i < n; i++) a.push(i); return a; }
+
+var DIST = {
+  l2: function (a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); },
+  l1: function (a, b) { return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]); },
+  linf: function (a, b) { return Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1])); }
+};
+
+function blobs(rng, specs) {
+  var X = [], y = [];
+  specs.forEach(function (s) {
+    for (var i = 0; i < s.n; i++) {
+      X.push([s.c[0] + s.sd * randn(rng), s.c[1] + s.sd * randn(rng)]);
+      y.push(s.cls);
+    }
+  });
+  return { X: X, y: y };
+}
+
+/* ---------- 1. K nearest neighbours ---------- */
+function knnVote(X, y, q, k, metric, weighted, C) {
+  var d = DIST[metric];
+  var arr = X.map(function (p, i) { return { i: i, d: d(p, q) }; });
+  arr.sort(function (a, b) { return a.d - b.d; });
+  var kk = Math.min(k, arr.length);
+  var nb = arr.slice(0, kk);
+  var votes = []; for (var c = 0; c < C; c++) votes.push(0);
+  nb.forEach(function (n) { votes[y[n.i]] += weighted ? 1 / (n.d + 1e-9) : 1; });
+  var best = -1; votes.forEach(function (v) { if (v > best) best = v; });
+  var tied = []; votes.forEach(function (v, c) { if (v >= best - 1e-12) tied.push(c); });
+  var pred = tied[0];
+  if (tied.length > 1) {
+    for (var i = 0; i < nb.length; i++) {
+      if (tied.indexOf(y[nb[i].i]) >= 0) { pred = y[nb[i].i]; break; }
+    }
+  }
+  return { nb: nb, votes: votes, pred: pred };
+}
+
+/* ---------- 2. Curse of dimensionality ---------- */
+function sampleDistances(d, n, rng) {
+  var q = new Float64Array(d);
+  for (var j = 0; j < d; j++) q[j] = rng();
+  var out = new Float64Array(n);
+  for (var i = 0; i < n; i++) {
+    var s = 0;
+    for (var k = 0; k < d; k++) { var t = rng() - q[k]; s += t * t; }
+    out[i] = Math.sqrt(s);
+  }
+  return out;
+}
+function distSummary(ds) {
+  var mn = Infinity, mx = -Infinity, sum = 0;
+  for (var i = 0; i < ds.length; i++) {
+    var v = ds[i]; if (v < mn) mn = v; if (v > mx) mx = v; sum += v;
+  }
+  return { min: mn, max: mx, mean: sum / ds.length, contrast: (mx - mn) / mn, ratio: mx / mn };
+}
+function contrastCurve(dims, n, reps, seed) {
+  var rng = mulberry32(seed);
+  return dims.map(function (d) {
+    var acc = 0;
+    for (var r = 0; r < reps; r++) acc += Math.log(distSummary(sampleDistances(d, n, rng)).contrast);
+    return Math.exp(acc / reps);
+  });
+}
+function edgeForFraction(frac, d) { return Math.pow(frac, 1 / d); }
+
+/* ---------- 3. Speed and memory ---------- */
+function nearestOf(X, S, q) {
+  var b = -1, bd = Infinity;
+  for (var t = 0; t < S.length; t++) {
+    var dd = DIST.l2(X[S[t]], q);
+    if (dd < bd) { bd = dd; b = S[t]; }
+  }
+  return b;
+}
+function hartCondense(X, y, rng) {
+  var n = X.length;
+  var order = shuffle(range(n), rng);
+  var inS = []; for (var i = 0; i < n; i++) inS.push(false);
+  var S = [order[0]]; inS[order[0]] = true;
+  var changed = true, passes = 0;
+  while (changed && passes < 60) {
+    changed = false; passes++;
+    for (var t = 0; t < n; t++) {
+      var i2 = order[t];
+      if (inS[i2]) continue;
+      var j = nearestOf(X, S, X[i2]);
+      if (y[j] !== y[i2]) { S.push(i2); inS[i2] = true; changed = true; }
+    }
+  }
+  return S;
+}
+function wilsonEdit(X, y, k) {
+  var keep = [];
+  for (var i = 0; i < X.length; i++) {
+    var arr = [];
+    for (var j = 0; j < X.length; j++) if (j !== i) arr.push({ j: j, d: DIST.l2(X[i], X[j]) });
+    arr.sort(function (a, b) { return a.d - b.d; });
+    var cnt = {};
+    for (var t = 0; t < k; t++) { var c = y[arr[t].j]; cnt[c] = (cnt[c] || 0) + 1; }
+    var best = -1, bc = -1;
+    Object.keys(cnt).forEach(function (c) { if (cnt[c] > best) { best = cnt[c]; bc = +c; } });
+    if (bc === y[i] && best >= 2) keep.push(i);
+  }
+  return keep;
+}
+function nnAccuracy(X, y, S, Xt, yt) {
+  var ok = 0;
+  for (var i = 0; i < Xt.length; i++) if (y[nearestOf(X, S, Xt[i])] === yt[i]) ok++;
+  return ok / Xt.length;
+}
+function fmtBytes(b) {
+  var u = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'], i = 0;
+  while (b >= 1000 && i < u.length - 1) { b /= 1000; i++; }
+  return (b >= 100 ? b.toFixed(0) : b >= 10 ? b.toFixed(1) : b.toFixed(2)) + ' ' + u[i];
+}
+function memoryTable(N, D, pqBytes) {
+  var rows = [
+    { name: 'float32 (full precision)', per: 4 * D },
+    { name: 'float16 (half precision)', per: 2 * D },
+    { name: 'int8 scalar quantization', per: D },
+    { name: 'Product quantization', per: pqBytes },
+    { name: 'Binary codes (1 bit per dim)', per: D / 8 }
+  ];
+  rows.forEach(function (r) { r.total = r.per * N; });
+  return rows;
+}
+function ivfCost(N, nprobe) {
+  var nlist = Math.max(1, Math.round(4 * Math.sqrt(N)));
+  var cost = nlist + nprobe * (N / nlist);
+  return { nlist: nlist, cost: Math.min(cost, N), brute: N };
+}
+
+/* ---------- 4. Open set recognition ---------- */
+function dminTo(q, P) {
+  var b = Infinity, bi = -1;
+  for (var i = 0; i < P.length; i++) {
+    var d = DIST.l2(q, P[i]);
+    if (d < b) { b = d; bi = i; }
+  }
+  return { d: b, i: bi };
+}
+function openRates(dKnown, dUnknown, tau) {
+  var ka = 0, ur = 0;
+  dKnown.forEach(function (d) { if (d <= tau) ka++; });
+  dUnknown.forEach(function (d) { if (d > tau) ur++; });
+  return { tpr: ka / dKnown.length, tnr: ur / dUnknown.length,
+           acc: (ka + ur) / (dKnown.length + dUnknown.length) };
+}
+
+/* ---------- 5. Datasets for the metric-learning trainer ---------- */
+function makeDataset(name, seed) {
+  var rng = mulberry32(seed || 7);
+  var ds = { name: name, X: [], y: [], Xte: [], yte: [], C: 2 };
+  function push(set, x, c) {
+    if (set === 'tr') { ds.X.push(x); ds.y.push(c); } else { ds.Xte.push(x); ds.yte.push(c); }
+  }
+  [['tr', 60], ['te', 40]].forEach(function (pair) {
+    var set = pair[0], n = pair[1], i, c;
+    if (name === 'rings') {
+      ds.C = 3;
+      var R = [0.35, 0.85, 1.35];
+      for (c = 0; c < 3; c++) for (i = 0; i < n; i++) {
+        var a = rng() * 2 * Math.PI, r = R[c] + 0.06 * randn(rng);
+        push(set, [r * Math.cos(a), r * Math.sin(a)], c);
+      }
+    } else if (name === 'xor') {
+      ds.C = 2;
+      var cent = [[[1, 1], [-1, -1]], [[-1, 1], [1, -1]]];
+      for (c = 0; c < 2; c++) for (i = 0; i < n; i++) {
+        var cc = cent[c][rng() < 0.5 ? 0 : 1];
+        push(set, [cc[0] + 0.3 * randn(rng), cc[1] + 0.3 * randn(rng)], c);
+      }
+    } else { /* moons */
+      ds.C = 2;
+      for (c = 0; c < 2; c++) for (i = 0; i < n; i++) {
+        var t = rng() * Math.PI, x, yy;
+        if (c === 0) { x = Math.cos(t) - 0.5; yy = Math.sin(t) - 0.25; }
+        else { x = 1 - Math.cos(t) - 0.5; yy = 0.5 - Math.sin(t) - 0.25; }
+        push(set, [x + 0.12 * randn(rng), yy + 0.12 * randn(rng)], c);
+      }
+    }
+  });
+  ds.byClass = []; for (var c2 = 0; c2 < ds.C; c2++) ds.byClass.push([]);
+  ds.y.forEach(function (c, i) { ds.byClass[c].push(i); });
+  return ds;
+}
+
+/* ---------- Tiny MLP with Adam ---------- */
+function MLP(sizes, rng) {
+  this.sizes = sizes; this.L = sizes.length - 1; this.t = 0;
+  this.W = []; this.b = []; this.gW = []; this.gb = [];
+  this.mW = []; this.vW = []; this.mb = []; this.vb = [];
+  for (var l = 0; l < this.L; l++) {
+    var nin = sizes[l], nout = sizes[l + 1], sc = Math.sqrt(2 / (nin + nout)) * 1.2;
+    var W = new Float64Array(nout * nin);
+    for (var i = 0; i < W.length; i++) W[i] = sc * randn(rng);
+    this.W.push(W); this.b.push(new Float64Array(nout));
+    this.gW.push(new Float64Array(nout * nin)); this.gb.push(new Float64Array(nout));
+    this.mW.push(new Float64Array(nout * nin)); this.vW.push(new Float64Array(nout * nin));
+    this.mb.push(new Float64Array(nout)); this.vb.push(new Float64Array(nout));
+  }
+}
+MLP.prototype.forward = function (x) {
+  var acts = [Float64Array.from(x)];
+  for (var l = 0; l < this.L; l++) {
+    var a = acts[l], nin = this.sizes[l], nout = this.sizes[l + 1];
+    var out = new Float64Array(nout), W = this.W[l], b = this.b[l];
+    for (var i = 0; i < nout; i++) {
+      var s = b[i], o = i * nin;
+      for (var j = 0; j < nin; j++) s += W[o + j] * a[j];
+      out[i] = (l < this.L - 1) ? Math.tanh(s) : s;
+    }
+    acts.push(out);
+  }
+  return acts;
+};
+MLP.prototype.embed = function (x) { var a = this.forward(x); return a[a.length - 1]; };
+MLP.prototype.backward = function (acts, dout) {
+  var delta = Float64Array.from(dout);
+  for (var l = this.L - 1; l >= 0; l--) {
+    var nin = this.sizes[l], nout = this.sizes[l + 1], a = acts[l];
+    var W = this.W[l], gW = this.gW[l], gb = this.gb[l], i, j;
+    for (i = 0; i < nout; i++) {
+      gb[i] += delta[i];
+      var o = i * nin;
+      for (j = 0; j < nin; j++) gW[o + j] += delta[i] * a[j];
+    }
+    if (l > 0) {
+      var nd = new Float64Array(nin);
+      for (j = 0; j < nin; j++) {
+        var s = 0;
+        for (i = 0; i < nout; i++) s += W[i * nin + j] * delta[i];
+        nd[j] = s * (1 - a[j] * a[j]);
+      }
+      delta = nd;
+    }
+  }
+};
+MLP.prototype.step = function (lr) {
+  this.t++;
+  var b1 = 0.9, b2 = 0.999, eps = 1e-8;
+  var c1 = 1 - Math.pow(b1, this.t), c2 = 1 - Math.pow(b2, this.t);
+  for (var l = 0; l < this.L; l++) {
+    var P = [[this.W[l], this.gW[l], this.mW[l], this.vW[l]], [this.b[l], this.gb[l], this.mb[l], this.vb[l]]];
+    for (var p = 0; p < 2; p++) {
+      var w = P[p][0], g = P[p][1], m = P[p][2], v = P[p][3];
+      for (var i = 0; i < w.length; i++) {
+        m[i] = b1 * m[i] + (1 - b1) * g[i];
+        v[i] = b2 * v[i] + (1 - b2) * g[i] * g[i];
+        w[i] -= lr * (m[i] / c1) / (Math.sqrt(v[i] / c2) + eps);
+        g[i] = 0;
+      }
+    }
+  }
+};
+
+/* ---------- Losses on a batch of embeddings ---------- */
+function d2(a, b) { var s = 0; for (var i = 0; i < a.length; i++) { var t = a[i] - b[i]; s += t * t; } return s; }
+function zeros(n, dim) { var o = []; for (var i = 0; i < n; i++) o.push(new Float64Array(dim)); return o; }
+
+function contrastiveLoss(E, lab, m) {
+  var n = E.length, dim = E[0].length, G = zeros(n, dim), L = 0, pairs = 0, active = 0;
+  for (var i = 0; i < n; i++) for (var j = i + 1; j < n; j++) {
+    pairs++;
+    var d = Math.sqrt(d2(E[i], E[j]));
+    if (lab[i] === lab[j]) {
+      L += 0.5 * d * d; active++;
+      for (var k = 0; k < dim; k++) { var g = E[i][k] - E[j][k]; G[i][k] += g; G[j][k] -= g; }
+    } else if (d < m) {
+      var gap = m - d; L += 0.5 * gap * gap; active++;
+      var dd = Math.max(d, 1e-9);
+      for (k = 0; k < dim; k++) { var g2 = -gap * (E[i][k] - E[j][k]) / dd; G[i][k] += g2; G[j][k] -= g2; }
+    }
+  }
+  var s = 1 / Math.max(pairs, 1);
+  G.forEach(function (g) { for (var k = 0; k < g.length; k++) g[k] *= s; });
+  return { loss: L * s, G: G, active: active / Math.max(pairs, 1) };
+}
+
+function tripletLoss(E, lab, m) {
+  var n = E.length, dim = E[0].length, G = zeros(n, dim), L = 0, act = 0, tot = 0;
+  for (var a = 0; a < n; a++) for (var p = 0; p < n; p++) {
+    if (p === a || lab[p] !== lab[a]) continue;
+    var dap = d2(E[a], E[p]);
+    for (var q = 0; q < n; q++) {
+      if (lab[q] === lab[a]) continue;
+      tot++;
+      var v = dap - d2(E[a], E[q]) + m;
+      if (v > 0) {
+        act++; L += v;
+        for (var k = 0; k < dim; k++) {
+          G[a][k] += 2 * (E[q][k] - E[p][k]);
+          G[p][k] += 2 * (E[p][k] - E[a][k]);
+          G[q][k] += 2 * (E[a][k] - E[q][k]);
+        }
+      }
+    }
+  }
+  var s = 1 / Math.max(act, 1);
+  G.forEach(function (g) { for (var k = 0; k < g.length; k++) g[k] *= s; });
+  return { loss: L * s, G: G, active: act / Math.max(tot, 1) };
+}
+
+/* anchors A[i] and positives P[i] come from N different classes */
+function npairLoss(A, P, lam) {
+  var N = A.length, dim = A[0].length, GA = zeros(N, dim), GP = zeros(N, dim), L = 0, i, j, k;
+  for (i = 0; i < N; i++) {
+    var s = [], mx = -Infinity;
+    for (j = 0; j < N; j++) { var dot = 0; for (k = 0; k < dim; k++) dot += A[i][k] * P[j][k]; s.push(dot); if (dot > mx) mx = dot; }
+    var Z = 0; s.forEach(function (v, t) { s[t] = Math.exp(v - mx); Z += s[t]; });
+    for (j = 0; j < N; j++) {
+      var pj = s[j] / Z, g = pj - (i === j ? 1 : 0);
+      for (k = 0; k < dim; k++) { GA[i][k] += g * P[j][k]; GP[j][k] += g * A[i][k]; }
+    }
+    L += -Math.log(Math.max(s[i] / Z, 1e-12));
+    var reg = 0; for (k = 0; k < dim; k++) { reg += A[i][k] * A[i][k] + P[i][k] * P[i][k]; GA[i][k] += 2 * lam * A[i][k]; GP[i][k] += 2 * lam * P[i][k]; }
+    L += lam * reg;
+  }
+  var sc = 1 / N;
+  GA.forEach(function (g) { for (var k2 = 0; k2 < g.length; k2++) g[k2] *= sc; });
+  GP.forEach(function (g) { for (var k2 = 0; k2 < g.length; k2++) g[k2] *= sc; });
+  return { loss: L * sc, GA: GA, GP: GP };
+}
+
+/* ---------- Trainer ---------- */
+function Trainer(ds, seed) {
+  this.ds = ds; this.rng = mulberry32((seed || 1) * 977 + 13);
+  this.net = new MLP([2, 24, 24, 2], this.rng);
+  this.steps = 0; this.history = [];
+}
+Trainer.prototype.pickFrom = function (c) {
+  var arr = this.ds.byClass[c]; return arr[Math.floor(this.rng() * arr.length)];
+};
+Trainer.prototype.stepBatch = function (type, margin) {
+  var ds = this.ds, net = this.net, i, j, acts, E, loss = 0, extra = 0;
+  var lr = 0.01;
+  if (type === 'npairs') {
+    var groups = 6, count = 0, total = 0;
+    for (var g = 0; g < groups; g++) {
+      var ia = [], ip = [];
+      for (var c = 0; c < ds.C; c++) { ia.push(this.pickFrom(c)); ip.push(this.pickFrom(c)); }
+      var actA = ia.map(function (id) { return net.forward(ds.X[id]); });
+      var actP = ip.map(function (id) { return net.forward(ds.X[id]); });
+      var A = actA.map(function (a) { return a[a.length - 1]; });
+      var P = actP.map(function (a) { return a[a.length - 1]; });
+      var r = npairLoss(A, P, 0.01);
+      total += r.loss; count++;
+      for (i = 0; i < ds.C; i++) { net.backward(actA[i], r.GA[i]); net.backward(actP[i], r.GP[i]); }
+    }
+    loss = total / count; extra = 0;
+    this.scaleGrads(1 / groups);
+  } else {
+    var K = ds.C === 3 ? 8 : 10, ids = [], lab = [];
+    for (var c2 = 0; c2 < ds.C; c2++) for (j = 0; j < K; j++) { ids.push(this.pickFrom(c2)); lab.push(c2); }
+    acts = ids.map(function (id) { return net.forward(ds.X[id]); });
+    E = acts.map(function (a) { return a[a.length - 1]; });
+    var res = type === 'triplet' ? tripletLoss(E, lab, margin) : contrastiveLoss(E, lab, margin);
+    loss = res.loss; extra = res.active;
+    for (i = 0; i < ids.length; i++) net.backward(acts[i], res.G[i]);
+  }
+  net.step(lr);
+  this.steps++;
+  return { loss: loss, active: extra };
+};
+Trainer.prototype.scaleGrads = function (s) {
+  var net = this.net;
+  for (var l = 0; l < net.L; l++) {
+    for (var i = 0; i < net.gW[l].length; i++) net.gW[l][i] *= s;
+    for (i = 0; i < net.gb[l].length; i++) net.gb[l][i] *= s;
+  }
+};
+Trainer.prototype.embedAll = function () {
+  var net = this.net, ds = this.ds;
+  return {
+    tr: ds.X.map(function (x) { return Array.from(net.embed(x)); }),
+    te: ds.Xte.map(function (x) { return Array.from(net.embed(x)); })
+  };
+};
+
+function knnAccuracy(Etr, ytr, Ete, yte, k) {
+  var ok = 0;
+  for (var i = 0; i < Ete.length; i++) {
+    var arr = [];
+    for (var j = 0; j < Etr.length; j++) arr.push({ c: ytr[j], d: d2(Ete[i], Etr[j]) });
+    arr.sort(function (a, b) { return a.d - b.d; });
+    var cnt = {}, best = -1, bc = -1;
+    for (var t = 0; t < k; t++) cnt[arr[t].c] = (cnt[arr[t].c] || 0) + 1;
+    Object.keys(cnt).forEach(function (c) { if (cnt[c] > best) { best = cnt[c]; bc = +c; } });
+    if (bc === yte[i]) ok++;
+  }
+  return ok / Ete.length;
+}
+/* mean same-class distance divided by mean different-class distance (lower is better) */
+function sepRatio(E, y) {
+  var s = 0, ns = 0, dsum = 0, nd = 0;
+  for (var i = 0; i < E.length; i++) for (var j = i + 1; j < E.length; j++) {
+    var d = Math.sqrt(d2(E[i], E[j]));
+    if (y[i] === y[j]) { s += d; ns++; } else { dsum += d; nd++; }
+  }
+  return (s / ns) / (dsum / nd);
+}
+
+/* ---------- 6. Classification loss ---------- */
+function softmax(z) {
+  var mx = Math.max.apply(null, z), e = z.map(function (v) { return Math.exp(v - mx); });
+  var s = e.reduce(function (a, b) { return a + b; }, 0);
+  return e.map(function (v) { return v / s; });
+}
+function marginLogits(phi, wAngles, y, s, m) {
+  /* phi and wAngles in radians; returns logits for plain and margin versions */
+  var thetas = wAngles.map(function (w) {
+    var d = Math.abs(((phi - w + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI);
+    return d;
+  });
+  var plain = thetas.map(function (t) { return s * Math.cos(t); });
+  var withM = thetas.map(function (t, i) { return i === y ? s * Math.cos(Math.min(t + m, Math.PI)) : s * Math.cos(t); });
+  return { thetas: thetas, plain: plain, withM: withM };
+}
+
+/* ---------- 7. Ranking losses ---------- */
+function contrastive2(d, similar, m) {
+  return similar ? 0.5 * d * d : 0.5 * Math.pow(Math.max(0, m - d), 2);
+}
+function tripletVal(dap, dan, m) { return Math.max(0, dap - dan + m); }
+function npairSoftmax(sims) { return softmax(sims); }
+
+/* ---------- LDA lab ---------- */
+function ldaSample(rng, n, cfg) {
+  var S = cfg.cov, l11 = Math.sqrt(S[0][0]), l21 = S[0][1] / l11, l22 = Math.sqrt(S[1][1] - l21 * l21);
+  var out = { X0: [], X1: [] };
+  for (var c = 0; c < 2; c++) {
+    var mu = cfg.mu[c];
+    for (var i = 0; i < n; i++) {
+      var z1 = randn(rng), z2 = randn(rng);
+      (c === 0 ? out.X0 : out.X1).push([mu[0] + l11 * z1, mu[1] + l21 * z1 + l22 * z2]);
+    }
+  }
+  return out;
+}
+function meanOf(X) { var m = [0, 0]; X.forEach(function (p) { m[0] += p[0]; m[1] += p[1]; }); return [m[0] / X.length, m[1] / X.length]; }
+function scatterOf(X, mu) {
+  var S = [[0, 0], [0, 0]];
+  X.forEach(function (p) {
+    var a = p[0] - mu[0], b = p[1] - mu[1];
+    S[0][0] += a * a; S[0][1] += a * b; S[1][0] += a * b; S[1][1] += b * b;
+  });
+  return S;
+}
+function ldaStats(X0, X1) {
+  var mu0 = meanOf(X0), mu1 = meanOf(X1), s0 = scatterOf(X0, mu0), s1 = scatterOf(X1, mu1);
+  var n = X0.length + X1.length;
+  var Sw = [[(s0[0][0] + s1[0][0]) / n, (s0[0][1] + s1[0][1]) / n], [(s0[1][0] + s1[1][0]) / n, (s0[1][1] + s1[1][1]) / n]];
+  var all = X0.concat(X1), mu = meanOf(all), St = scatterOf(all, mu);
+  var C = [[St[0][0] / n, St[0][1] / n], [St[1][0] / n, St[1][1] / n]];
+  return { mu0: mu0, mu1: mu1, Sw: Sw, mu: mu, cov: C };
+}
+function fisherJ(theta, st) {
+  var w = [Math.cos(theta), Math.sin(theta)], dx = st.mu1[0] - st.mu0[0], dy = st.mu1[1] - st.mu0[1];
+  var num = Math.pow(w[0] * dx + w[1] * dy, 2);
+  var den = w[0] * (st.Sw[0][0] * w[0] + st.Sw[0][1] * w[1]) + w[1] * (st.Sw[1][0] * w[0] + st.Sw[1][1] * w[1]);
+  return num / den;
+}
+function normAngle(t) { var a = t % Math.PI; return a < 0 ? a + Math.PI : a; }
+function ldaAngle(st) {
+  var S = st.Sw, det = S[0][0] * S[1][1] - S[0][1] * S[1][0];
+  var dx = st.mu1[0] - st.mu0[0], dy = st.mu1[1] - st.mu0[1];
+  var wx = (S[1][1] * dx - S[0][1] * dy) / det, wy = (-S[1][0] * dx + S[0][0] * dy) / det;
+  return normAngle(Math.atan2(wy, wx));
+}
+function pcaAngle(st) { return normAngle(0.5 * Math.atan2(2 * st.cov[0][1], st.cov[0][0] - st.cov[1][1])); }
+function projAccuracy(theta, X0, X1, st) {
+  var w = [Math.cos(theta), Math.sin(theta)];
+  var p = function (x) { return w[0] * x[0] + w[1] * x[1]; };
+  var m0 = p(st.mu0), m1 = p(st.mu1), mid = (m0 + m1) / 2, sg = m1 >= m0 ? 1 : -1, ok = 0;
+  X0.forEach(function (x) { if (sg * (p(x) - mid) < 0) ok++; });
+  X1.forEach(function (x) { if (sg * (p(x) - mid) >= 0) ok++; });
+  return ok / (X0.length + X1.length);
+}
+
+
+/* ============================================================
+   UI: plotting kit, instruments, level switch, nav, quiz
+   ============================================================ */
+(function () {
+'use strict';
+
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+var NAMES = ['A', 'B', 'C'];
+var FONT = '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
+var MONO = '"IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace';
+var drawers = [];
+var f1 = function (x) { return x.toFixed(1); };
+var f2 = function (x) { return x.toFixed(2); };
+var pct = function (x) { return Math.round(x * 100) + '%'; };
+var fmtInt = function (x) { return Math.round(x).toLocaleString('en-US'); };
+var deg = function (r) { return r * 180 / Math.PI; };
+var rad = function (d) { return d * Math.PI / 180; };
+var clamp = function (v, a, b) { return Math.min(b, Math.max(a, v)); };
+function stat(k, v, s) { return '<div class="stat"><span class="k">' + k + '</span><span class="v">' + v + '</span>' + (s ? '<span class="s">' + s + '</span>' : '') + '</div>'; }
+function vrow(label, cls, frac, num) {
+  return '<div class="vrow ' + cls + '"><span><i class="sw"></i>' + label + '</span><span class="vbar"><i style="width:' + Math.round(clamp(frac, 0, 1) * 100) + '%"></i></span><span class="n">' + num + '</span></div>';
+}
+function bindRange(id, outId, fmt, cb) {
+  var el = $('#' + id), out = $('#' + outId);
+  var upd = function () { if (out) out.textContent = fmt(+el.value); if (cb) cb(+el.value); };
+  el.addEventListener('input', upd);
+  return upd;
+}
+
+/* ---------- theme ---------- */
+function theme() {
+  var cs = getComputedStyle(document.documentElement);
+  function g(n, d) { var v = cs.getPropertyValue(n); return (v && v.trim()) || d; }
+  return {
+    bg: g('--surface', '#FFFFFF'), ink: g('--ink', '#13203A'), muted: g('--muted', '#566782'),
+    line: g('--line', '#D3DCE8'), grid: g('--grid', '#E3E9F1'), accent: g('--accent', '#2349C8'),
+    s2: g('--surface2', '#E9EFF6'), cls: [g('--c1', '#0B6BBF'), g('--c2', '#C97F00'), g('--c3', '#0A9B72')],
+    unk: g('--cu', '#C2468A'), good: g('--good', '#0A8F5B'), warn: g('--warn', '#A86B00'), bad: g('--bad', '#C23B3B')
+  };
+}
+function rgba(hex, a) {
+  var m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  var n = parseInt(m[1], 16);
+  return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+
+/* ---------- canvas kit ---------- */
+function Plot(canvas, world, draw) {
+  this.c = canvas; this.ctx = canvas.getContext('2d'); this.world = world; this.drawFn = draw;
+  var m = /--ar:\s*([\d.]+)\s*\/\s*([\d.]+)/.exec(canvas.getAttribute('style') || '');
+  this.ar = m ? (+m[1]) / (+m[2]) : 4 / 3;
+  this.w = 640; this.h = 480; this.dpr = 0; this.cw = 0;
+  var self = this;
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(function () { self.draw(); }).observe(canvas);
+  drawers.push(function () { self.draw(); });
+}
+Plot.prototype.fit = function () {
+  var w = this.c.clientWidth || 640, h = Math.round(w / this.ar);
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (this.cw !== w || this.dpr !== dpr) {
+    this.c.width = Math.round(w * dpr); this.c.height = Math.round(h * dpr);
+    this.cw = w; this.dpr = dpr;
+  }
+  this.w = w; this.h = h;
+  this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+};
+Plot.prototype.draw = function () {
+  this.fit();
+  this.ctx.clearRect(0, 0, this.w, this.h);
+  this.drawFn(this, this.ctx, theme());
+};
+Plot.prototype.X = function (x) { var W = this.world; return (x - W.x0) / (W.x1 - W.x0) * this.w; };
+Plot.prototype.Y = function (y) { var W = this.world; return this.h - (y - W.y0) / (W.y1 - W.y0) * this.h; };
+Plot.prototype.iX = function (px) { var W = this.world; return W.x0 + px / this.w * (W.x1 - W.x0); };
+Plot.prototype.iY = function (py) { var W = this.world; return W.y0 + (this.h - py) / this.h * (W.y1 - W.y0); };
+Object.defineProperty(Plot.prototype, 'sx', { get: function () { return this.w / (this.world.x1 - this.world.x0); } });
+Plot.prototype.pos = function (e) {
+  var r = this.c.getBoundingClientRect(), rw = r.width || this.w, rh = r.height || this.h;
+  var px = (e.clientX - r.left) * (this.w / rw), py = (e.clientY - r.top) * (this.h / rh);
+  return { x: this.iX(px), y: this.iY(py), px: px, py: py };
+};
+function pointer(plot, h) {
+  var cv = plot.c, active = false;
+  cv.addEventListener('pointerdown', function (e) {
+    active = h.down(plot.pos(e), e) !== false;
+    if (active) { try { cv.setPointerCapture(e.pointerId); } catch (err) { /* optional */ } e.preventDefault(); }
+  });
+  cv.addEventListener('pointermove', function (e) { if (active && h.move) h.move(plot.pos(e), e); });
+  var end = function () { active = false; if (h.up) h.up(); };
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+}
+function redrawAll() { drawers.forEach(function (d) { d(); }); }
+
+function marker(ctx, shape, x, y, r, fill, stroke, lw) {
+  ctx.beginPath();
+  if (shape === 0) ctx.arc(x, y, r, 0, 6.2832);
+  else if (shape === 1) ctx.rect(x - r, y - r, 2 * r, 2 * r);
+  else if (shape === 2) { ctx.moveTo(x, y - r * 1.2); ctx.lineTo(x + r * 1.15, y + r * 0.85); ctx.lineTo(x - r * 1.15, y + r * 0.85); ctx.closePath(); }
+  else { ctx.moveTo(x, y - r * 1.25); ctx.lineTo(x + r * 1.05, y); ctx.lineTo(x, y + r * 1.25); ctx.lineTo(x - r * 1.05, y); ctx.closePath(); }
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.lineWidth = lw || 1.5; ctx.strokeStyle = stroke; ctx.stroke(); }
+}
+function txt(ctx, s, x, y, color, size, align, mono, weight) {
+  ctx.fillStyle = color; ctx.font = (weight || 400) + ' ' + (size || 12) + 'px ' + (mono ? MONO : FONT);
+  ctx.textAlign = align || 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(s, x, y);
+}
+function line(ctx, x0, y0, x1, y1, color, w, dash) {
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = w || 1; if (dash) ctx.setLineDash(dash);
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.restore();
+}
+function arrow(ctx, x0, y0, x1, y1, color) {
+  var dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy);
+  if (L < 3) return;
+  var ux = dx / L, uy = dy / L;
+  ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1 - ux * 6, y1 - uy * 6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - ux * 9 - uy * 5, y1 - uy * 9 + ux * 5); ctx.lineTo(x1 - ux * 9 + uy * 5, y1 - uy * 9 - ux * 5); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function drawGrid(p, ctx, T, step) {
+  var W = p.world, x, y;
+  ctx.strokeStyle = T.grid; ctx.lineWidth = 1; ctx.beginPath();
+  for (x = Math.ceil(W.x0 / step) * step; x <= W.x1; x += step) { ctx.moveTo(p.X(x), 0); ctx.lineTo(p.X(x), p.h); }
+  for (y = Math.ceil(W.y0 / step) * step; y <= W.y1; y += step) { ctx.moveTo(0, p.Y(y)); ctx.lineTo(p.w, p.Y(y)); }
+  ctx.stroke();
+}
+/* generic chart box with margins, returns mapping helpers */
+function chartBox(p, ml, mr, mt, mb) {
+  var b = { l: ml, r: p.w - mr, t: mt, b: p.h - mb };
+  b.w = b.r - b.l; b.h = b.b - b.t; return b;
+}
+
+/* ===================== level switch, bar, nav ===================== */
+function initChrome() {
+  var bar = $('#bar'), btns = $$('#levels button'), secs = $$('section.topic');
+  function measure() { document.documentElement.style.setProperty('--hdr', (bar.offsetHeight || 56) + 'px'); }
+  function setLevel(lv, save) {
+    document.body.setAttribute('data-level', lv);
+    btns.forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-level') === lv ? 'true' : 'false'); });
+    if (save) { try { localStorage.setItem('mll-level', lv); } catch (e) { /* optional */ } }
+    measure(); onScroll();
+  }
+  var links = $$('.rail a, .chips a'), ticking = false;
+  function onScroll() {
+    if (ticking) return; ticking = true;
+    requestAnimationFrame(function () {
+      ticking = false;
+      var hdr = bar.offsetHeight || 56, y = hdr + 60, cur = secs[0];
+      secs.forEach(function (s) { if (s.getBoundingClientRect().top <= y) cur = s; });
+      links.forEach(function (a) {
+        var on = a.getAttribute('href') === '#' + cur.id;
+        if (on) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
+      });
+      var chip = $('.chips a[aria-current="true"]'), nav = $('.chips');
+      if (chip && nav && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = chip.offsetLeft - nav.clientWidth / 2 + chip.offsetWidth / 2;
+    });
+  }
+  $$('a[href^="#"]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      var t = document.getElementById(a.getAttribute('href').slice(1));
+      if (t) { e.preventDefault(); t.scrollIntoView({ block: 'start' }); }
+    });
+  });
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', function () { measure(); onScroll(); });
+  btns.forEach(function (b) { b.addEventListener('click', function () { setLevel(b.getAttribute('data-level'), true); }); });
+  var saved = null; try { saved = localStorage.getItem('mll-level'); } catch (e) { /* optional */ }
+  setLevel(['kid', 'hs', 'ug', 'all'].indexOf(saved) >= 0 ? saved : 'ug', false);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { measure(); redrawAll(); });
+}
+
+/* ===================== 1. KNN ===================== */
+function labKNN() {
+  var W = { x0: 0, x1: 12, y0: 0, y1: 9 };
+  var spec = [{ c: [3.2, 6.2], sd: 1.25, n: 25, cls: 0 }, { c: [8.4, 6.6], sd: 1.25, n: 25, cls: 1 }, { c: [6.0, 2.4], sd: 1.25, n: 25, cls: 2 }];
+  var S = { X: [], y: [], q: [6.0, 4.5], k: 5, metric: 'l2', weighted: false, regions: true, mode: 'move', cache: null };
+  var cp = function (p) { return [clamp(p[0], 0.2, 11.8), clamp(p[1], 0.2, 8.8)]; };
+  function reset() { var d = blobs(mulberry32(11), spec); S.X = d.X.map(cp); S.y = d.y; S.cache = null; }
+  reset();
+
+  function regions(p) {
+    var cell = 8, cols = Math.ceil(p.w / cell), rows = Math.ceil(p.h / cell);
+    var key = [S.k, S.metric, S.weighted, S.X.length, cols, rows].join('|');
+    if (S.cache && S.cache.key === key) return S.cache;
+    var preds = new Uint8Array(cols * rows);
+    for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++)
+      preds[r * cols + c] = knnVote(S.X, S.y, [p.iX((c + 0.5) * cell), p.iY((r + 0.5) * cell)], S.k, S.metric, S.weighted, 3).pred;
+    S.cache = { key: key, cols: cols, rows: rows, cell: cell, preds: preds };
+    return S.cache;
+  }
+  var plot = new Plot($('#knn-cv'), W, function (p, ctx, T) {
+    if (S.regions) {
+      var rc = regions(p);
+      for (var r = 0; r < rc.rows; r++) for (var c = 0; c < rc.cols; c++) {
+        ctx.fillStyle = rgba(T.cls[rc.preds[r * rc.cols + c]], 0.17);
+        ctx.fillRect(c * rc.cell, r * rc.cell, rc.cell + 0.6, rc.cell + 0.6);
+      }
+    }
+    ctx.save(); ctx.globalAlpha = S.regions ? 0.45 : 1; drawGrid(p, ctx, T, 1); ctx.restore();
+    var res = knnVote(S.X, S.y, S.q, S.k, S.metric, S.weighted, 3);
+    var qx = p.X(S.q[0]), qy = p.Y(S.q[1]), rr = res.nb[res.nb.length - 1].d * p.sx;
+    ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = T.ink; ctx.globalAlpha = 0.55; ctx.lineWidth = 1.2; ctx.beginPath();
+    if (S.metric === 'l2') ctx.arc(qx, qy, rr, 0, 6.2832);
+    else if (S.metric === 'l1') { ctx.moveTo(qx, qy - rr); ctx.lineTo(qx + rr, qy); ctx.lineTo(qx, qy + rr); ctx.lineTo(qx - rr, qy); ctx.closePath(); }
+    else ctx.rect(qx - rr, qy - rr, 2 * rr, 2 * rr);
+    ctx.stroke(); ctx.restore();
+    var isNb = {};
+    res.nb.forEach(function (n) {
+      isNb[n.i] = true;
+      line(ctx, qx, qy, p.X(S.X[n.i][0]), p.Y(S.X[n.i][1]), rgba(T.cls[S.y[n.i]], 0.85), 1.5);
+    });
+    S.X.forEach(function (pt, i) {
+      var c = S.y[i];
+      marker(ctx, c, p.X(pt[0]), p.Y(pt[1]), isNb[i] ? 5.8 : 4.3, T.cls[c], isNb[i] ? T.ink : T.bg, isNb[i] ? 2 : 1);
+    });
+    marker(ctx, 3, qx, qy, 8, T.ink, T.bg, 2);
+    out(res);
+  });
+  function out(res) {
+    var tot = 0; res.votes.forEach(function (v) { tot += v; });
+    var h = '<div class="readouts">' +
+      stat('Prediction', '<span class="sw c' + res.pred + '"></span>Class ' + NAMES[res.pred]) +
+      stat('Neighbors voting', res.nb.length + ' of ' + S.X.length) +
+      stat('Reach of farthest voter', f2(res.nb[res.nb.length - 1].d), 'distance in plot units') + '</div><div style="margin-top:12px">';
+    for (var c = 0; c < 3; c++) h += vrow('Class ' + NAMES[c], 'c' + c, tot ? res.votes[c] / tot : 0, S.weighted ? pct(tot ? res.votes[c] / tot : 0) : String(res.votes[c]));
+    $('#knn-out').innerHTML = h + '</div>';
+  }
+  bindRange('knn-k', 'knn-k-o', String, function (v) { S.k = v; plot.draw(); });
+  $('#knn-metric').addEventListener('change', function (e) { S.metric = e.target.value; plot.draw(); });
+  $('#knn-w').addEventListener('change', function (e) { S.weighted = e.target.checked; plot.draw(); });
+  $('#knn-reg').addEventListener('change', function (e) { S.regions = e.target.checked; plot.draw(); });
+  $$('#knn-modes [data-mode]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      S.mode = b.getAttribute('data-mode');
+      $$('#knn-modes [data-mode]').forEach(function (o) { o.setAttribute('aria-pressed', o === b ? 'true' : 'false'); });
+    });
+  });
+  $('#knn-reset').addEventListener('click', function () { reset(); plot.draw(); });
+  pointer(plot, {
+    down: function (pt) {
+      var q = [clamp(pt.x, 0.1, 11.9), clamp(pt.y, 0.1, 8.9)];
+      if (S.mode === 'move') { S.q = q; plot.draw(); return true; }
+      S.X.push(q); S.y.push(+S.mode.slice(3)); S.cache = null; plot.draw(); return false;
+    },
+    move: function (pt) { S.q = [clamp(pt.x, 0.1, 11.9), clamp(pt.y, 0.1, 8.9)]; plot.draw(); }
+  });
+  plot.draw();
+}
+
+/* ===================== 2. Curse of dimensionality ===================== */
+function labCurse() {
+  var DIMS = [1, 2, 3, 5, 10, 20, 50, 100, 200, 500, 1000], N = 200;
+  var S = { i: 3, seed: 12, ds: null, sum: null, curve: contrastCurve(DIMS, N, 5, 4) };
+  function sample() { S.ds = sampleDistances(DIMS[S.i], N, mulberry32(S.seed + S.i * 101)); S.sum = distSummary(S.ds); }
+  sample();
+  var hist = new Plot($('#cd-hist'), null, function (p, ctx, T) {
+    var b = chartBox(p, 38, 12, 22, 34), bins = 44, xmax = 2.4, cnt = [], i;
+    for (i = 0; i < bins; i++) cnt.push(0);
+    for (i = 0; i < S.ds.length; i++) { var r = S.ds[i] / S.sum.mean, k = Math.min(bins - 1, Math.floor(r / xmax * bins)); cnt[k]++; }
+    var mx = Math.max.apply(null, cnt), bw = b.w / bins;
+    for (i = 0; i < 5; i++) {
+      var gx = b.l + b.w * (i * 0.5) / xmax;
+      line(ctx, gx, b.t, gx, b.b, T.grid, 1);
+      txt(ctx, (i * 0.5).toFixed(1) + '×', gx, b.b + 15, T.muted, 11, 'center');
+    }
+    for (i = 0; i < bins; i++) {
+      var h = cnt[i] / mx * b.h;
+      ctx.fillStyle = rgba(T.accent, 0.8); ctx.fillRect(b.l + i * bw + 0.5, b.b - h, bw - 1, h);
+    }
+    line(ctx, b.l, b.b, b.r, b.b, T.muted, 1.2);
+    var lo = S.sum.min / S.sum.mean, hi = S.sum.max / S.sum.mean;
+    var xl = b.l + lo / xmax * b.w, xh = b.l + hi / xmax * b.w;
+    line(ctx, xl, b.t + 12, xl, b.b, T.good, 1.6, [4, 3]); line(ctx, xh, b.t + 12, xh, b.b, T.bad, 1.6, [4, 3]);
+    var close = xh - xl < 90;
+    txt(ctx, 'nearest', xl, b.t + 8, T.good, 11, close ? 'right' : 'center', false, 600);
+    txt(ctx, 'farthest', xh, b.t + 8, T.bad, 11, close ? 'left' : 'center', false, 600);
+    txt(ctx, 'count', 4, b.t + 8, T.muted, 11);
+  });
+  var curve = new Plot($('#cd-curve'), null, function (p, ctx, T) {
+    var b = chartBox(p, 44, 14, 20, 38), y0 = -1.3, y1 = 3.1;
+    var X = function (d) { return b.l + Math.log10(d) / 3 * b.w; }, Y = function (v) { return b.b - (Math.log10(v) - y0) / (y1 - y0) * b.h; };
+    [0.1, 1, 10, 100, 1000].forEach(function (v) { line(ctx, b.l, Y(v), b.r, Y(v), T.grid, 1); txt(ctx, v >= 1 ? String(v) : '0.1', b.l - 6, Y(v) + 4, T.muted, 11, 'right'); });
+    [1, 10, 100, 1000].forEach(function (d) { line(ctx, X(d), b.t, X(d), b.b, T.grid, 1); txt(ctx, String(d), X(d), b.b + 15, T.muted, 11, 'center'); });
+    txt(ctx, 'dimensions d', b.l + b.w / 2, p.h - 4, T.muted, 11, 'center');
+    ctx.strokeStyle = T.accent; ctx.lineWidth = 2; ctx.beginPath();
+    DIMS.forEach(function (d, i) { if (i) ctx.lineTo(X(d), Y(S.curve[i])); else ctx.moveTo(X(d), Y(S.curve[i])); });
+    ctx.stroke();
+    DIMS.forEach(function (d, i) { marker(ctx, 0, X(d), Y(S.curve[i]), i === S.i ? 6 : 2.6, i === S.i ? T.accent : T.bg, T.accent, 1.5); });
+    var cur = clamp(S.sum.contrast, 0.07, 900);
+    marker(ctx, 3, X(DIMS[S.i]), Y(cur), 5.5, null, T.ink, 1.8);
+    txt(ctx, 'your sample ◇', b.r, b.t + 10, T.ink, 11, 'right');
+  });
+  function out() {
+    var d = DIMS[S.i], edge = edgeForFraction(0.1, d);
+    $('#cd-out').innerHTML = '<div class="readouts">' +
+      stat('Dimensions', String(d)) +
+      stat('Nearest ÷ average', f2(S.sum.min / S.sum.mean) + '×') +
+      stat('Farthest ÷ average', f2(S.sum.max / S.sum.mean) + '×') +
+      stat('Farthest ÷ nearest', S.sum.ratio >= 100 ? fmtInt(S.sum.ratio) + '×' : f2(S.sum.ratio) + '×', 'approaches 1× as d grows') +
+      '<div class="stat" style="grid-column: 1 / -1"><span class="k">Box side needed to catch 10% of the data</span><span class="v">' + (edge * 100).toFixed(1) + '% of each axis&rsquo;s range</span>' +
+      '<span class="vbar" style="display:block;margin-top:6px"><i style="width:' + (edge * 100).toFixed(1) + '%"></i></span></div></div>';
+  }
+  var upd = bindRange('cd-d', 'cd-d-o', function (v) { return String(DIMS[v]); }, function (v) { S.i = v; sample(); hist.draw(); curve.draw(); out(); });
+  $('#cd-resample').addEventListener('click', function () { S.seed = Math.floor(Math.random() * 1e6); sample(); hist.draw(); curve.draw(); out(); });
+  upd(); out();
+}
+
+/* ===================== 3A. Condensing ===================== */
+function labCondense() {
+  var W = { x0: 0, x1: 12, y0: 0, y1: 9 };
+  var spec = [{ c: [3, 6.2], sd: 1.6, n: 40, cls: 0 }, { c: [8.3, 6.4], sd: 1.6, n: 40, cls: 1 }, { c: [5.6, 2.2], sd: 1.6, n: 40, cls: 2 }];
+  var cp = function (p) { return [clamp(p[0], 0.2, 11.8), clamp(p[1], 0.2, 8.8)]; };
+  var tr = blobs(mulberry32(5), spec), te = blobs(mulberry32(6), spec);
+  tr.X = tr.X.map(cp); te.X = te.X.map(cp);
+  var N = tr.X.length;
+  var S = { mode: 'all', wilson: false, m: 40, seed: 1, cache: null };
+  var wil = null, hartAll = null, hartW = null;
+  function base() {
+    if (!S.wilson) return range(N);
+    if (!wil) wil = wilsonEdit(tr.X, tr.y, 3);
+    return wil;
+  }
+  function stored() {
+    var b = base();
+    if (S.mode === 'all') return b;
+    if (S.mode === 'hart') {
+      if (!S.wilson) { if (!hartAll) hartAll = hartCondense(tr.X, tr.y, mulberry32(2)); return hartAll; }
+      if (!hartW) {
+        var Xs = b.map(function (i) { return tr.X[i]; }), ys = b.map(function (i) { return tr.y[i]; });
+        hartW = hartCondense(Xs, ys, mulberry32(2)).map(function (j) { return b[j]; });
+      }
+      return hartW;
+    }
+    var o = b.slice(); shuffle(o, mulberry32(S.seed * 31 + 7));
+    return o.slice(0, Math.min(S.m, o.length));
+  }
+  var plot = new Plot($('#sp-cv'), W, function (p, ctx, T) {
+    var st = stored(), inS = {}; st.forEach(function (i) { inS[i] = true; });
+    var cell = 8, cols = Math.ceil(p.w / cell), rows = Math.ceil(p.h / cell);
+    var key = st.join(',') + '|' + cols + 'x' + rows;
+    if (!S.cache || S.cache.key !== key) {
+      var preds = new Uint8Array(cols * rows);
+      for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) preds[r * cols + c] = tr.y[nearestOf(tr.X, st, [p.iX((c + 0.5) * cell), p.iY((r + 0.5) * cell)])];
+      S.cache = { key: key, preds: preds };
+    }
+    for (var r2 = 0; r2 < rows; r2++) for (var c2 = 0; c2 < cols; c2++) {
+      ctx.fillStyle = rgba(T.cls[S.cache.preds[r2 * cols + c2]], 0.16);
+      ctx.fillRect(c2 * cell, r2 * cell, cell + 0.6, cell + 0.6);
+    }
+    ctx.save(); ctx.globalAlpha = 0.45; drawGrid(p, ctx, T, 1); ctx.restore();
+    tr.X.forEach(function (pt, i) {
+      var c = tr.y[i], x = p.X(pt[0]), y = p.Y(pt[1]);
+      if (inS[i]) marker(ctx, c, x, y, 5.6, T.cls[c], T.ink, 1.6);
+      else { ctx.save(); ctx.globalAlpha = 0.5; marker(ctx, c, x, y, 3.8, null, T.cls[c], 1.3); ctx.restore(); }
+    });
+    var acc = nnAccuracy(tr.X, tr.y, st, te.X, te.y);
+    $('#sp-out').innerHTML =
+      stat('Points stored', st.length + ' of ' + N, pct(st.length / N) + ' of the memory') +
+      stat('Work per query', st.length + ' distances', 'brute force: ' + N) +
+      stat('Test accuracy (1‑NN)', pct(acc), '120 held‑out points');
+  });
+  $('#sp-mode').addEventListener('change', function (e) { S.mode = e.target.value; $('#sp-m-wrap').hidden = S.mode !== 'random'; $('#sp-shuffle').hidden = S.mode !== 'random'; plot.draw(); });
+  $('#sp-wilson').addEventListener('change', function (e) { S.wilson = e.target.checked; plot.draw(); });
+  bindRange('sp-m', 'sp-m-o', String, function (v) { S.m = v; plot.draw(); });
+  $('#sp-shuffle').addEventListener('click', function () { S.seed++; plot.draw(); });
+  $('#sp-m-wrap').hidden = true; $('#sp-shuffle').hidden = true;
+  plot.draw();
+}
+
+/* ===================== 3B. Memory calculator ===================== */
+function labMemory() {
+  function render() {
+    var N = +$('#mem-n').value, D = +$('#mem-d').value, m = +$('#mem-m').value, np = +$('#mem-p').value;
+    var rows = memoryTable(N, D, m), mx = rows[0].total, h = '';
+    rows.forEach(function (r) {
+      var per = r.per >= 100 ? fmtInt(r.per) : (Math.round(r.per * 10) / 10);
+      h += '<tr><td>' + r.name + '</td><td class="num2">' + per + ' B</td><td class="num2">' + fmtBytes(r.total) + '</td>' +
+        '<td><div class="mtrack"><div class="mbar" style="width:' + Math.max(1, r.total / mx * 100).toFixed(1) + '%"></div></div></td></tr>';
+    });
+    $('#mem-body').innerHTML = h;
+    var iv = ivfCost(N, np);
+    $('#mem-out').innerHTML =
+      stat('Brute force', fmtInt(N) + ' distances', 'every vector, every query') +
+      stat('IVF index', fmtInt(iv.cost) + ' distances', fmtInt(iv.nlist) + ' lists, ' + np + ' probed') +
+      stat('Share of database scanned', (iv.cost / N * 100).toFixed(iv.cost / N < 0.01 ? 3 : 2) + '%') +
+      stat('Estimated speed‑up', '≈ ' + fmtInt(N / iv.cost) + '×', 'raise probes for better recall');
+  }
+  ['mem-n', 'mem-d'].forEach(function (id) { $('#' + id).addEventListener('change', render); });
+  bindRange('mem-m', 'mem-m-o', String, render);
+  bindRange('mem-p', 'mem-p-o', String, render);
+  render();
+}
+
+/* ===================== 4. Open set ===================== */
+function labOpen() {
+  var W = { x0: -7, x1: 7, y0: -5.25, y1: 5.25 };
+  var known = [{ c: [-3.5, 1.8], sd: 0.8, n: 18, cls: 0 }, { c: [2.5, 2.4], sd: 0.8, n: 18, cls: 1 }, { c: [-0.2, -2.7], sd: 0.8, n: 18, cls: 2 }];
+  var cp = function (p) { return [clamp(p[0], -6.8, 6.8), clamp(p[1], -5.0, 5.0)]; };
+  var tr = blobs(mulberry32(31), known), kt = blobs(mulberry32(32), known.map(function (s) { return { c: s.c, sd: s.sd, n: 30, cls: s.cls }; }));
+  var un = blobs(mulberry32(33), [{ c: [5.2, -2.2], sd: 0.7, n: 20, cls: 3 }, { c: [-0.6, 0.1], sd: 0.6, n: 15, cls: 3 }]);
+  tr.X = tr.X.map(cp); kt.X = kt.X.map(cp); un.X = un.X.map(cp);
+  var dK = kt.X.map(function (q) { return dminTo(q, tr.X).d; }), dU = un.X.map(function (q) { return dminTo(q, tr.X).d; });
+  var S = { tau: 1, halo: true, q: [-0.9, 0.2] };
+  var plot = new Plot($('#os-cv'), W, function (p, ctx, T) {
+    drawGrid(p, ctx, T, 1);
+    if (S.halo) {
+      var r = S.tau * p.sx;
+      ctx.beginPath();
+      tr.X.forEach(function (pt) { var x = p.X(pt[0]), y = p.Y(pt[1]); ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, 6.2832); });
+      ctx.fillStyle = rgba(T.accent, 0.13); ctx.fill();
+    }
+    un.X.forEach(function (pt) {
+      var d = dminTo(pt, tr.X).d;
+      marker(ctx, 3, p.X(pt[0]), p.Y(pt[1]), 3.6, d > S.tau ? rgba(T.unk, 0.25) : null, T.unk, 1.5);
+    });
+    kt.X.forEach(function (pt, i) { marker(ctx, kt.y[i], p.X(pt[0]), p.Y(pt[1]), 3.4, null, T.cls[kt.y[i]], 1.5); });
+    tr.X.forEach(function (pt, i) { marker(ctx, tr.y[i], p.X(pt[0]), p.Y(pt[1]), 4.6, T.cls[tr.y[i]], T.bg, 1); });
+    var m = dminTo(S.q, tr.X), nx = tr.X[m.i], accept = m.d <= S.tau;
+    line(ctx, p.X(S.q[0]), p.Y(S.q[1]), p.X(nx[0]), p.Y(nx[1]), accept ? T.good : T.unk, 1.8, [5, 4]);
+    marker(ctx, 3, p.X(S.q[0]), p.Y(S.q[1]), 8, T.ink, T.bg, 2);
+    var rt = openRates(dK, dU, S.tau);
+    $('#os-out').innerHTML =
+      stat('Known test points accepted', pct(rt.tpr)) + stat('Unknown points rejected', pct(rt.tnr)) + stat('Overall correct', pct(rt.acc)) +
+      stat('Your query (black ◇)', '<span class="verdict ' + (accept ? 'good' : 'unk') + '">' + (accept ? 'Known: class ' + NAMES[tr.y[m.i]] : 'Unknown') + '</span>',
+        'nearest example is ' + f2(m.d) + ' away; a closed‑set model would say class ' + NAMES[tr.y[m.i]]);
+  });
+  var curve = new Plot($('#os-curve'), null, function (p, ctx, T) {
+    var b = chartBox(p, 38, 12, 18, 36), xmax = 4, i, steps = 80;
+    var X = function (t) { return b.l + t / xmax * b.w; }, Y = function (v) { return b.b - v * b.h; };
+    [0, 0.5, 1].forEach(function (v) { line(ctx, b.l, Y(v), b.r, Y(v), T.grid, 1); txt(ctx, Math.round(v * 100) + '%', b.l - 6, Y(v) + 4, T.muted, 11, 'right'); });
+    [0, 1, 2, 3, 4].forEach(function (t) { txt(ctx, String(t), X(t), b.b + 15, T.muted, 11, 'center'); });
+    txt(ctx, 'threshold τ', b.l + b.w / 2, p.h - 4, T.muted, 11, 'center');
+    [['tpr', T.good], ['tnr', T.unk]].forEach(function (s) {
+      ctx.strokeStyle = s[1]; ctx.lineWidth = 2.2; ctx.beginPath();
+      for (i = 0; i <= steps; i++) { var t = i / steps * xmax, v = openRates(dK, dU, t)[s[0]]; if (i) ctx.lineTo(X(t), Y(v)); else ctx.moveTo(X(t), Y(v)); }
+      ctx.stroke();
+      var cur = openRates(dK, dU, S.tau)[s[0]]; marker(ctx, 0, X(S.tau), Y(cur), 4.5, s[1], T.bg, 1.5);
+    });
+    line(ctx, X(S.tau), b.t, X(S.tau), b.b, T.ink, 1.2, [4, 3]);
+  });
+  bindRange('os-t-r', 'os-t-o', f2, function (v) { S.tau = v; plot.draw(); curve.draw(); });
+  $('#os-halo').addEventListener('change', function (e) { S.halo = e.target.checked; plot.draw(); });
+  var mv = function (pt) { S.q = [clamp(pt.x, -6.8, 6.8), clamp(pt.y, -5, 5)]; plot.draw(); };
+  pointer(plot, { down: function (pt) { mv(pt); return true; }, move: mv });
+  plot.draw(); curve.draw();
+}
+
+/* ===================== 5. Deep metric learning ===================== */
+function labDML() {
+  var S = { name: 'rings', type: 'triplet', margin: 1, seed: 1, running: false, stop: 0, hist: [], view: null, E: null, visible: false, started: false, active: null, loss: null, frames: 0 };
+  var ds, tr, raw, raf = 0;
+  var go = $('#dml-go');
+  function build() {
+    ds = makeDataset(S.name, 7); tr = new Trainer(ds, S.seed);
+    S.hist = []; S.view = null; S.loss = null; S.active = null; S.running = false; go.textContent = 'Train';
+    raw = { acc: knnAccuracy(ds.X, ds.y, ds.Xte, ds.yte, 5), sep: sepRatio(ds.X, ds.y) };
+    evalM(); redraw();
+  }
+  function evalM() {
+    var E = tr.embedAll();
+    S.E = E; S.acc = knnAccuracy(E.tr, ds.y, E.te, ds.yte, 5); S.sep = sepRatio(E.tr, ds.y);
+    var signal = S.type === 'npairs' ? stat('Training signal', 'softmax over negatives', 'all negatives contribute') :
+      stat(S.type === 'triplet' ? 'Triplets still violating margin' : 'Pairs still contributing', S.active === null ? '–' : pct(S.active), 'falls toward 0 as classes separate');
+    $('#dml-out').innerHTML =
+      stat('Training steps', fmtInt(tr.steps)) +
+      stat('Loss', S.loss === null ? '–' : S.loss.toFixed(3)) + signal +
+      stat('Test 5‑NN accuracy', pct(raw.acc) + ' → ' + pct(S.acc), 'input space → embedding') +
+      stat('Spread ratio (lower is better)', f2(raw.sep) + ' → ' + f2(S.sep), 'same‑class ÷ different‑class distance');
+  }
+  var pin = new Plot($('#dml-in'), { x0: -2, x1: 2, y0: -2, y1: 2 }, function (p, ctx, T) { scatter(p, ctx, T, ds.X, ds.y, ds.Xte, ds.yte); });
+  var pem = new Plot($('#dml-emb'), { x0: -2, x1: 2, y0: -2, y1: 2 }, function (p, ctx, T) {
+    var E = S.E, mnx = Infinity, mxx = -Infinity, mny = Infinity, mxy = -Infinity;
+    E.tr.concat(E.te).forEach(function (e) { mnx = Math.min(mnx, e[0]); mxx = Math.max(mxx, e[0]); mny = Math.min(mny, e[1]); mxy = Math.max(mxy, e[1]); });
+    var tgt = { cx: (mnx + mxx) / 2, cy: (mny + mxy) / 2, half: Math.max(mxx - mnx, mxy - mny) / 2 * 1.15 + 1e-3 };
+    if (!S.view || !S.running) S.view = tgt;
+    else for (var k in tgt) S.view[k] += (tgt[k] - S.view[k]) * 0.2;
+    p.world = { x0: S.view.cx - S.view.half, x1: S.view.cx + S.view.half, y0: S.view.cy - S.view.half, y1: S.view.cy + S.view.half };
+    scatter(p, ctx, T, E.tr, ds.y, E.te, ds.yte);
+    txt(ctx, 'axes span ±' + S.view.half.toFixed(1), 8, p.h - 8, T.muted, 11, 'left', true);
+  });
+  function scatter(p, ctx, T, A, ya, B, yb) {
+    drawGrid(p, ctx, T, p.world.x1 - p.world.x0 > 8 ? 2 : 1);
+    B.forEach(function (pt, i) { marker(ctx, yb[i], p.X(pt[0]), p.Y(pt[1]), 3.4, null, T.cls[yb[i]], 1.4); });
+    A.forEach(function (pt, i) { marker(ctx, ya[i], p.X(pt[0]), p.Y(pt[1]), 3.6, T.cls[ya[i]], T.bg, 0.8); });
+  }
+  var lossPlot = new Plot($('#dml-loss-cv'), null, function (p, ctx, T) {
+    var b = chartBox(p, 44, 10, 10, 20), h = S.hist;
+    txt(ctx, 'training loss', b.l, p.h - 5, T.muted, 11);
+    line(ctx, b.l, b.b, b.r, b.b, T.line, 1);
+    if (h.length < 2) { txt(ctx, 'press Train to see the loss fall', b.l + b.w / 2, b.t + b.h / 2 + 4, T.muted, 12, 'center'); return; }
+    var mx = Math.max.apply(null, h) || 1;
+    txt(ctx, mx.toFixed(2), b.l - 6, b.t + 8, T.muted, 11, 'right', true); txt(ctx, '0', b.l - 6, b.b, T.muted, 11, 'right', true);
+    ctx.strokeStyle = T.accent; ctx.lineWidth = 2; ctx.beginPath();
+    h.forEach(function (v, i) { var x = b.l + i / Math.max(h.length - 1, 1) * b.w, y = b.b - v / mx * (b.h - 4); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
+    ctx.stroke();
+  });
+  function redraw() { pin.draw(); pem.draw(); lossPlot.draw(); }
+
+  function frame() {
+    raf = 0;
+    if (!S.running || !S.visible) return;
+    var acc = 0, i, r;
+    for (i = 0; i < 12; i++) { r = tr.stepBatch(S.type, S.margin); acc += r.loss; S.active = r.active; }
+    S.loss = acc / 12; S.hist.push(S.loss); if (S.hist.length > 500) S.hist.shift();
+    S.frames++;
+    if (S.frames % 4 === 0) evalM();
+    pem.draw(); if (S.frames % 3 === 0) lossPlot.draw();
+    if (tr.steps >= S.stop) { setRunning(false); return; }
+    raf = requestAnimationFrame(frame);
+  }
+  function setRunning(on) {
+    S.running = on; go.textContent = on ? 'Pause' : 'Train';
+    if (on) { if (!raf) raf = requestAnimationFrame(frame); } else { evalM(); redraw(); }
+  }
+  go.addEventListener('click', function () { if (S.running) setRunning(false); else { S.stop = tr.steps + 3000; setRunning(true); } });
+  $('#dml-step').addEventListener('click', function () {
+    var was = S.running; S.running = false;
+    var acc = 0, r; for (var i = 0; i < 100; i++) { r = tr.stepBatch(S.type, S.margin); acc += r.loss; S.active = r.active; }
+    S.loss = acc / 100; S.hist.push(S.loss); evalM(); redraw(); if (was) setRunning(true);
+  });
+  $('#dml-reset').addEventListener('click', function () { S.seed++; build(); });
+  $('#dml-data').addEventListener('change', function (e) { S.name = e.target.value; S.seed = 1; build(); });
+  $('#dml-loss').addEventListener('change', function (e) { S.type = e.target.value; $('#dml-m-wrap').hidden = S.type === 'npairs'; build(); });
+  bindRange('dml-m', 'dml-m-o', f1, function (v) { S.margin = v; });
+  build();
+  var sec = $('#dml-emb');
+  if (typeof IntersectionObserver !== 'undefined') {
+    new IntersectionObserver(function (es) {
+      S.visible = es[0].isIntersecting;
+      if (S.visible && !S.started) { S.started = true; S.stop = 1500; setRunning(true); }
+      else if (S.visible && S.running && !raf) raf = requestAnimationFrame(frame);
+    }, { threshold: 0.4 }).observe(sec);
+  } else { S.visible = true; }
+}
+
+/* ===================== 6A. Softmax / cross-entropy ===================== */
+function labSoftmax() {
+  var Z = [2.0, 1.0, -0.5], y = 0, box = $('#cl-sliders');
+  Z.forEach(function (v, i) {
+    var lab = document.createElement('label'); lab.className = 'ctl';
+    lab.innerHTML = '<span>Score ' + NAMES[i] + '</span><input id="cl-z' + i + '" type="range" min="-6" max="6" step="0.1" value="' + v + '"><output id="cl-z' + i + '-o" for="cl-z' + i + '">' + v.toFixed(1) + '</output>';
+    box.appendChild(lab);
+  });
+  function render() {
+    var p = softmax(Z), L = -Math.log(Math.max(p[y], 1e-12)), h = '';
+    for (var c = 0; c < 3; c++) h += vrow('Class ' + NAMES[c] + (c === y ? ' (true)' : ''), 'c' + c, p[c], pct(p[c]));
+    h += '<div class="readouts" style="margin-top:12px">' +
+      stat('Loss = −ln p(true)', L.toFixed(3), 'p(true) = ' + p[y].toFixed(3)) +
+      p.map(function (v, c) { var g = v - (c === y ? 1 : 0); return stat('Gradient, score ' + NAMES[c], (g >= 0 ? '+' : '−') + Math.abs(g).toFixed(3), c === y ? 'pushes this score up' : 'pushes this score down'); }).join('') + '</div>';
+    $('#cl-out').innerHTML = h;
+  }
+  Z.forEach(function (v, i) {
+    var el = $('#cl-z' + i), o = $('#cl-z' + i + '-o');
+    el.addEventListener('input', function () { Z[i] = +el.value; o.textContent = (+el.value).toFixed(1); render(); });
+  });
+  $$('input[name="cl-true"]').forEach(function (r) { r.addEventListener('change', function () { y = +r.value; render(); }); });
+  render();
+}
+
+/* ===================== 6B. Angular margin ===================== */
+function labMargin() {
+  var W = { x0: -1.6, x1: 1.6, y0: -1.6, y1: 1.6 };
+  var AX = [90, 210, 330].map(rad);
+  var S = { phi: 105, s: 20, m: 25, y: 0 };
+  function wrap(a) { return ((a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; }
+  var plot = new Plot($('#am-cv'), W, function (p, ctx, T) {
+    drawGrid(p, ctx, T, 0.5);
+    var cx = p.X(0), cy = p.Y(0), R = p.sx * 1;
+    ctx.strokeStyle = T.line; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.2832); ctx.stroke();
+    var phi = rad(S.phi), m = rad(S.m), a = AX[S.y];
+    AX.forEach(function (ang, i) {
+      var x = cx + Math.cos(ang) * R, y = cy - Math.sin(ang) * R;
+      arrow(ctx, cx, cy, x, y, rgba(T.cls[i], i === S.y ? 1 : 0.55));
+      txt(ctx, NAMES[i] + (i === S.y ? ' (true)' : ''), cx + Math.cos(ang) * (R + 22), cy - Math.sin(ang) * (R + 18) + 4, T.cls[i], 13, 'center', false, 600);
+    });
+    var d = wrap(phi - a), sg = d >= 0 ? 1 : -1;
+    ctx.strokeStyle = T.accent; ctx.lineWidth = 3; ctx.beginPath();
+    ctx.arc(cx, cy, R * 0.42, -a, -(a + d), d > 0); ctx.stroke();
+    var mid = a + d / 2;
+    txt(ctx, 'θ = ' + Math.abs(deg(d)).toFixed(0) + '°', cx + Math.cos(mid) * R * 0.62, cy - Math.sin(mid) * R * 0.62 + 4, T.accent, 12, 'center', true, 600);
+    if (S.m > 0) {
+      var ph2 = phi + sg * m;
+      ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = T.bad; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.arc(cx, cy, R * 0.9, -phi, -ph2, sg > 0); ctx.stroke(); ctx.restore();
+      marker(ctx, 0, cx + Math.cos(ph2) * R, cy - Math.sin(ph2) * R, 6, null, T.bad, 2);
+      txt(ctx, 'treated as', cx + Math.cos(ph2) * (R + 34), cy - Math.sin(ph2) * (R + 22) + 4, T.bad, 11, 'center');
+    }
+    line(ctx, cx, cy, cx + Math.cos(phi) * R, cy - Math.sin(phi) * R, T.ink, 1.4);
+    marker(ctx, 0, cx + Math.cos(phi) * R, cy - Math.sin(phi) * R, 7, T.ink, T.bg, 2);
+    out();
+  });
+  function out() {
+    var r = marginLogits(rad(S.phi), AX, S.y, S.s, rad(S.m));
+    var p0 = softmax(r.plain), p1 = softmax(r.withM);
+    var L0 = -Math.log(Math.max(p0[S.y], 1e-12)), L1 = -Math.log(Math.max(p1[S.y], 1e-12));
+    var h = '';
+    for (var c = 0; c < 3; c++) h += vrow('Class ' + NAMES[c] + ' · ' + deg(r.thetas[c]).toFixed(0) + '°', 'c' + c, p1[c], pct(p1[c]));
+    h += '<div class="readouts" style="margin-top:12px">' +
+      stat('Plain loss (m = 0)', L0.toFixed(3), 'p(true) = ' + p0[S.y].toFixed(3)) +
+      stat('Margin loss', L1.toFixed(3), 'p(true) = ' + p1[S.y].toFixed(3)) + '</div>' +
+      '<p class="note">Bars show the margin version’s probabilities. Logits are s·cos θ; the true class uses s·cos(θ + m).</p>';
+    $('#am-out').innerHTML = h;
+  }
+  var setPhi = function (v) { S.phi = ((v % 360) + 360) % 360; var el = $('#am-phi'); el.value = Math.round(S.phi); $('#am-phi-o').textContent = Math.round(S.phi) + '°'; plot.draw(); };
+  bindRange('am-phi', 'am-phi-o', function (v) { return v + '°'; }, function (v) { S.phi = v; plot.draw(); });
+  bindRange('am-s', 'am-s-o', String, function (v) { S.s = v; plot.draw(); });
+  bindRange('am-m', 'am-m-o', function (v) { return v + '°'; }, function (v) { S.m = v; plot.draw(); });
+  $('#am-y').addEventListener('change', function (e) { S.y = +e.target.value; plot.draw(); });
+  var mv = function (pt) { setPhi(deg(Math.atan2(pt.y, pt.x))); };
+  pointer(plot, { down: function (pt) { mv(pt); return true; }, move: mv });
+  plot.draw();
+}
+
+/* ===================== 7. Ranking losses ===================== */
+function labRanking() {
+  var W = { x0: -5, x1: 5, y0: -3.75, y1: 3.75 };
+  var DEF = { A: [-1.2, 0.3], P: [0.6, 1.4], N: [[1.5, -0.8], [-2.8, -1.8], [2.9, 1.9], [-1.0, 2.6], [3.0, -2.4]] };
+  var S = { tab: 'pair', A: DEF.A.slice(), P: DEF.P.slice(), N: DEF.N.map(function (a) { return a.slice(); }),
+    similar: true, mp: 2, mt: 1, sq: false, k: 3, sim: 'dot' };
+  var TRY = {
+    pair: '<b>Try this.</b> With “Similar pair” selected, drag the two points apart: the loss grows with the square of the distance. Switch to “Different pair” and drag the orange square inside the dashed margin circle: the points are pushed apart until they leave it, and the loss drops to zero.',
+    trip: '<b>Try this.</b> Drag the orange negative just outside the dashed ring: the triplet is “easy” and the loss is zero, so the network learns nothing from it. Pull it inside the ring (or closer to the anchor than the positive) and it becomes semi‑hard, then hard. Mining picks those.',
+    npair: '<b>Try this.</b> Add negatives with the slider and drag one so it points in nearly the same direction as the anchor: its similarity jumps and the positive’s share of the softmax falls. Try cosine instead of dot product to remove the effect of vector length.'
+  };
+  function vis() {
+    if (S.tab === 'pair') return [['A', S.A], [S.similar ? 'P' : 'N0', S.similar ? S.P : S.N[0]]];
+    if (S.tab === 'trip') return [['A', S.A], ['P', S.P], ['N0', S.N[0]]];
+    var v = [['A', S.A], ['P', S.P]]; for (var i = 0; i < S.k; i++) v.push(['N' + i, S.N[i]]); return v;
+  }
+  function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
+  function unit(a, b) { var d = dist(a, b) || 1; return [(b[0] - a[0]) / d, (b[1] - a[1]) / d]; }
+  function ptAt(a, u, len) { return [a[0] + u[0] * len, a[1] + u[1] * len]; }
+  function arrowW(p, ctx, from, u, len, color) { var to = ptAt(from, u, len); arrow(ctx, p.X(from[0]), p.Y(from[1]), p.X(to[0]), p.Y(to[1]), color); }
+  function pt(p, ctx, T, key, c) {
+    var isN = key.charAt(0) === 'N';
+    marker(ctx, isN ? 1 : 0, p.X(c[0]), p.Y(c[1]), 7.5, isN ? T.cls[1] : T.cls[0], T.bg, 2);
+    txt(ctx, key === 'A' ? 'anchor' : key === 'P' ? 'positive' : 'negative', p.X(c[0]), p.Y(c[1]) - 13, T.ink, 11.5, 'center', false, 600);
+  }
+  var plot = new Plot($('#rk-cv'), W, function (p, ctx, T) {
+    drawGrid(p, ctx, T, 1);
+    var res = '';
+    if (S.tab === 'pair') {
+      var o = S.similar ? S.P : S.N[0], d = dist(S.A, o), m = S.mp, L;
+      if (!S.similar) { ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = T.bad; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.X(S.A[0]), p.Y(S.A[1]), m * p.sx, 0, 6.2832); ctx.stroke(); ctx.restore(); }
+      line(ctx, p.X(S.A[0]), p.Y(S.A[1]), p.X(o[0]), p.Y(o[1]), T.muted, 1.5, [3, 3]);
+      var u = unit(S.A, o);
+      if (S.similar) { L = contrastive2(d, true, m); arrowW(p, ctx, S.A, u, Math.min(0.9, d * 0.45), T.good); arrowW(p, ctx, o, [-u[0], -u[1]], Math.min(0.9, d * 0.45), T.good); }
+      else { L = contrastive2(d, false, m); if (d < m) { arrowW(p, ctx, S.A, [-u[0], -u[1]], 0.8, T.bad); arrowW(p, ctx, o, u, 0.8, T.bad); } }
+      res = '<div class="readouts">' + stat('Distance d', f2(d)) + stat('Loss', f2(L), S.similar ? '½ · d² = ½ · ' + f2(d) + '²' : (d < m ? '½ · (m − d)² = ½ · (' + f2(m) + ' − ' + f2(d) + ')²' : 'd ≥ m, so no loss')) +
+        stat('What the update does', S.similar ? '<span class="verdict good">pull together</span>' : (d < m ? '<span class="verdict bad">push apart</span>' : '<span class="verdict good">nothing to fix</span>')) + '</div>';
+    } else if (S.tab === 'trip') {
+      var n = S.N[0], dap = dist(S.A, S.P), dan = dist(S.A, n), m2 = S.mt;
+      var fa = S.sq ? dap * dap : dap, fn = S.sq ? dan * dan : dan, v = tripletVal(fa, fn, m2);
+      var r1 = dap, r2 = S.sq ? Math.sqrt(dap * dap + m2) : dap + m2;
+      ctx.beginPath(); ctx.arc(p.X(S.A[0]), p.Y(S.A[1]), r1 * p.sx, 0, 6.2832); ctx.strokeStyle = rgba(T.cls[0], 0.7); ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.save(); ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.arc(p.X(S.A[0]), p.Y(S.A[1]), r2 * p.sx, 0, 6.2832); ctx.strokeStyle = T.bad; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
+      line(ctx, p.X(S.A[0]), p.Y(S.A[1]), p.X(S.P[0]), p.Y(S.P[1]), rgba(T.cls[0], 0.8), 1.5);
+      line(ctx, p.X(S.A[0]), p.Y(S.A[1]), p.X(n[0]), p.Y(n[1]), rgba(T.cls[1], 0.8), 1.5);
+      var cat = v === 0 ? ['easy', 'good', 'negative is already outside the margin ring'] : (dan < dap ? ['hard', 'bad', 'negative is closer than the positive'] : ['semi‑hard', 'warn', 'negative is farther than the positive, but inside the margin']);
+      if (v > 0) {
+        arrowW(p, ctx, S.P, unit(S.P, S.A), 0.8, T.good); arrowW(p, ctx, n, unit(S.A, n), 0.8, T.bad);
+        var ua = unit(S.A, S.P), ub = unit(n, S.A), uu = [ua[0] + ub[0], ua[1] + ub[1]], ln = Math.hypot(uu[0], uu[1]) || 1;
+        arrowW(p, ctx, S.A, [uu[0] / ln, uu[1] / ln], 0.6, T.muted);
+      }
+      res = '<div class="readouts">' + stat(S.sq ? 'd(a,p)²' : 'd(a,p)', f2(fa)) + stat(S.sq ? 'd(a,n)²' : 'd(a,n)', f2(fn)) +
+        stat('Loss', f2(v), 'max(0, ' + f2(fa) + ' − ' + f2(fn) + ' + ' + f2(m2) + ')') +
+        stat('Triplet type', '<span class="verdict ' + cat[1] + '">' + cat[0] + '</span>', cat[2]) + '</div>';
+    } else {
+      var cx = p.X(0), cy = p.Y(0), cosine = S.sim === 'cos';
+      line(ctx, cx - 8, cy, cx + 8, cy, T.muted, 1.2); line(ctx, cx, cy - 8, cx, cy + 8, T.muted, 1.2);
+      var items = vis(), sims = [];
+      var sim = function (a, b) { var dot = a[0] * b[0] + a[1] * b[1]; if (!cosine) return dot; var na = Math.hypot(a[0], a[1]), nb = Math.hypot(b[0], b[1]); return (na && nb) ? dot / (na * nb) : 0; };
+      items.slice(1).forEach(function (it) { sims.push(sim(S.A, it[1])); });
+      var pr = npairSoftmax(sims.map(function (s) { return cosine ? s * 5 : s; }));
+      var scale = cosine ? 5 : 1;
+      items.forEach(function (it, i) {
+        line(ctx, cx, cy, p.X(it[1][0]), p.Y(it[1][1]), rgba(i === 0 ? T.cls[0] : (it[0] === 'P' ? T.cls[0] : T.cls[1]), 0.45), 1.3);
+      });
+      var Lnp = -Math.log(Math.max(pr[0], 1e-12)), alt = 0;
+      for (var j = 1; j < sims.length; j++) alt += Math.exp(scale * (sims[j] - sims[0]));
+      res = '<div style="margin-top:12px">' + pr.map(function (q, i) { var key = items[i + 1][0]; return vrow(key === 'P' ? 'Positive' : 'Negative ' + (+key.slice(1) + 1), key === 'P' ? 'c0' : 'c1', q, pct(q)); }).join('') + '</div>' +
+        '<div class="readouts">' + stat('Loss = −ln p(positive)', f2(Lnp), 'log(1 + Σ e^(s₋ − s₊)) = ' + f2(Math.log(1 + alt))) +
+        stat(cosine ? 'Similarity (cosine × 5)' : 'Similarity (dot product)', 'positive ' + f2(scale * sims[0]), 'strongest negative ' + f2(scale * Math.max.apply(null, sims.slice(1)))) + '</div>';
+    }
+    vis().forEach(function (v) { pt(p, ctx, T, v[0], v[1]); });
+    $('#rk-out').innerHTML = res;
+  });
+
+  function controls() {
+    var h = '', box = $('#rk-controls');
+    if (S.tab === 'pair') h = '<label class="chk"><input type="radio" name="rk-pt" value="1"' + (S.similar ? ' checked' : '') + '> Similar pair</label><label class="chk"><input type="radio" name="rk-pt" value="0"' + (S.similar ? '' : ' checked') + '> Different pair</label>' +
+      '<label class="ctl"><span>Margin m</span><input id="rk-m" type="range" min="0.5" max="4" step="0.1" value="' + S.mp + '"><output id="rk-m-o" for="rk-m">' + f1(S.mp) + '</output></label>';
+    else if (S.tab === 'trip') h = '<label class="ctl"><span>Margin</span><input id="rk-m" type="range" min="0" max="3" step="0.1" value="' + S.mt + '"><output id="rk-m-o" for="rk-m">' + f1(S.mt) + '</output></label>' +
+      '<label class="chk"><input id="rk-sq" type="checkbox"' + (S.sq ? ' checked' : '') + '> Square the distances (FaceNet)</label>';
+    else h = '<label class="ctl"><span>Negatives</span><input id="rk-k" type="range" min="1" max="5" value="' + S.k + '"><output id="rk-k-o" for="rk-k">' + S.k + '</output></label>' +
+      '<label class="ctl"><span>Similarity</span><select id="rk-sim"><option value="dot"' + (S.sim === 'dot' ? ' selected' : '') + '>Dot product</option><option value="cos"' + (S.sim === 'cos' ? ' selected' : '') + '>Cosine</option></select></label>';
+    h += '<button class="btn sec" type="button" id="rk-reset">Reset points</button>';
+    box.innerHTML = h;
+    $$('input[name="rk-pt"]', box).forEach(function (r) { r.addEventListener('change', function () { S.similar = r.value === '1'; plot.draw(); }); });
+    var m = $('#rk-m'); if (m) m.addEventListener('input', function () { var v = +m.value; if (S.tab === 'pair') S.mp = v; else S.mt = v; $('#rk-m-o').textContent = f1(v); plot.draw(); });
+    var sq = $('#rk-sq'); if (sq) sq.addEventListener('change', function () { S.sq = sq.checked; plot.draw(); });
+    var k = $('#rk-k'); if (k) k.addEventListener('input', function () { S.k = +k.value; $('#rk-k-o').textContent = k.value; plot.draw(); });
+    var sm = $('#rk-sim'); if (sm) sm.addEventListener('change', function () { S.sim = sm.value; plot.draw(); });
+    $('#rk-reset').addEventListener('click', function () { S.A = DEF.A.slice(); S.P = DEF.P.slice(); S.N = DEF.N.map(function (a) { return a.slice(); }); plot.draw(); });
+    $('#rk-try').innerHTML = TRY[S.tab] || '';
+  }
+  function setTab(t) {
+    S.tab = t;
+    $$('[data-rk]').forEach(function (b) { b.setAttribute('aria-selected', b.getAttribute('data-rk') === t ? 'true' : 'false'); });
+    $('#rk-canvas-panel').hidden = t === 'siam'; $('#rk-siam-panel').hidden = t !== 'siam';
+    if (t === 'siam') { $('#rk-try').innerHTML = '<b>Try this.</b> Pick “Similar pair” and press the gradient button a few times: w shrinks, so both outputs move toward each other. Switch to “Different pair” with a small w: now the step grows w, pushing the two outputs apart until they are m apart.'; siamRender(); }
+    else { controls(); plot.draw(); }
+  }
+  $$('[data-rk]').forEach(function (b) { b.addEventListener('click', function () { setTab(b.getAttribute('data-rk')); }); });
+
+  var drag = null;
+  pointer(plot, {
+    down: function (pos) {
+      var best = null, bd = 26;
+      vis().forEach(function (v) { var d = Math.hypot(plot.X(v[1][0]) - pos.px, plot.Y(v[1][1]) - pos.py); if (d < bd) { bd = d; best = v[1]; } });
+      drag = best; return !!best;
+    },
+    move: function (pos) { if (drag) { drag[0] = clamp(pos.x, -4.9, 4.9); drag[1] = clamp(pos.y, -3.65, 3.65); plot.draw(); } },
+    up: function () { drag = null; }
+  });
+
+  /* ----- Siamese panel ----- */
+  var V = { x1: 1.5, x2: -1, w: 1, similar: true, m: 2 };
+  function siamParts() {
+    var z1 = V.w * V.x1, z2 = V.w * V.x2, d = Math.abs(z1 - z2), sg = z1 >= z2 ? 1 : -1, g1, g2, L;
+    if (V.similar) { L = 0.5 * d * d; g1 = (z1 - z2) * V.x1; g2 = -(z1 - z2) * V.x2; }
+    else if (d < V.m) { L = 0.5 * Math.pow(V.m - d, 2); g1 = -(V.m - d) * sg * V.x1; g2 = (V.m - d) * sg * V.x2; }
+    else { L = 0; g1 = 0; g2 = 0; }
+    return { z1: z1, z2: z2, d: d, L: L, g1: g1, g2: g2, g: g1 + g2 };
+  }
+  var sgn = function (v, dp) { return (v < 0 ? '−' : '') + Math.abs(v).toFixed(dp === undefined ? 2 : dp); };
+  function siamRender() {
+    var r = siamParts();
+    $('#sv-x1').textContent = sgn(V.x1); $('#sv-x2').textContent = sgn(V.x2);
+    $('#sv-w1').textContent = 'w = ' + sgn(V.w); $('#sv-w2').textContent = 'w = ' + sgn(V.w);
+    $('#sv-z1').textContent = sgn(r.z1); $('#sv-z2').textContent = sgn(r.z2); $('#sv-d').textContent = 'd = ' + r.d.toFixed(2);
+    $('#sv-out').innerHTML = '<div class="readouts">' + stat('Loss', f2(r.L), V.similar ? '½ d²' : '½ max(0, m − d)²') +
+      stat('Gradient from branch 1', sgn(r.g1, 3), '∂L/∂z₁ · x₁') + stat('Gradient from branch 2', sgn(r.g2, 3), '∂L/∂z₂ · x₂') +
+      stat('Total ∂L/∂w', sgn(r.g, 3), 'the two pieces add: one shared w') + '</div>';
+  }
+  [['sv-in1', 'x1', 'sv-in1-o', f1], ['sv-in2', 'x2', 'sv-in2-o', f1], ['sv-w', 'w', 'sv-w-o', f2], ['sv-m', 'm', 'sv-m-o', f1]].forEach(function (a) {
+    var el = $('#' + a[0]);
+    el.addEventListener('input', function () { V[a[1]] = +el.value; $('#' + a[2]).textContent = a[3](+el.value).replace('-', '−'); siamRender(); });
+  });
+  $$('input[name="sv-lab"]').forEach(function (r) { r.addEventListener('change', function () { V.similar = r.value === '1'; siamRender(); }); });
+  $('#sv-step').addEventListener('click', function () {
+    var r = siamParts(); V.w = clamp(V.w - 0.1 * r.g, -2, 2);
+    var el = $('#sv-w'); el.value = V.w.toFixed(2); $('#sv-w-o').textContent = f2(V.w).replace('-', '−'); siamRender();
+  });
+  setTab('pair');
+}
+
+/* ===================== LDA ===================== */
+function labLDA() {
+  var W = { x0: -6, x1: 6, y0: -6, y1: 6 };
+  var cfg = { cov: [[2.4, 1.7], [1.7, 1.5]], mu: [[-0.9, 1.3], [0.9, -1.3]] };
+  var S = { seed: 8, a: 20, data: null, st: null };
+  function gen() { S.data = ldaSample(mulberry32(S.seed), 60, cfg); S.st = ldaStats(S.data.X0, S.data.X1); S.aLDA = ldaAngle(S.st); S.aPCA = pcaAngle(S.st); }
+  gen();
+  var plot = new Plot($('#lda-cv'), W, function (p, ctx, T) {
+    drawGrid(p, ctx, T, 2);
+    var th = rad(S.a), u = [Math.cos(th), Math.sin(th)], mu = S.st.mu;
+    var proj = function (q) { var t = (q[0] - mu[0]) * u[0] + (q[1] - mu[1]) * u[1]; return [mu[0] + t * u[0], mu[1] + t * u[1]]; };
+    [S.data.X0, S.data.X1].forEach(function (X, c) {
+      X.forEach(function (q) { var pr = proj(q); line(ctx, p.X(q[0]), p.Y(q[1]), p.X(pr[0]), p.Y(pr[1]), rgba(T.cls[c === 0 ? 0 : 2], 0.22), 1); });
+    });
+    line(ctx, p.X(mu[0] - u[0] * 9), p.Y(mu[1] - u[1] * 9), p.X(mu[0] + u[0] * 9), p.Y(mu[1] + u[1] * 9), T.ink, 1.8, [6, 4]);
+    S.data.X0.forEach(function (q) { marker(ctx, 0, p.X(q[0]), p.Y(q[1]), 3.8, T.cls[0], T.bg, 0.8); });
+    S.data.X1.forEach(function (q) { marker(ctx, 2, p.X(q[0]), p.Y(q[1]), 3.8, T.cls[2], T.bg, 0.8); });
+    [[S.st.mu0, T.cls[0]], [S.st.mu1, T.cls[2]]].forEach(function (m) { marker(ctx, 3, p.X(m[0][0]), p.Y(m[0][1]), 6, m[1], T.ink, 1.6); });
+    out();
+  });
+  var hist = new Plot($('#lda-hist'), null, function (p, ctx, T) {
+    var th = rad(S.a), u = [Math.cos(th), Math.sin(th)], mu = S.st.mu, b = chartBox(p, 14, 14, 14, 30), bins = 36, lim = 7;
+    var c0 = [], c1 = [], i; for (i = 0; i < bins; i++) { c0.push(0); c1.push(0); }
+    var bin = function (q) { var t = (q[0] - mu[0]) * u[0] + (q[1] - mu[1]) * u[1]; return clamp(Math.floor((t + lim) / (2 * lim) * bins), 0, bins - 1); };
+    S.data.X0.forEach(function (q) { c0[bin(q)]++; }); S.data.X1.forEach(function (q) { c1[bin(q)]++; });
+    var mx = Math.max.apply(null, c0.concat(c1)) || 1, bw = b.w / bins;
+    for (i = 0; i < bins; i++) {
+      ctx.fillStyle = rgba(T.cls[0], 0.6); ctx.fillRect(b.l + i * bw, b.b - c0[i] / mx * b.h, bw - 1, c0[i] / mx * b.h);
+      ctx.fillStyle = rgba(T.cls[2], 0.6); ctx.fillRect(b.l + i * bw, b.b - c1[i] / mx * b.h, bw - 1, c1[i] / mx * b.h);
+    }
+    line(ctx, b.l, b.b, b.r, b.b, T.muted, 1.2);
+    txt(ctx, 'position along the line', b.l + b.w / 2, p.h - 8, T.muted, 11, 'center');
+  });
+  var jc = new Plot($('#lda-j'), null, function (p, ctx, T) {
+    var b = chartBox(p, 44, 14, 14, 32), i, steps = 180, Jmax = fisherJ(S.aLDA, S.st);
+    var X = function (a) { return b.l + a / 180 * b.w; }, Y = function (v) { return b.b - v * b.h; };
+    [0, 0.5, 1].forEach(function (v) { line(ctx, b.l, Y(v), b.r, Y(v), T.grid, 1); txt(ctx, Math.round(v * 100) + '%', b.l - 6, Y(v) + 4, T.muted, 11, 'right'); });
+    [0, 45, 90, 135, 180].forEach(function (a) { txt(ctx, a + '°', X(a), b.b + 15, T.muted, 11, 'center'); });
+    txt(ctx, 'J as % of its best value, by direction', b.l + b.w / 2, p.h - 3, T.muted, 11, 'center');
+    ctx.strokeStyle = T.accent; ctx.lineWidth = 2.2; ctx.beginPath();
+    for (i = 0; i <= steps; i++) { var v = fisherJ(rad(i), S.st) / Jmax; if (i) ctx.lineTo(X(i), Y(v)); else ctx.moveTo(X(i), Y(v)); }
+    ctx.stroke();
+    var al = deg(S.aLDA), ap = deg(S.aPCA);
+    marker(ctx, 0, X(al), Y(1), 5, T.good, T.bg, 1.5); txt(ctx, 'LDA', X(al), Y(1) - 9, T.good, 11, 'center', false, 600);
+    var vp = fisherJ(S.aPCA, S.st) / Jmax;
+    marker(ctx, 0, X(ap), Y(vp), 5, T.bad, T.bg, 1.5); txt(ctx, 'PCA', X(ap), Y(vp) - 9, T.bad, 11, 'center', false, 600);
+    line(ctx, X(S.a), b.t, X(S.a), b.b, T.ink, 1.2, [4, 3]);
+  });
+  function out() {
+    var th = rad(S.a), J = fisherJ(th, S.st), Jm = fisherJ(S.aLDA, S.st), acc = projAccuracy(th, S.data.X0, S.data.X1, S.st);
+    $('#lda-out').innerHTML = stat('Direction', S.a + '°') + stat('Fisher score J', pct(J / Jm), 'of the best possible') +
+      stat('Accuracy on the line', pct(acc), 'threshold halfway between class means') +
+      stat('LDA direction', Math.round(deg(S.aLDA)) + '°', 'PCA direction: ' + Math.round(deg(S.aPCA)) + '°');
+  }
+  function redraw() { plot.draw(); hist.draw(); jc.draw(); }
+  var setA = function (a) { S.a = ((Math.round(a) % 180) + 180) % 180; $('#lda-a').value = S.a; $('#lda-a-o').textContent = S.a + '°'; redraw(); };
+  bindRange('lda-a', 'lda-a-o', function (v) { return v + '°'; }, function (v) { S.a = v; redraw(); });
+  $('#lda-pca').addEventListener('click', function () { setA(deg(S.aPCA)); });
+  $('#lda-lda').addEventListener('click', function () { setA(deg(S.aLDA)); });
+  $('#lda-new').addEventListener('click', function () { S.seed = Math.floor(Math.random() * 1e6); gen(); redraw(); });
+  redraw();
+}
+
+/* ===================== Quiz ===================== */
+function initQuiz() {
+  var Q = [
+    { t: 'On a noisy dataset you raise k from 1 to 25. What most likely happens?',
+      o: ['The boundary gets more jagged and follows individual noisy points.', 'The boundary gets smoother, and small groups may get outvoted.', 'Nothing changes, because KNN has no parameters.', 'Training takes longer, because more neighbors must be learned.'], a: 1,
+      w: 'Averaging over more neighbors lowers variance and raises bias. KNN has no training step, and k is a hyperparameter you choose.' },
+    { t: 'Draw random points in a unit box and let the number of dimensions grow. The ratio (farthest distance) ÷ (nearest distance) from a query…',
+      o: ['grows without bound.', 'stays exactly 2.', 'approaches 1.', 'drops to 0.'], a: 2,
+      w: 'Distances concentrate around one value, so the nearest and farthest neighbors become almost equally far. That is why “nearest” loses meaning.' },
+    { t: 'Which technique reduces the memory used per stored vector?',
+      o: ['Product quantization.', 'Adding an HNSW graph index.', 'Increasing k.', 'Switching from L2 to L1 distance.'], a: 0,
+      w: 'PQ replaces a vector with a few small codebook indices. HNSW speeds up search but adds links on top of the vectors, and k or the distance do not change what is stored.' },
+    { t: 'A closed‑set softmax classifier is shown an animal from a class it never saw. What typically happens?',
+      o: ['It refuses to answer.', 'It creates a new class automatically.', 'It assigns a known class, often with high confidence.', 'Its loss becomes zero.'], a: 2,
+      w: 'Softmax probabilities must sum to one, so the model spreads confidence over known classes. Open‑set methods add a distance or score threshold to reject unknowns.' },
+    { t: 'Why can a deep metric learning model handle classes that were not in its training set?',
+      o: ['It memorizes every possible class.', 'It retrains itself at test time.', 'It uses a larger softmax layer.', 'It compares embeddings by distance instead of choosing from a fixed list of outputs.'], a: 3,
+      w: 'New classes only need a few stored embeddings. No output layer has to be retrained.' },
+    { t: 'What does an additive angular margin (ArcFace style) do during training?',
+      o: ['It removes the softmax.', 'It makes the true class’s angle count as larger, so features must sit closer to their class direction for the loss to be small.', 'It increases the number of classes.', 'It makes distances negative.'], a: 1,
+      w: 'The target logit becomes s·cos(θ + m), a stricter test than s·cos θ. That tightens clusters.' },
+    { t: 'A triplet (anchor a, positive p, negative n) has zero loss when…',
+      o: ['d(a,p) = d(a,n).', 'd(a,p) ≥ d(a,n) + margin.', 'd(a,n) ≥ d(a,p) + margin.', 'the anchor and the negative are the same point.'], a: 2,
+      w: 'The loss is max(0, d(a,p) − d(a,n) + margin). It vanishes once the negative is farther than the positive by at least the margin.' },
+    { t: 'What is the main advantage of N‑pairs loss over a single triplet?',
+      o: ['Each update compares the anchor with many negatives at once.', 'It needs no embeddings.', 'It removes the need for a neural network.', 'It only works with two classes.'], a: 0,
+      w: 'N‑pairs treats the other pairs’ positives as negatives and uses a softmax over all of them, so every step carries much more information.' },
+    { t: 'For C classes, how many useful discriminant directions can LDA produce?',
+      o: ['As many as there are features.', 'C.', '2C.', 'At most C − 1.'], a: 3,
+      w: 'The between‑class scatter matrix has rank at most C − 1, so there are at most C − 1 non‑trivial directions.' }
+  ];
+  var body = $('#quiz-body'), score = $('#quiz-score'), answered = {}, h = '';
+  Q.forEach(function (q, i) {
+    h += '<fieldset class="q" id="q' + i + '"><legend class="mono" style="padding:0 6px;color:var(--muted)">Question ' + (i + 1) + ' of ' + Q.length + '</legend><p class="stem">' + q.t + '</p>';
+    q.o.forEach(function (o, j) { h += '<label><input type="radio" name="qq' + i + '" value="' + j + '"><span>' + o + '</span></label>'; });
+    h += '<p class="fb" aria-live="polite"></p></fieldset>';
+  });
+  body.innerHTML = h;
+  function tally() {
+    var n = 0, ok = 0; Object.keys(answered).forEach(function (k) { n++; if (answered[k]) ok++; });
+    score.textContent = n ? ('Score: ' + ok + ' of ' + Q.length + ' correct (' + n + ' answered)') : '';
+  }
+  Q.forEach(function (q, i) {
+    $$('input[name="qq' + i + '"]', body).forEach(function (r) {
+      r.addEventListener('change', function () {
+        var good = +r.value === q.a, fb = $('#q' + i + ' .fb');
+        answered[i] = good;
+        fb.className = 'fb ' + (good ? 'good' : 'bad');
+        fb.textContent = (good ? 'Correct. ' : 'Not quite. The answer is “' + q.o[q.a] + '” ') + q.w;
+        $$('input[name="qq' + i + '"]', body).forEach(function (o) { o.disabled = true; });
+        tally();
+      });
+    });
+  });
+  $('#quiz-reset').addEventListener('click', function () {
+    answered = {};
+    $$('input[type="radio"]', body).forEach(function (r) { r.checked = false; r.disabled = false; });
+    $$('.fb', body).forEach(function (f) { f.textContent = ''; f.className = 'fb'; });
+    tally();
+  });
+}
+
+/* ===================== boot ===================== */
+function boot() {
+  initChrome();
+  labKNN(); labCurse(); labCondense(); labMemory(); labOpen(); labDML(); labSoftmax(); labMargin(); labRanking(); labLDA(); initQuiz();
+  try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redrawAll); } catch (e) { /* optional */ }
+  try { new MutationObserver(redrawAll).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }); } catch (e) { /* optional */ }
+}
+boot();
+})();
+
+</script>
+</body>
+</html>
