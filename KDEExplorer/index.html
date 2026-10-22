@@ -1,0 +1,1460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kernel Density Explorer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400;1,8..60,600&display=swap">
+<style>
+/* Layout concept: a textbook chapter turned into a lab bench.
+   Left rail lists the nine topics; each topic = reading level text on top, live demo beneath.
+   One global switch (elementary / high school / undergrad / all) re-reads the whole page. */
+:root {
+  --bg: #f2f5f9;
+  --surface: #fbfcfd;
+  --surface-2: #e9eef5;
+  --ink: #121b28;
+  --ink-2: #44525f;
+  --muted: #6f7c8b;
+  --line: #d3dbe5;
+  --grid: #e3e8ef;
+  --brand: #24408e;
+  --brand-soft: #dfe7f8;
+  --c1: #2a78d6;      /* estimate / density / class A */
+  --c2: #eb6834;      /* query point / class B */
+  --c3: #1baf7a;      /* second fit / class C */
+  --pt: #54647a;      /* ordinary data points */
+  --band: rgba(42,120,214,.14);
+  --heat-0: #fbfcfd; --heat-1: #cde2fb; --heat-2: #6da7ec; --heat-3: #1c5cab;
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Source Serif 4", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --hdr: 60px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e141c; --surface: #151c26; --surface-2: #1d2733; --ink: #e8edf3; --ink-2: #b4c0cd;
+    --muted: #8493a4; --line: #29364a; --grid: #212c3a; --brand: #8fa8ef; --brand-soft: #1f2c4d;
+    --c1: #3987e5; --c2: #d95926; --c3: #199e70; --pt: #9aa9bc; --band: rgba(57,135,229,.2);
+    --heat-0: #151c26; --heat-1: #1c3a63; --heat-2: #2a6cc0; --heat-3: #86b6ef;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e141c; --surface: #151c26; --surface-2: #1d2733; --ink: #e8edf3; --ink-2: #b4c0cd;
+  --muted: #8493a4; --line: #29364a; --grid: #212c3a; --brand: #8fa8ef; --brand-soft: #1f2c4d;
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --pt: #9aa9bc; --band: rgba(57,135,229,.2);
+  --heat-0: #151c26; --heat-1: #1c3a63; --heat-2: #2a6cc0; --heat-3: #86b6ef;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--hdr) + 56px); }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 17px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 64px;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: var(--bg); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0; letter-spacing: -.01em; }
+p { margin: 0 0 .9em; max-width: 68ch; }
+a { color: var(--brand); }
+:focus-visible { outline: 2px solid var(--c1); outline-offset: 2px; border-radius: 4px; }
+
+/* header */
+.hdr { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; height: var(--hdr); display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); margin: 0 calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding: 0 max(16px, env(safe-area-inset-left, 0px)); }
+.brand { font-family: var(--f-display); font-weight: 800; font-size: 17px; letter-spacing: -.01em; white-space: nowrap; }
+.brand span { color: var(--muted); font-weight: 500; }
+.seg { display: inline-flex; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 2px; max-width: 100%; }
+.seg button { font: 600 13px/1 var(--f-display); color: var(--ink-2); background: transparent; border: 0; padding: 9px 12px; border-radius: 8px; cursor: pointer; white-space: nowrap; display: inline-flex; gap: 6px; align-items: center; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.pips { display: inline-flex; gap: 2px; }
+.pips i { width: 5px; height: 5px; border-radius: 50%; border: 1px solid currentColor; display: block; }
+.pips i.on { background: currentColor; }
+@media (max-width: 680px) {
+  :root { --hdr: 52px; }
+  .brand { display: none; }
+  .hdr { justify-content: center; }
+  .seg { width: 100%; }
+  .seg button { flex: 1; justify-content: center; padding: 9px 4px; font-size: 12px; }
+  .pips { display: none; }
+}
+
+/* shell */
+.shell { display: grid; grid-template-columns: 1fr; gap: 0; max-width: 1180px; margin: 0 auto; }
+.nav { position: sticky; top: calc(var(--hdr) + env(safe-area-inset-top, 0px)); z-index: 15; display: flex; gap: 6px; overflow-x: auto; padding: 10px 0; background: color-mix(in srgb, var(--bg) 94%, transparent); font-family: var(--f-display); scrollbar-width: thin; }
+.nav a { text-decoration: none; color: var(--ink-2); font-size: 13px; font-weight: 600; padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; background: var(--surface); }
+.nav a b { color: var(--muted); font-weight: 700; margin-right: 6px; font-variant-numeric: tabular-nums; }
+.nav a[aria-current="true"] { background: var(--brand); color: var(--bg); border-color: var(--brand); }
+.nav a[aria-current="true"] b { color: inherit; opacity: .75; }
+@media (min-width: 1040px) {
+  .shell { grid-template-columns: 218px minmax(0, 1fr); gap: 36px; }
+  .nav { flex-direction: column; align-self: start; top: calc(var(--hdr) + 24px + env(safe-area-inset-top, 0px)); overflow: visible; padding: 8px 0; background: none; gap: 2px; }
+  .nav a { border: 0; background: transparent; border-radius: 8px; padding: 8px 10px; white-space: normal; }
+  .nav a:hover { background: var(--surface-2); }
+}
+main { min-width: 0; }
+
+/* hero */
+.hero { padding: 44px 0 20px; }
+.eyebrow { font: 500 12px/1.4 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+.hero h1 { font-size: clamp(34px, 6vw, 60px); font-weight: 800; max-width: 16ch; }
+.hero h1 em { font-style: normal; color: var(--c1); }
+.hero .lede { font-size: 19px; color: var(--ink-2); margin-top: 18px; max-width: 60ch; }
+.how { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 26px; }
+.how > div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font-size: 15px; line-height: 1.5; min-width: 0; }
+.how b { font-family: var(--f-display); display: block; font-size: 14px; margin-bottom: 4px; }
+
+/* topic */
+.topic { padding: 56px 0 8px; border-top: 1px solid var(--line); margin-top: 40px; }
+.topic:first-of-type { margin-top: 24px; }
+.t-head { display: flex; gap: 14px; align-items: baseline; margin-bottom: 18px; }
+.t-num { font: 500 14px/1 var(--f-mono); color: var(--muted); min-width: 1.6em; }
+.t-head h2 { font-size: clamp(26px, 3.6vw, 36px); font-weight: 800; }
+.t-sub { color: var(--ink-2); margin: -8px 0 20px 0; font-size: 18px; max-width: 62ch; }
+
+.lv { margin-bottom: 14px; }
+.lv-tag { display: none; font: 600 12px/1 var(--f-display); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; align-items: center; gap: 8px; }
+body[data-level="1"] .lv:not([data-l="1"]),
+body[data-level="2"] .lv:not([data-l="2"]),
+body[data-level="3"] .lv:not([data-l="3"]) { display: none; }
+body[data-level="all"] .lv { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 6px; }
+body[data-level="all"] .lv-tag { display: flex; }
+.lv h3 { font-size: 15px; font-weight: 700; color: var(--ink); margin: 14px 0 4px; }
+.lv ul { padding-left: 1.15em; margin: 0 0 .9em; max-width: 66ch; }
+.lv li { margin-bottom: .35em; }
+.callout { border-left: 3px solid var(--c1); background: var(--surface); padding: 10px 14px; border-radius: 0 10px 10px 0; margin: 12px 0 14px; max-width: 66ch; font-size: 16px; }
+.lv[data-l="1"] p { font-size: 18.5px; line-height: 1.65; }
+
+/* math */
+.eq { font-family: var(--f-body); font-size: 20px; text-align: center; padding: 14px 8px; margin: 10px 0 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; max-width: 100%; white-space: nowrap; }
+.eq .note { display: block; white-space: normal; font: 400 13.5px/1.4 var(--f-display); color: var(--muted); margin-top: 6px; }
+.m { font-family: var(--f-body); font-style: italic; white-space: nowrap; }
+.m .u { font-style: normal; }
+.fr { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; margin: 0 .15em; line-height: 1.25; }
+.fr > span:first-child { border-bottom: 1px solid currentColor; padding: 0 .25em .06em; }
+.fr > span:last-child { padding: .06em .25em 0; }
+.sm { display: inline-flex; flex-direction: column; align-items: center; vertical-align: middle; line-height: 1; margin: 0 .2em; }
+.sm .sy { font-size: 1.5em; font-style: normal; }
+.sm .lim { font-size: .62em; font-style: normal; line-height: 1.1; }
+.ind { font-style: normal; }
+sub, sup { font-size: .7em; line-height: 0; }
+code.k { font: 400 .88em var(--f-mono); background: var(--surface-2); padding: 1px 6px; border-radius: 5px; }
+
+/* demo card */
+.demo { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin: 22px 0 6px; display: grid; gap: 14px; min-width: 0; }
+.demo-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.demo-title h3 { font-size: 16px; font-weight: 700; margin: 0; }
+.demo-title span { font: 400 12px/1.3 var(--f-mono); color: var(--muted); }
+.plots { display: grid; gap: 12px; min-width: 0; }
+.plots.two { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+@media (max-width: 760px) { .plots.two { grid-template-columns: minmax(0, 1fr); } }
+.plot { position: relative; min-width: 0; border: 1px solid var(--grid); border-radius: 10px; background: var(--surface); overflow: hidden; touch-action: none; }
+.plot canvas { display: block; width: 100%; }
+.plot .cap { position: absolute; left: 10px; top: 8px; font: 500 11px/1.3 var(--f-mono); color: var(--muted); pointer-events: none; letter-spacing: .02em; }
+.tip { position: absolute; pointer-events: none; font: 500 12px/1.35 var(--f-mono); background: var(--ink); color: var(--bg); padding: 6px 9px; border-radius: 7px; z-index: 5; white-space: nowrap; opacity: 0; transition: opacity .1s; }
+.ctl { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: flex-end; }
+.ctl .f { display: grid; gap: 5px; min-width: 150px; flex: 1 1 170px; }
+.ctl .f.narrow { flex: 0 1 150px; min-width: 120px; }
+.ctl label, .ctl .lab { font: 600 12px/1.2 var(--f-display); color: var(--ink-2); display: flex; justify-content: space-between; gap: 8px; }
+.ctl .val { font: 500 12px/1.2 var(--f-mono); color: var(--ink); }
+input[type=range] { width: 100%; accent-color: var(--brand); margin: 0; height: 22px; }
+select { font: 500 13px var(--f-display); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; width: 100%; }
+.btn { font: 600 13px/1 var(--f-display); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.btn.on { background: var(--brand); color: var(--bg); border-color: var(--brand); }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.chk { display: inline-flex; gap: 7px; align-items: center; font: 600 12.5px var(--f-display); color: var(--ink-2); cursor: pointer; }
+.chk input { accent-color: var(--brand); width: 16px; height: 16px; margin: 0; }
+.read { display: flex; flex-wrap: wrap; gap: 6px 22px; font: 400 13px/1.5 var(--f-mono); color: var(--ink-2); min-width: 0; }
+.read b { color: var(--ink); font-weight: 500; }
+.lg { display: flex; flex-wrap: wrap; gap: 6px 16px; font: 500 12px/1.3 var(--f-display); color: var(--ink-2); }
+.lg span { display: inline-flex; align-items: center; gap: 6px; }
+.lg i { width: 16px; height: 0; border-top: 2px solid var(--c1); display: inline-block; }
+.lg i.dot { width: 9px; height: 9px; border-radius: 50%; border: 0; background: var(--c1); }
+.lg i.dash { border-top-style: dashed; }
+.hint { font: 400 13px/1.45 var(--f-display); color: var(--muted); }
+.post { display: grid; gap: 7px; width: 100%; font: 400 13px/1.4 var(--f-mono); color: var(--ink-2); }
+.post .row { display: grid; grid-template-columns: 92px minmax(60px, 1fr) minmax(0, auto); gap: 10px; align-items: center; }
+.post .bar { height: 10px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+.post .bar i { display: block; height: 100%; border-radius: 5px; }
+.post .meta { grid-column: 1 / -1; color: var(--muted); }
+.glyph { display: inline-block; width: 1.1em; text-align: center; }
+.table-wrap { overflow-x: auto; max-width: 100%; }
+table { border-collapse: collapse; font-size: 14.5px; width: 100%; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 700 12px var(--f-display); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.sheet { margin-top: 48px; border-top: 1px solid var(--line); padding-top: 44px; }
+.sheet h2 { font-size: 30px; font-weight: 800; margin-bottom: 14px; }
+.foot { margin-top: 48px; color: var(--muted); font-size: 14px; max-width: 68ch; }
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div class="brand">Kernel Density Explorer <span>/ Murphy §16.3</span></div>
+  <div class="seg" role="group" aria-label="Reading level" id="levelSeg">
+    <button data-level="1" aria-pressed="false"><span class="pips" aria-hidden="true"><i class="on"></i><i></i><i></i></span><span>Elementary</span></button>
+    <button data-level="2" aria-pressed="false"><span class="pips" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i></span><span>High school</span></button>
+    <button data-level="3" aria-pressed="true"><span class="pips" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></span><span>Undergrad</span></button>
+    <button data-level="all" aria-pressed="false"><span>All three</span></button>
+  </div>
+</header>
+
+<div class="shell">
+<nav class="nav" id="nav" aria-label="Topics">
+  <a href="#t1"><b>1</b>Kernel density estimation</a>
+  <a href="#t2"><b>2</b>Density kernels</a>
+  <a href="#t3"><b>3</b>Parzen window</a>
+  <a href="#t4"><b>4</b>Choosing the bandwidth</a>
+  <a href="#t5"><b>5</b>From KDE to KNN</a>
+  <a href="#t6"><b>6</b>Kernel regression</a>
+  <a href="#t7"><b>7</b>Nadaraya-Watson mean</a>
+  <a href="#t8"><b>8</b>Estimating the variance</a>
+  <a href="#t9"><b>9</b>Locally weighted regression</a>
+  <a href="#sheet"><b>&sum;</b>Cheat sheet</a>
+</nav>
+
+<main>
+<section class="hero">
+  <div class="eyebrow">Probabilistic Machine Learning · Chapter 16.3</div>
+  <h1>Let the data draw its own <em>curve</em></h1>
+  <p class="lede">Nine connected ideas about kernel density estimation and kernel regression. Each one is explained at three reading levels and has a live chart you can push around.</p>
+  <div class="how">
+    <div><b>Pick a reading level</b>The switch at the top changes every explanation on the page. Choose "All three" to read them side by side.</div>
+    <div><b>Drag, click, slide</b>Every chart is computed in your browser as you move things. Nothing is a picture.</div>
+    <div><b>Two threads</b>Topics 1 to 5 estimate a density and use it to classify. Topics 6 to 9 turn the same idea into regression.</div>
+  </div>
+</section>
+
+<!-- 1 ============================================================ -->
+<section class="topic" id="t1">
+  <div class="t-head"><span class="t-num">1</span><h2>Kernel density estimation</h2></div>
+  <p class="t-sub">Draw a smooth curve that shows where your data tends to live, without deciding in advance what shape the curve has.</p>
+
+  <div class="lv" data-l="1"><div class="lv-tag">Elementary</div>
+    <p>Imagine your whole class lines up along a number line by height. Some kids stand in clumps and some stand alone. You want to draw a picture of where most of the kids are.</p>
+    <p>Here is the trick. Every kid wears a little soft hill on their head, and all the hills are the same size. Where lots of kids stand close together, their hills pile up into one tall mountain. Where kids are far apart, the ground stays low.</p>
+    <p>Add up all the little hills and you get one smooth, hilly picture of the whole class. That picture is a <b>kernel density estimate</b>. Tall parts mean "lots of kids around here." Try the demo: drag the width slider and watch the hills fatten and shrink.</p>
+  </div>
+  <div class="lv" data-l="2"><div class="lv-tag">High school</div>
+    <p>A common question in statistics is: if I pick a random value, which values are most likely? A histogram answers by counting points in bins, but bins have hard edges, and the picture changes if you slide where the bins start.</p>
+    <p>Kernel density estimation (KDE) swaps each data point for a small smooth hill and then averages the hills. Every hill has an area of 1, and dividing by the number of points <span class="m">N</span> keeps the total area at 1, which is what a probability density must have. A taller curve means "more likely."</p>
+    <p>The width of the hills is called the <b>bandwidth</b>, written <span class="m">h</span>. It controls how smooth the final curve is. KDE is <b>nonparametric</b>: we never assume the data follow a bell curve or any other named shape.</p>
+  </div>
+  <div class="lv" data-l="3"><div class="lv-tag">Undergraduate</div>
+    <p>Given i.i.d. samples <span class="m">x<sub>1</sub>, …, x<sub>N</sub></span>, the kernel density estimate places one scaled kernel on every data point and averages:</p>
+    <div class="eq"><span class="m">p̂(x) = <span class="fr"><span>1</span><span>N</span></span> <span class="sm"><span class="lim">N</span><span class="sy">Σ</span><span class="lim">n=1</span></span> K<sub>h</sub>(x − x<sub>n</sub>)</span><span class="note">K<sub>h</sub> is a density kernel with bandwidth h (topic 2)</span></div>
+    <p>With a Gaussian kernel this is exactly a mixture model with <span class="m">N</span> components, one centered on each data point, equal weights <span class="m">1/N</span> and variance <span class="m">h<sup>2</sup></span>:</p>
+    <div class="eq"><span class="m">p̂(x) = <span class="sm"><span class="lim">N</span><span class="sy">Σ</span><span class="lim">n=1</span></span> <span class="fr"><span>1</span><span>N</span></span> 𝒩(x | x<sub>n</sub>, h<sup>2</sup>)</span></div>
+    <p>Unlike a Gaussian mixture model there is no EM and no number of components to choose. "Training" means storing the data (memory-based learning), so the model grows with <span class="m">N</span> and each evaluation costs <span class="m">O(N)</span>. Since <span class="m">K</span> is a density, <span class="m">p̂ ≥ 0</span> and <span class="m">∫p̂ = 1</span> automatically.</p>
+    <p>The estimator is biased but consistent. Its mean is <span class="m">E[p̂(x)] = (K<sub>h</sub> ∗ p)(x)</span>, a smoothed copy of the true density, and its variance is roughly <span class="m">p(x) ∫K<sup>2</sup> / (N h)</span>. Large <span class="m">h</span> raises bias and lowers variance, small <span class="m">h</span> does the reverse. Topic 4 picks <span class="m">h</span>.</p>
+  </div>
+
+  <div class="demo" id="d1">
+    <div class="demo-title"><h3>Stack the bumps</h3><span>Gaussian kernel · click empty space to add a point · drag to move · tap a point to remove</span></div>
+    <div class="plots"><div class="plot" id="p1"></div></div>
+    <div class="ctl">
+      <div class="f"><label for="h1">Bump width <span class="m">h</span><span class="val" id="h1v"></span></label><input type="range" id="h1" min="0.05" max="2" step="0.01" value="0.45"></div>
+      <div class="f narrow"><label for="s1">Data set</label><select id="s1"><option value="two">Two clumps</option><option value="one">One clump</option><option value="skew">Skewed</option><option value="few">Only 6 points</option></select></div>
+      <div class="btns"><button class="btn" id="b1clear">Clear</button></div>
+      <label class="chk"><input type="checkbox" id="c1bumps" checked> Show each bump</label>
+    </div>
+    <div class="lg"><span><i class="dot" style="background:var(--pt)"></i>data point</span><span><i style="opacity:.45"></i>one bump, height ÷ N</span><span><i></i>sum of bumps = density estimate</span></div>
+    <div class="read" id="r1"></div>
+  </div>
+</section>
+
+<!-- 2 ============================================================ -->
+<section class="topic" id="t2">
+  <div class="t-head"><span class="t-num">2</span><h2>Density kernels</h2></div>
+  <p class="t-sub">The shape of the little hill each data point gets.</p>
+
+  <div class="lv" data-l="1"><div class="lv-tag">Elementary</div>
+    <p>A <b>kernel</b> is the shape of the hill we put on each kid. It could be a smooth bell, a flat box, or a rounded roof.</p>
+    <p>There are two rules. First, the hill looks the same on its left side and its right side. Second, it holds exactly one "pancake" of stuff, so the total area under it is 1, no matter how wide or tall it is.</p>
+    <p>Here is a surprise. Switching between hill shapes barely changes the final picture. Making the hills wider or skinnier changes it a lot. Try the checkboxes in the demo and see for yourself.</p>
+  </div>
+  <div class="lv" data-l="2"><div class="lv-tag">High school</div>
+    <p>A <b>density kernel</b> is a function <span class="m">K(u)</span> that is never negative, is symmetric (<span class="m">K(−u) = K(u)</span>) and has area exactly 1 under it. Four common choices:</p>
+    <ul>
+      <li><b>Gaussian:</b> the bell curve. It never quite reaches zero, so every point has at least a tiny say everywhere.</li>
+      <li><b>Boxcar:</b> a flat rectangle. It simply counts the points inside a window.</li>
+      <li><b>Epanechnikov:</b> an upside-down parabola. Points at the edge of the window count for nothing.</li>
+      <li><b>Tricube:</b> a rounded cap that flattens smoothly to zero at the edges.</li>
+    </ul>
+    <p>The bandwidth rescales a kernel: <span class="m">K<sub>h</sub>(x) = K(x/h) / h</span>. Dividing the argument by <span class="m">h</span> stretches the hill sideways. Dividing the result by <span class="m">h</span> squashes it down so its area stays 1.</p>
+  </div>
+  <div class="lv" data-l="3"><div class="lv-tag">Undergraduate</div>
+    <p>A smoothing kernel is a function <span class="m">K: ℝ → ℝ<sub>+</sub></span> with <span class="m">∫K(u)du = 1</span> and <span class="m">K(−u) = K(u)</span>. This is a different object from a Mercer kernel (a positive-definite similarity used in SVMs and Gaussian processes), although a stationary Mercer kernel can often serve as a smoothing kernel too. The bandwidth enters as</p>
+    <div class="eq"><span class="m">K<sub>h</sub>(u) = <span class="fr"><span>1</span><span>h</span></span> K(<span class="fr"><span>u</span><span>h</span></span>)</span><span class="note">in D dimensions the prefactor is h<sup>−D</sup></span></div>
+    <div class="table-wrap"><table>
+      <tr><th>Kernel</th><th><span class="m">K(u)</span></th><th>Support</th></tr>
+      <tr><td>Gaussian</td><td class="num">(2π)<sup>−1/2</sup> exp(−u²/2)</td><td>ℝ</td></tr>
+      <tr><td>Boxcar</td><td class="num">½ · 1(|u| ≤ 1)</td><td>[−1, 1]</td></tr>
+      <tr><td>Epanechnikov</td><td class="num">¾ (1 − u²) · 1(|u| ≤ 1)</td><td>[−1, 1]</td></tr>
+      <tr><td>Tricube</td><td class="num">(70/81)(1 − |u|³)³ · 1(|u| ≤ 1)</td><td>[−1, 1]</td></tr>
+    </table></div>
+    <p style="margin-top:12px">The Epanechnikov kernel minimizes the asymptotic mean integrated squared error among nonnegative kernels, but the others lose only a few percent of efficiency. In practice <span class="m">h</span> matters far more than <span class="m">K</span>. One trap: the same <span class="m">h</span> does not mean the same effective width. The standard deviation of <span class="m">K<sub>h</sub></span> is <span class="m">h</span> for the Gaussian, <span class="m">h/√3</span> for the boxcar and <span class="m">h/√5</span> for Epanechnikov, so compact kernels need a larger <span class="m">h</span> to look equally smooth. Compact support also gives exact zeros, which makes sparse and tree-based evaluation possible.</p>
+  </div>
+
+  <div class="demo" id="d2">
+    <div class="demo-title"><h3>Same data, four kernels</h3><span>left: the kernels themselves · right: density estimates built from them</span></div>
+    <div class="plots two"><div class="plot" id="p2a"></div><div class="plot" id="p2b"></div></div>
+    <div class="ctl">
+      <div class="f"><label for="h2">Bandwidth <span class="m">h</span><span class="val" id="h2v"></span></label><input type="range" id="h2" min="0.1" max="2" step="0.01" value="0.7"></div>
+      <label class="chk"><input type="checkbox" id="k2g" checked> Gaussian</label>
+      <label class="chk"><input type="checkbox" id="k2b" checked> Boxcar</label>
+      <label class="chk"><input type="checkbox" id="k2e" checked> Epanechnikov</label>
+      <label class="chk"><input type="checkbox" id="k2t" checked> Tricube</label>
+    </div>
+    <div class="table-wrap"><table id="t2tab"></table></div>
+    <div class="lg" id="lg2"></div>
+  </div>
+</section>
+
+<!-- 3 ============================================================ -->
+<section class="topic" id="t3">
+  <div class="t-head"><span class="t-num">3</span><h2>Parzen window density estimator</h2></div>
+  <p class="t-sub">Slide a window along the line and count who is inside.</p>
+
+  <div class="lv" data-l="1"><div class="lv-tag">Elementary</div>
+    <p>Picture a cardboard frame you can slide along a line of kids. At every spot you count how many kids fit inside the frame. Many kids means a tall mark. Few kids means a short mark.</p>
+    <p>Slide the frame all the way along, drawing a mark at each spot, and you get a picture of where the kids crowd together. A wide frame gives a blurry picture. A skinny frame gives a jumpy one.</p>
+    <p>That is the <b>Parzen window</b> idea: count the kids in a sliding frame. Press the sweep button in the demo to watch it draw.</p>
+  </div>
+  <div class="lv" data-l="2"><div class="lv-tag">High school</div>
+    <p>Take the boxcar kernel: a window reaching a distance <span class="m">h</span> to each side of a spot <span class="m">x</span>. Let <span class="m">n(x)</span> be the number of data points inside it. The density estimate is</p>
+    <div class="eq"><span class="m">p̂(x) = <span class="fr"><span>n(x)</span><span>N · 2h</span></span></span></div>
+    <p>The top is the number of points in the window and <span class="m">N</span> is the total, so <span class="m">n(x)/N</span> is the fraction of the data in the window. Dividing by the window's width <span class="m">2h</span> turns "fraction" into "fraction per unit of length," which is what a density is.</p>
+    <p>Sliding this window along the axis is like a histogram whose bins follow you around, with no fixed edges. Swap the sharp window for a smooth Gaussian one and each point gets a gradual say instead of an all-or-nothing vote.</p>
+  </div>
+  <div class="lv" data-l="3"><div class="lv-tag">Undergraduate</div>
+    <p>The Parzen window (Parzen–Rosenblatt) estimator is the KDE of topic 1. For the boxcar kernel <span class="m">K(u) = ½ · 1(|u| ≤ 1)</span> it reduces to a windowed count:</p>
+    <div class="eq"><span class="m">p̂(x) = <span class="fr"><span>1</span><span>2hN</span></span> · #{ n : |x − x<sub>n</sub>| ≤ h }</span></div>
+    <p>This estimate is piecewise constant. It jumps by <span class="m">1/(2hN)</span> whenever a point enters or leaves the window, so it is not smooth and not differentiable. A smoother kernel, such as the Gaussian, gives a smooth <span class="m">p̂</span> and the mixture form from topic 1.</p>
+    <p>In <span class="m">D</span> dimensions use <span class="m">K<sub>h</sub>(u) = h<sup>−D</sup> K(u/h)</span>, with a radial or product kernel. The best achievable MISE rate degrades to <span class="m">N<sup>−4/(D+4)</sup></span>, the curse of dimensionality: the sample size needed for a given accuracy grows exponentially in <span class="m">D</span>. Fitting costs nothing and evaluating costs <span class="m">O(N)</span>, which is why practical implementations use KD-trees, ball trees or FFT-based binning.</p>
+  </div>
+
+  <div class="demo" id="d3">
+    <div class="demo-title"><h3>Slide the window</h3><span>drag the window, or use the slider · the curve is traced as the window moves</span></div>
+    <div class="plots"><div class="plot" id="p3"></div></div>
+    <div class="ctl">
+      <div class="f"><label for="h3">Window half-width <span class="m">h</span><span class="val" id="h3v"></span></label><input type="range" id="h3" min="0.1" max="2" step="0.01" value="0.6"></div>
+      <div class="f"><label for="x3">Window position <span class="m">x</span><span class="val" id="x3v"></span></label><input type="range" id="x3" min="-5" max="5" step="0.01" value="-1.4"></div>
+      <div class="f narrow"><label for="k3">Window shape</label><select id="k3"><option value="box">Boxcar (count)</option><option value="gauss">Gaussian (smooth)</option></select></div>
+      <div class="btns"><button class="btn" id="b3play">Sweep</button></div>
+    </div>
+    <div class="read" id="r3"></div>
+  </div>
+</section>
+<!-- 4 ============================================================ -->
+<section class="topic" id="t4">
+  <div class="t-head"><span class="t-num">4</span><h2>How to choose the bandwidth</h2></div>
+  <p class="t-sub">The width <span class="m">h</span> is the one setting that really changes the answer.</p>
+
+  <div class="lv" data-l="1"><div class="lv-tag">Elementary</div>
+    <p>How wide should each little hill be? If the hills are too skinny, every kid gets their own spike and the picture looks like a jagged mountain range. If the hills are too fat, they melt into one big blob and you can't see the clumps anymore. You want the "just right" width, like Goldilocks.</p>
+    <p>There are two ways to find it. One is a <b>rule of thumb</b>: look at how spread out the kids are and how many there are, then use a recipe. The other is a <b>hide-and-guess game</b>: hide one kid, draw the picture from everyone else, and see how well the picture predicts where the hidden kid stands. Do that for every kid and pick the width that guesses best.</p>
+    <p>Try both buttons in the demo. Then change the group to "two clumps" and see which method does better.</p>
+  </div>
+  <div class="lv" data-l="2"><div class="lv-tag">High school</div>
+    <p>The bandwidth trades two kinds of error against each other. A small <span class="m">h</span> follows the data closely, so the curve wiggles around every random bump (high variance, "overfitting"). A large <span class="m">h</span> smooths so much that real features, like two separate peaks, disappear (high bias, "oversmoothing").</p>
+    <p><b>Rule of thumb (Silverman).</b> If the data are roughly bell-shaped, a good choice is about <span class="m">1.06 × (spread) × N<sup>−1/5</sup></span>. More data lets you use narrower hills, but slowly, because of the fifth root. A robust version measures spread with the median absolute deviation (MAD), so a few outliers don't inflate <span class="m">h</span>.</p>
+    <p><b>Cross-validation.</b> For each point, build the estimate from the other <span class="m">N − 1</span> points and score how likely the held-out point is. Add up the logs of those scores and pick the <span class="m">h</span> with the best total.</p>
+    <p>The rule of thumb assumes a bell shape, so it tends to oversmooth data with two peaks. Cross-validation makes no such assumption.</p>
+  </div>
+  <div class="lv" data-l="3"><div class="lv-tag">Undergraduate</div>
+    <p><b>Plug-in rule.</b> The asymptotic MISE of a KDE is</p>
+    <div class="eq"><span class="m">AMISE(h) = <span class="fr"><span>R(K)</span><span>N h</span></span> + <span class="fr"><span>1</span><span>4</span></span> h<sup>4</sup> μ<sub>2</sub>(K)<sup>2</sup> R(p″)</span><span class="note">R(g) = ∫g², μ₂(K) = ∫u²K(u)du · variance term falls with h, bias term grows with h</span></div>
+    <p>Minimizing over <span class="m">h</span> gives <span class="m">h* ∝ N<sup>−1/5</sup></span> and MISE <span class="m">∝ N<sup>−4/5</sup></span>. If the unknown <span class="m">p</span> is replaced by a Gaussian <span class="m">𝒩(μ, σ<sup>2</sup>)</span> and <span class="m">K</span> is Gaussian, then <span class="m">R(p″) = 3/(8√π σ<sup>5</sup>)</span> and the rule becomes</p>
+    <div class="eq"><span class="m">h = σ̂ <span class="u">(</span><span class="fr"><span>4</span><span>3N</span></span><span class="u">)</span><sup>1/5</sup> ≈ 1.06 σ̂ N<sup>−1/5</sup></span><span class="note">robust version: σ̂ = 1.4826 · MAD,  MAD = median<sub>n</sub> |x<sub>n</sub> − median(x)|</span></div>
+    <p>The constant 1.4826 equals <span class="m">1/Φ<sup>−1</sup>(3/4)</span> and makes the MAD consistent for <span class="m">σ</span> under normality. Because the Gaussian reference ignores skew and multimodality, this rule oversmooths such data.</p>
+    <p><b>Leave-one-out cross-validation.</b> Choose</p>
+    <div class="eq"><span class="m">ĥ<sub>CV</sub> = argmax<sub>h</sub> <span class="sm"><span class="lim">N</span><span class="sy">Σ</span><span class="lim">n=1</span></span> log p̂<sub>−n</sub>(x<sub>n</sub>),  p̂<sub>−n</sub>(x) = <span class="fr"><span>1</span><span>N − 1</span></span> <span class="sm"><span class="lim">m≠n</span><span class="sy">Σ</span><span class="lim"> </span></span> K<sub>h</sub>(x − x<sub>m</sub>)</span></div>
+    <p>Leaving the point out is essential. Maximizing the plain likelihood drives <span class="m">h → 0</span>, where <span class="m">p̂</span> becomes a comb of spikes on the data. LOO-CV needs no refitting for a KDE and costs <span class="m">O(N<sup>2</sup>)</span> per candidate <span class="m">h</span>. With a compact kernel the score can be <span class="m">−∞</span> when a held-out point has no neighbor in its window, so a Gaussian kernel is the safer choice here.</p>
+  </div>
+
+  <div class="demo" id="d4">
+    <div class="demo-title"><h3>Find the right width</h3><span>Gaussian kernel · the true density is known, so you can see who is right</span></div>
+    <div class="plots two"><div class="plot" id="p4a"></div><div class="plot" id="p4b"></div></div>
+    <div class="ctl">
+      <div class="f"><label for="h4">Bandwidth <span class="m">h</span><span class="val" id="h4v"></span></label><input type="range" id="h4" min="-1.7" max="0.7" step="0.005" value="-0.3"></div>
+      <div class="f narrow"><label for="n4">Sample size <span class="m">N</span><span class="val" id="n4v"></span></label><input type="range" id="n4" min="10" max="400" step="1" value="80"></div>
+      <div class="f narrow"><label for="dist4">Truth is</label><select id="dist4"><option value="bi">Two peaks</option><option value="uni">One bell curve</option><option value="skew">Skewed</option></select></div>
+    </div>
+    <div class="btns">
+      <button class="btn" id="b4rule">Rule of thumb</button>
+      <button class="btn" id="b4mad">Robust (MAD)</button>
+      <button class="btn" id="b4cv">Cross-validation</button>
+      <button class="btn" id="b4new">New sample</button>
+    </div>
+    <div class="lg"><span><i></i>estimate with current <span class="m">h</span></span><span><i class="dash" style="border-color:var(--ink-2)"></i>true density</span></div>
+    <div class="read" id="r4"></div>
+  </div>
+</section>
+
+<!-- 5 ============================================================ -->
+<section class="topic" id="t5">
+  <div class="t-head"><span class="t-num">5</span><h2>From KDE to KNN classification</h2></div>
+  <p class="t-sub">A majority vote among neighbors is a density estimate in disguise.</p>
+
+  <div class="lv" data-l="1"><div class="lv-tag">Elementary</div>
+    <p>On a playground there are kids in red shirts, orange shirts and green shirts, standing in groups. A new kid walks in and you can't see his shirt. What color is he probably wearing?</p>
+    <p>Ask the K kids standing closest to him. If 4 of the 5 nearest kids wear red, guess red. This is the <b>K-nearest neighbors</b> game.</p>
+    <p>Here is the secret. It's the hill-picture idea again. Draw a hill picture for each color, and ask which color's picture is tallest where the new kid stands. In the demo, a circle grows around the new kid until it holds exactly K other kids, and the count of each color inside it tells you the guess.</p>
+  </div>
+  <div class="lv" data-l="2"><div class="lv-tag">High school</div>
+    <p>To classify a new point there are two natural plans.</p>
+    <ul>
+      <li><b>Vote.</b> Find the K closest labeled points and let them vote. This is KNN.</li>
+      <li><b>Compare crowds.</b> Estimate how crowded each class is around the point, weigh each class by how common it is overall, and pick the class with the biggest result.</li>
+    </ul>
+    <p>These are the same plan when the "crowd" is measured in a circle that grows just big enough to hold K neighbors. The circle is small where the data are dense and large where they are sparse, so it adapts automatically. The probability of class <span class="m">c</span> comes out as</p>
+    <div class="eq"><span class="m">p(class c) = <span class="fr"><span>number of the K neighbors in class c</span><span>K</span></span></span></div>
+    <p>A fixed-width version, the KDE classifier, uses the same recipe but with hills of a fixed width instead of a circle that grows. Switch between the two in the demo and compare the regions.</p>
+  </div>
+  <div class="lv" data-l="3"><div class="lv-tag">Undergraduate</div>
+    <p>Build a generative classifier whose class-conditional densities come from a nonparametric estimator. Grow a ball around <span class="m">x</span> until it contains <span class="m">K</span> points of any class. Let <span class="m">V(x)</span> be its volume and <span class="m">K<sub>c</sub>(x)</span> the number of class-<span class="m">c</span> points inside, so <span class="m">Σ<sub>c</sub> K<sub>c</sub>(x) = K</span>. This is a KDE with a uniform kernel whose width adapts to the local sample density. Then</p>
+    <div class="eq"><span class="m">p(x | y=c) = <span class="fr"><span>K<sub>c</sub>(x)</span><span>N<sub>c</sub> V(x)</span></span>,   p(y=c) = <span class="fr"><span>N<sub>c</sub></span><span>N</span></span>,   p(x) = <span class="fr"><span>K</span><span>N V(x)</span></span></span></div>
+    <p>and by Bayes' rule the volume cancels:</p>
+    <div class="eq"><span class="m">p(y=c | x) = <span class="fr"><span>p(x | y=c) p(y=c)</span><span>p(x)</span></span> = <span class="fr"><span>K<sub>c</sub>(x)</span><span>K</span></span></span></div>
+    <p>So the KNN rule is the Bayes classifier under a K-nearest-neighbor density estimate. That density estimate is improper: <span class="m">K/(N V(x))</span> has heavy tails and its integral diverges. The classifier never needs the integral, only ratios, so this does no harm.</p>
+    <p>With a fixed-bandwidth class-conditional KDE <span class="m">p̂(x|c) = N<sub>c</sub><sup>−1</sup> Σ<sub>n∈c</sub> K<sub>h</sub>(x − x<sub>n</sub>)</span> the same derivation gives</p>
+    <div class="eq"><span class="m">p(y=c | x) = <span class="fr"><span><span class="sm"><span class="lim"> </span><span class="sy">Σ</span><span class="lim">n: y<sub>n</sub>=c</span></span> K<sub>h</sub>(x − x<sub>n</sub>)</span><span><span class="sm"><span class="lim">N</span><span class="sy">Σ</span><span class="lim">n=1</span></span> K<sub>h</sub>(x − x<sub>n</sub>)</span></span></span><span class="note">a kernel-weighted vote · the classification analogue of Nadaraya-Watson (topic 7) with one-hot labels</span></div>
+    <p>If <span class="m">K → ∞</span> and <span class="m">K/N → 0</span> as <span class="m">N → ∞</span>, the KNN rule is consistent for the Bayes classifier. For <span class="m">K = 1</span>, the Cover–Hart bound says its asymptotic error is at most twice the Bayes error.</p>
+  </div>
+
+  <div class="demo" id="d5">
+    <div class="demo-title"><h3>Ask the neighbors</h3><span>click or drag on the chart to move the query point</span></div>
+    <div class="plots"><div class="plot" id="p5"></div></div>
+    <div class="ctl">
+      <div class="f narrow"><label for="m5">Method</label><select id="m5"><option value="knn">KNN (circle grows to hold K)</option><option value="kde">KDE classifier (fixed width)</option></select></div>
+      <div class="f" id="f5k"><label for="k5">Neighbors <span class="m">K</span><span class="val" id="k5v"></span></label><input type="range" id="k5" min="1" max="30" step="1" value="7"></div>
+      <div class="f" id="f5h"><label for="h5">Bandwidth <span class="m">h</span><span class="val" id="h5v"></span></label><input type="range" id="h5" min="0.15" max="2" step="0.01" value="0.6"></div>
+      <label class="chk"><input type="checkbox" id="c5reg" checked> Shade decision regions</label>
+      <div class="btns"><button class="btn" id="b5new">New data</button></div>
+    </div>
+    <div class="lg" id="lg5"></div>
+    <div class="read" id="r5"></div>
+  </div>
+</section>
+
+<!-- 6 ============================================================ -->
+<section class="topic" id="t6">
+  <div class="t-head"><span class="t-num">6</span><h2>Kernel regression</h2></div>
+  <p class="t-sub">Estimate the joint density of <span class="m">(x, y)</span> with a KDE, then slice it.</p>
+
+  <div class="lv" data-l="1"><div class="lv-tag">Elementary</div>
+    <p>Now every kid has two numbers: their age (call it <b>x</b>) and how many jumping jacks they can do (call it <b>y</b>). Put each kid on a map as a dot, with age going across and jumping jacks going up.</p>
+    <p>Give each dot a round hill, and add the hills up. You get a hilly map showing where dots like to live, a bit like a mountain range.</p>
+    <p>Now you meet a new kid who is 9. To guess his jumping jacks, walk up the line that says "age = 9" and look at how high the ground is as you go. The ground is highest where kids of that age usually land. The average spot along the line is your guess. Drag the line in the demo to try it.</p>
+  </div>
+  <div class="lv" data-l="2"><div class="lv-tag">High school</div>
+    <p><b>Regression</b> means predicting a number <span class="m">y</span> from another number <span class="m">x</span>. Here we do it with no formula assumed in advance.</p>
+    <p>Step one: use a KDE on the pairs <span class="m">(x, y)</span>. Each data point gets a round 2D hill, and the sum is a hilly surface showing where pairs are likely.</p>
+    <p>Step two: fix the input at some value <span class="m">x<sub>0</sub></span> and slice through the surface along the line <span class="m">x = x<sub>0</sub></span>. The height along the slice, once rescaled so its area is 1, is a curve over <span class="m">y</span> showing which outputs are likely for that input. Its average is the prediction.</p>
+    <p>That average turns out to be a weighted average of the training <span class="m">y</span> values, where training points with <span class="m">x</span> near <span class="m">x<sub>0</sub></span> get more weight. The next topic writes that out.</p>
+  </div>
+  <div class="lv" data-l="3"><div class="lv-tag">Undergraduate</div>
+    <p>Regression targets the conditional mean <span class="m">E[y | x]</span>. A KDE gives it without any parametric form for the relationship. Model the joint density with a product kernel:</p>
+    <div class="eq"><span class="m">p̂(x, y) = <span class="fr"><span>1</span><span>N</span></span> <span class="sm"><span class="lim">N</span><span class="sy">Σ</span><span class="lim">n=1</span></span> K<sub>h</sub>(x − x<sub>n</sub>) K<sub>h</sub>(y − y<sub>n</sub>)</span></div>
+    <p>Integrating over <span class="m">y</span> gives the marginal <span class="m">p̂(x) = N<sup>−1</sup> Σ<sub>n</sub> K<sub>h</sub>(x − x<sub>n</sub>)</span>, because <span class="m">∫K<sub>h</sub>(y − y<sub>n</sub>)dy = 1</span>. The conditional density is then</p>
+    <div class="eq"><span class="m">p̂(y | x) = <span class="fr"><span>p̂(x, y)</span><span>p̂(x)</span></span> = <span class="sm"><span class="lim">N</span><span class="sy">Σ</span><span class="lim">n=1</span></span> w<sub>n</sub>(x) K<sub>h</sub>(y − y<sub>n</sub>),   w<sub>n</sub>(x) = <span class="fr"><span>K<sub>h</sub>(x − x<sub>n</sub>)</span><span>Σ<sub>n′</sub> K<sub>h</sub>(x − x<sub>n′</sub>)</span></span></span></div>
+    <p>This is a mixture over <span class="m">y</span> with one component per training point, and the mixing weights <span class="m">w<sub>n</sub>(x)</span> depend on the query and sum to 1. Taking its mean, with <span class="m">∫y K<sub>h</sub>(y − y<sub>n</sub>)dy = y<sub>n</sub></span> by symmetry, gives <span class="m">E[y|x] = Σ<sub>n</sub> w<sub>n</sub>(x) y<sub>n</sub></span>, the Nadaraya-Watson estimator of the next topic.</p>
+    <p>The kernel width used for <span class="m">y</span> can differ from the one used for <span class="m">x</span>. It leaves the mean unchanged and only enters the variance (topic 8). The demo ties the two together, as in the product kernel above.</p>
+  </div>
+
+  <div class="demo" id="d6">
+    <div class="demo-title"><h3>Slice the joint density</h3><span>shading = joint KDE p̂(x, y) · right panel = the slice p̂(y | x₀)</span></div>
+    <div class="plots two"><div class="plot" id="p6a"></div><div class="plot" id="p6b"></div></div>
+    <div class="ctl">
+      <div class="f"><label for="h6">Bandwidth <span class="m">h</span><span class="val" id="h6v"></span></label><input type="range" id="h6" min="0.1" max="2.5" step="0.01" value="0.6"></div>
+      <div class="f"><label for="x6">Slice position <span class="m">x<sub>0</sub></span><span class="val" id="x6v"></span></label><input type="range" id="x6" min="0" max="10" step="0.01" value="3.2"></div>
+      <div class="f narrow"><label for="s6">Data set</label><select id="s6"><option value="wavy">Wavy</option><option value="step">Step</option><option value="line">Line plus noise</option></select></div>
+      <label class="chk"><input type="checkbox" id="c6joint" checked> Show joint density</label>
+    </div>
+    <div class="lg"><span><i class="dot" style="background:var(--pt)"></i>data</span><span><i style="border-color:var(--c2)"></i>slice at <span class="m">x<sub>0</sub></span></span><span><i></i>mean of the slice, traced over all <span class="m">x</span></span></div>
+    <div class="read" id="r6"></div>
+  </div>
+</section>
+<!-- 7 ============================================================ -->
+<section class="topic" id="t7">
+  <div class="t-head"><span class="t-num">7</span><h2>Nadaraya-Watson estimator for the mean</h2></div>
+  <p class="t-sub">A weighted average where closeness decides the weight.</p>
+
+  <div class="lv" data-l="1"><div class="lv-tag">Elementary</div>
+    <p>You want to guess how many jumping jacks a 9-year-old can do. So you ask <b>every</b> kid in your data, but you listen to some voices louder than others. A 9-year-old's answer is very loud. A 4-year-old's answer is almost silent.</p>
+    <p>Then you average the answers, and the louder voices count more. That is the whole method.</p>
+    <p>If you only listen to the single closest kid, your guess jumps around from kid to kid. If you listen to everybody the same, you just get the class average no matter who is asking. The sweet spot is in between. In the demo, each dot grows when its voice gets louder.</p>
+  </div>
+  <div class="lv" data-l="2"><div class="lv-tag">High school</div>
+    <p>To predict at an input <span class="m">x</span>, take a <b>weighted average</b> of all the training outputs:</p>
+    <div class="eq"><span class="m">f̂(x) = w<sub>1</sub> y<sub>1</sub> + w<sub>2</sub> y<sub>2</sub> + … + w<sub>N</sub> y<sub>N</sub></span></div>
+    <p>Each weight comes from a kernel score of how near <span class="m">x<sub>n</sub></span> is to <span class="m">x</span>, rescaled so that all the weights add up to 1. Because it is a weighted average, the prediction always lies between the smallest and largest <span class="m">y<sub>n</sub></span>; it can't overshoot.</p>
+    <p>The bandwidth <span class="m">h</span> decides how far "near" reaches. As <span class="m">h</span> shrinks toward 0 the prediction copies the nearest point's <span class="m">y</span> and the curve becomes a staircase. As <span class="m">h</span> grows very large every weight becomes equal and the curve flattens to the overall average of <span class="m">y</span>. In between you get a smooth curve through the middle of the data.</p>
+  </div>
+  <div class="lv" data-l="3"><div class="lv-tag">Undergraduate</div>
+    <p>From topic 6, the conditional mean of the joint KDE is the Nadaraya-Watson (NW) estimator, also called a kernel smoother:</p>
+    <div class="eq"><span class="m">f̂(x) = <span class="sm"><span class="lim">N</span><span class="sy">Σ</span><span class="lim">n=1</span></span> w<sub>n</sub>(x) y<sub>n</sub>,   w<sub>n</sub>(x) = <span class="fr"><span>K<sub>h</sub>(x − x<sub>n</sub>)</span><span><span class="sm"><span class="lim">N</span><span class="sy">Σ</span><span class="lim">n′=1</span></span> K<sub>h</sub>(x − x<sub>n′</sub>)</span></span></span></div>
+    <p>It is also the solution of a locally constant weighted least-squares problem, <span class="m">f̂(x) = argmin<sub>μ</sub> Σ<sub>n</sub> K<sub>h</sub>(x − x<sub>n</sub>)(y<sub>n</sub> − μ)<sup>2</sup></span>, which topic 9 generalizes to local lines. The weights are a similarity-based, normalized lookup into stored labels, so this is memory-based learning with <span class="m">O(N)</span> cost per query.</p>
+    <p>Limits in <span class="m">h</span>: with a Gaussian kernel, <span class="m">h → 0</span> gives 1-nearest-neighbor regression (piecewise constant), and <span class="m">h → ∞</span> gives the global mean <span class="m">ȳ</span>. For smooth <span class="m">f</span> and design density <span class="m">p</span>, the interior asymptotics are</p>
+    <div class="eq"><span class="m">Bias ≈ h<sup>2</sup> μ<sub>2</sub>(K) <span class="u">[</span> <span class="fr"><span>f″(x)</span><span>2</span></span> + <span class="fr"><span>f′(x) p′(x)</span><span>p(x)</span></span> <span class="u">]</span>,   Var ≈ <span class="fr"><span>σ<sup>2</sup>(x) R(K)</span><span>N h p(x)</span></span></span></div>
+    <p>The bias contains a design-dependent term <span class="m">f′p′/p</span>, and near the edges of the data it degrades to <span class="m">O(h)</span>, because the window is lopsided. The optimal rate is <span class="m">h ∝ N<sup>−1/5</sup></span>. Both defects are repaired by the local linear fit in topic 9.</p>
+    <p>A connection worth knowing: with a Gaussian kernel, <span class="m">w<sub>n</sub>(x) ∝ exp(−‖x − x<sub>n</sub>‖<sup>2</sup>/2h<sup>2</sup>)</span> is a softmax over training points. NW regression is therefore attention with fixed keys <span class="m">x<sub>n</sub></span>, values <span class="m">y<sub>n</sub></span> and a squared-distance score.</p>
+  </div>
+
+  <div class="demo" id="d7">
+    <div class="demo-title"><h3>Who gets a loud voice?</h3><span>drag across the chart to move the query · dot size = weight</span></div>
+    <div class="plots"><div class="plot" id="p7a"></div><div class="plot" id="p7b"></div></div>
+    <div class="ctl">
+      <div class="f"><label for="h7">Bandwidth <span class="m">h</span><span class="val" id="h7v"></span></label><input type="range" id="h7" min="0.05" max="6" step="0.01" value="0.7"></div>
+      <div class="f"><label for="x7">Query <span class="m">x</span><span class="val" id="x7v"></span></label><input type="range" id="x7" min="0" max="10" step="0.01" value="4.1"></div>
+      <div class="f narrow"><label for="k7">Kernel</label><select id="k7"><option value="gauss">Gaussian</option><option value="epan">Epanechnikov</option><option value="tricube">Tricube</option><option value="box">Boxcar</option></select></div>
+      <div class="f narrow"><label for="s7">Data set</label><select id="s7"><option value="wavy">Wavy</option><option value="step">Step</option><option value="line">Line plus noise</option></select></div>
+    </div>
+    <div class="btns"><button class="btn" id="b7small">h → tiny (nearest neighbor)</button><button class="btn" id="b7big">h → huge (global mean)</button></div>
+    <div class="lg"><span><i class="dot" style="background:var(--pt)"></i>training data</span><span><i></i>NW curve <span class="m">f̂(x)</span></span><span><i class="dot" style="background:var(--c2)"></i>prediction at the query</span></div>
+    <div class="read" id="r7"></div>
+  </div>
+</section>
+
+<!-- 8 ============================================================ -->
+<section class="topic" id="t8">
+  <div class="t-head"><span class="t-num">8</span><h2>Estimator for the variance</h2></div>
+  <p class="t-sub">How spread out are the <span class="m">y</span> values near <span class="m">x</span>?</p>
+
+  <div class="lv" data-l="1"><div class="lv-tag">Elementary</div>
+    <p>Our guess says a 9-year-old does 20 jumping jacks. But how sure are we? If kids around that age do between 19 and 21, we feel confident. If they do anywhere from 5 to 40, the guess is shaky.</p>
+    <p>We can measure that "spread-out-ness" with the same louder-and-quieter voices. The shaded ribbon in the demo shows it. The ribbon is skinny where kids all do about the same thing, and wide where they are all over the place.</p>
+  </div>
+  <div class="lv" data-l="2"><div class="lv-tag">High school</div>
+    <p><b>Variance</b> measures spread: it is the average of (value − mean)<sup>2</sup>. To get it at a particular <span class="m">x</span>, reuse the same weights as the weighted average. Weight each squared gap <span class="m">(y<sub>n</sub> − μ(x))<sup>2</sup></span> and add them up, then add a small extra amount <span class="m">σ<sup>2</sup></span> that accounts for the blur of the hills themselves.</p>
+    <p>The ribbon <span class="m">μ(x) ± 2√V(x)</span> should contain about 95% of the <span class="m">y</span> values near <span class="m">x</span> when they are roughly bell-shaped. Where the data are noisier, the ribbon is wider. Where few training points are nearby, the estimate is unstable, so take the edges of the ribbon with a grain of salt.</p>
+  </div>
+  <div class="lv" data-l="3"><div class="lv-tag">Undergraduate</div>
+    <p>The conditional density from topic 6, <span class="m">p̂(y|x) = Σ<sub>n</sub> w<sub>n</sub>(x) K(y − y<sub>n</sub>)</span>, also gives the predictive variance. Let the kernel in the <span class="m">y</span> direction have variance <span class="m">σ<sup>2</sup></span>. Then <span class="m">E[y<sup>2</sup>|x] = Σ<sub>n</sub> w<sub>n</sub>(x)(σ<sup>2</sup> + y<sub>n</sub><sup>2</sup>)</span>, and</p>
+    <div class="eq"><span class="m">V̂[y | x] = E[y<sup>2</sup>|x] − μ̂(x)<sup>2</sup> = σ<sup>2</sup> + <span class="sm"><span class="lim">N</span><span class="sy">Σ</span><span class="lim">n=1</span></span> w<sub>n</sub>(x) y<sub>n</sub><sup>2</sup> − μ̂(x)<sup>2</sup> = σ<sup>2</sup> + <span class="sm"><span class="lim">N</span><span class="sy">Σ</span><span class="lim">n=1</span></span> w<sub>n</sub>(x) (y<sub>n</sub> − μ̂(x))<sup>2</sup></span><span class="note">μ̂(x) is the NW mean from topic 7 · the last step uses Σ w<sub>n</sub> = 1</span></div>
+    <p>The first term is the spread added by smoothing in <span class="m">y</span>. The second is the weighted sample variance of nearby targets. It is the total variance of a mixture: within-component variance <span class="m">σ<sup>2</sup></span> plus between-component spread of the means.</p>
+    <p>Two remarks. First, this is the variance of the predictive distribution of <span class="m">y</span> (aleatoric spread), not the uncertainty of the estimated mean <span class="m">μ̂(x)</span>, which shrinks like <span class="m">1/(N h)</span>. Second, a common alternative smooths squared residuals, <span class="m">V̂(x) = Σ<sub>n</sub> w<sub>n</sub>(x)(y<sub>n</sub> − f̂(x<sub>n</sub>))<sup>2</sup></span>. It avoids the extra <span class="m">σ<sup>2</sup></span> and captures heteroscedastic noise directly, but it needs a good first-stage fit <span class="m">f̂</span>.</p>
+  </div>
+
+  <div class="demo" id="d8">
+    <div class="demo-title"><h3>Mean and spread</h3><span>the noise here grows with x in the first data set</span></div>
+    <div class="plots two"><div class="plot" id="p8a"></div><div class="plot" id="p8b"></div></div>
+    <div class="ctl">
+      <div class="f"><label for="h8">Bandwidth <span class="m">h</span><span class="val" id="h8v"></span></label><input type="range" id="h8" min="0.1" max="3" step="0.01" value="0.8"></div>
+      <div class="f"><label for="sg8">Extra blur in y <span class="m">σ</span><span class="val" id="sg8v"></span></label><input type="range" id="sg8" min="0" max="1" step="0.01" value="0.1"></div>
+      <div class="f"><label for="x8">Query <span class="m">x</span><span class="val" id="x8v"></span></label><input type="range" id="x8" min="0" max="10" step="0.01" value="7.2"></div>
+      <div class="f narrow"><label for="s8">Data set</label><select id="s8"><option value="het">Noise grows with x</option><option value="const">Constant noise</option><option value="mid">Noisy middle</option></select></div>
+      <label class="chk"><input type="checkbox" id="c8true" checked> Show true ±2 sd</label>
+    </div>
+    <div class="lg"><span><i class="dot" style="background:var(--pt)"></i>data</span><span><i></i>mean <span class="m">μ̂(x)</span></span><span><i style="height:8px;border-top:0;background:var(--band);width:16px"></i>±2 √V̂(x)</span><span><i class="dash" style="border-color:var(--ink-2)"></i>true ±2 sd</span></div>
+    <div class="read" id="r8"></div>
+  </div>
+</section>
+
+<!-- 9 ============================================================ -->
+<section class="topic" id="t9">
+  <div class="t-head"><span class="t-num">9</span><h2>Locally weighted regression</h2></div>
+  <p class="t-sub">Fit a small straight line at every spot, and trust the nearby points more.</p>
+
+  <div class="lv" data-l="1"><div class="lv-tag">Elementary</div>
+    <p>Last time we averaged the jumping jacks of kids near age 9. Here is a smarter move. Look at the dots near age 9 and draw the best straight line through them. Kids closer to age 9 get a bigger say in where the line goes. Then read your guess off the line at age 9.</p>
+    <p>Why is a line better than an average? Think about the oldest kids on the chart. All their neighbors are younger, so a plain average gets dragged down. A line can see the dots are going up and keep going up.</p>
+    <p>You draw a brand new line for every age. In the demo, the short straight piece is the line for the spot you picked.</p>
+  </div>
+  <div class="lv" data-l="2"><div class="lv-tag">High school</div>
+    <p>In <b>locally weighted regression</b> (LOWESS or LOESS), the prediction at an input <span class="m">x<sub>0</sub></span> comes from a straight-line fit to just the nearby data. The fit is a weighted least-squares line: it minimizes the sum of weight × (error)<sup>2</sup>, with large weights for points close to <span class="m">x<sub>0</sub></span>. The height of that line at <span class="m">x<sub>0</sub></span> is the prediction. Then you repeat for the next <span class="m">x<sub>0</sub></span>.</p>
+    <p>The weighted average from topic 7 is the same idea but with a flat line, which only has a height. A sloped line also captures the trend, so it does better at the edges of the data and on steep parts of the curve.</p>
+    <p>The price is more computing, since each prediction solves a small least-squares problem. Setting the degree to 0 in the demo gives back the weighted average.</p>
+  </div>
+  <div class="lv" data-l="3"><div class="lv-tag">Undergraduate</div>
+    <p>NW is a locally constant fit. Locally weighted regression fits a local polynomial: at each query <span class="m">x<sub>*</sub></span>, solve a kernel-weighted least-squares problem</p>
+    <div class="eq"><span class="m">β̂(x<sub>*</sub>) = argmin<sub>β</sub> <span class="sm"><span class="lim">N</span><span class="sy">Σ</span><span class="lim">n=1</span></span> K<sub>h</sub>(x<sub>*</sub> − x<sub>n</sub>) (y<sub>n</sub> − β<sup>T</sup> φ(x<sub>n</sub>))<sup>2</sup> = (Φ<sup>T</sup> D Φ)<sup>−1</sup> Φ<sup>T</sup> D y</span><span class="note">Φ is the N×p design matrix · D = diag(K<sub>h</sub>(x<sub>*</sub> − x<sub>1</sub>), …, K<sub>h</sub>(x<sub>*</sub> − x<sub>N</sub>)) · prediction f̂(x<sub>*</sub>) = β̂(x<sub>*</sub>)<sup>T</sup> φ(x<sub>*</sub>)</span></div>
+    <p>Here <span class="m">φ(x) = (1, x)</span> gives the local linear fit and <span class="m">φ(x) = (1, x, x<sup>2</sup>)</span> the local quadratic. Taking <span class="m">φ(x) = 1</span> reduces <span class="m">(Φ<sup>T</sup>DΦ)<sup>−1</sup>Φ<sup>T</sup>Dy</span> to <span class="m">Σ w<sub>n</sub> y<sub>n</sub></span>, which is exactly NW.</p>
+    <p>The result is still a linear smoother, <span class="m">f̂(x<sub>*</sub>) = Σ<sub>n</sub> l<sub>n</sub>(x<sub>*</sub>) y<sub>n</sub></span>, where the equivalent weights <span class="m">l<sub>n</sub></span> sum to 1 but can be negative. Local linear regression has bias <span class="m">O(h<sup>2</sup>)</span> everywhere, including the boundary, and the bias no longer contains the design term <span class="m">f′p′/p</span>. Its variance is of the same order as NW's. This design adaptivity is why local linear is the default. Higher degrees reduce bias further at a cost in variance, and odd degrees are generally preferred.</p>
+    <p>Cleveland's LOWESS uses a tricube kernel with an adaptive bandwidth set by a fraction of the nearest neighbors, plus a few robustness iterations that down-weight points with large residuals. The method is lazy: nothing is fit until a query arrives, and each query costs <span class="m">O(N)</span> to weight plus a <span class="m">p × p</span> solve.</p>
+  </div>
+
+  <div class="demo" id="d9">
+    <div class="demo-title"><h3>A new line for every spot</h3><span>drag across the chart to move the query · look at the right edge</span></div>
+    <div class="plots"><div class="plot" id="p9"></div></div>
+    <div class="ctl">
+      <div class="f"><label for="h9">Bandwidth <span class="m">h</span><span class="val" id="h9v"></span></label><input type="range" id="h9" min="0.2" max="4" step="0.01" value="1.3"></div>
+      <div class="f"><label for="x9">Query <span class="m">x<sub>*</sub></span><span class="val" id="x9v"></span></label><input type="range" id="x9" min="0" max="10" step="0.01" value="9.1"></div>
+      <div class="f narrow"><label for="deg9">Local fit</label><select id="deg9"><option value="0">Constant (= NW)</option><option value="1" selected>Line</option><option value="2">Quadratic</option></select></div>
+      <div class="f narrow"><label for="k9">Kernel</label><select id="k9"><option value="tricube" selected>Tricube</option><option value="gauss">Gaussian</option><option value="epan">Epanechnikov</option></select></div>
+      <div class="f narrow"><label for="s9">Data set</label><select id="s9"><option value="slope">Rising trend</option><option value="wavy">Wavy</option><option value="step">Step</option></select></div>
+    </div>
+    <div class="ctl">
+      <label class="chk"><input type="checkbox" id="c9nw" checked> Compare with NW (flat local fit)</label>
+      <label class="chk"><input type="checkbox" id="c9loc" checked> Show the local fit at the query</label>
+    </div>
+    <div class="lg"><span><i class="dot" style="background:var(--pt)"></i>data</span><span><i></i>locally weighted fit</span><span><i style="border-color:var(--c3)"></i>Nadaraya-Watson (same <span class="m">h</span>, same kernel)</span><span><i style="border-color:var(--c2)"></i>local fit at the query</span><span><i style="border-color:var(--ink-2);border-top-style:dashed"></i>true curve</span></div>
+    <div class="read" id="r9"></div>
+  </div>
+</section>
+
+<!-- cheat sheet ================================================== -->
+<section class="sheet" id="sheet">
+  <h2>Cheat sheet</h2>
+  <div class="table-wrap"><table>
+    <tr><th>#</th><th>Idea</th><th>Formula</th></tr>
+    <tr><td class="num">1</td><td>Kernel density estimate</td><td class="num">p̂(x) = (1/N) Σ<sub>n</sub> K<sub>h</sub>(x − x<sub>n</sub>)</td></tr>
+    <tr><td class="num">2</td><td>Density kernel and bandwidth</td><td class="num">∫K = 1, K(−u) = K(u), K<sub>h</sub>(u) = K(u/h)/h</td></tr>
+    <tr><td class="num">3</td><td>Parzen window (boxcar)</td><td class="num">p̂(x) = #{n : |x − x<sub>n</sub>| ≤ h} / (2hN)</td></tr>
+    <tr><td class="num">4</td><td>Bandwidth rules</td><td class="num">h = σ̂(4/3N)<sup>1/5</sup>, σ̂ = 1.4826 MAD · or argmax<sub>h</sub> Σ<sub>n</sub> log p̂<sub>−n</sub>(x<sub>n</sub>)</td></tr>
+    <tr><td class="num">5</td><td>KDE to KNN</td><td class="num">p(y=c | x) = K<sub>c</sub>(x) / K</td></tr>
+    <tr><td class="num">6</td><td>Joint KDE, then condition</td><td class="num">p̂(y | x) = Σ<sub>n</sub> w<sub>n</sub>(x) K<sub>h</sub>(y − y<sub>n</sub>)</td></tr>
+    <tr><td class="num">7</td><td>Nadaraya-Watson mean</td><td class="num">f̂(x) = Σ<sub>n</sub> w<sub>n</sub>(x) y<sub>n</sub>, w<sub>n</sub> = K<sub>h</sub>(x − x<sub>n</sub>) / Σ<sub>n′</sub> K<sub>h</sub>(x − x<sub>n′</sub>)</td></tr>
+    <tr><td class="num">8</td><td>Variance estimate</td><td class="num">V̂(x) = σ² + Σ<sub>n</sub> w<sub>n</sub>(x) y<sub>n</sub>² − f̂(x)²</td></tr>
+    <tr><td class="num">9</td><td>Locally weighted regression</td><td class="num">β̂(x<sub>*</sub>) = (Φ<sup>T</sup>DΦ)<sup>−1</sup>Φ<sup>T</sup>Dy, f̂(x<sub>*</sub>) = β̂<sup>T</sup>φ(x<sub>*</sub>)</td></tr>
+  </table></div>
+  <p class="foot">The topic list follows Murphy, <i>Probabilistic Machine Learning: An Introduction</i>, chapter 16.3. The explanations, demos and data are original and generated in your browser; nothing here leaves the page.</p>
+</section>
+</main>
+</div>
+<script>
+(function () {
+'use strict';
+
+/* ---------- small utilities ---------- */
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+function rng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function randn(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+const SQ2PI = Math.sqrt(2 * Math.PI);
+const normPdf = (x, m, s) => Math.exp(-0.5 * ((x - m) / s) ** 2) / (s * SQ2PI);
+function fmt(v, d) {
+  if (!isFinite(v)) return '–';
+  const a = Math.abs(v);
+  if (d === undefined) d = a >= 100 ? 0 : a >= 10 ? 1 : a >= 1 ? 2 : 3;
+  return (Math.abs(v) < 5e-10 ? 0 : v).toFixed(d);
+}
+function niceTicks(a, b, n) {
+  const span = b - a; if (!(span > 0)) return [a];
+  const s0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(s0))), r = s0 / mag;
+  const step = (r < 1.5 ? 1 : r < 3 ? 2 : r < 7 ? 5 : 10) * mag, out = [];
+  for (let v = Math.ceil(a / step - 1e-9) * step; v <= b + 1e-9; v += step) out.push(+v.toPrecision(10));
+  return out;
+}
+const tickLabel = v => String(+v.toPrecision(6));
+const sum = a => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return s; };
+const median = a => { const s = a.slice().sort((p, q) => p - q), n = s.length; return n % 2 ? s[(n - 1) / 2] : 0.5 * (s[n / 2 - 1] + s[n / 2]); };
+const stdev = a => { const m = sum(a) / a.length; return Math.sqrt(sum(a.map(v => (v - m) ** 2)) / Math.max(1, a.length - 1)); };
+
+/* ---------- kernels (topic 2) ---------- */
+const KERN = {
+  gauss:   { name: 'Gaussian',     f: u => Math.exp(-0.5 * u * u) / SQ2PI, support: Infinity },
+  box:     { name: 'Boxcar',       f: u => (Math.abs(u) <= 1 ? 0.5 : 0), support: 1 },
+  epan:    { name: 'Epanechnikov', f: u => (Math.abs(u) <= 1 ? 0.75 * (1 - u * u) : 0), support: 1 },
+  tricube: { name: 'Tricube',      f: u => { const a = Math.abs(u); return a <= 1 ? (70 / 81) * Math.pow(1 - a * a * a, 3) : 0; }, support: 1 }
+};
+const Kh = (k, d, h) => KERN[k].f(d / h) / h;
+function kde(xs, h, kind) {
+  const n = xs.length, f = KERN[kind].f;
+  return x => { let s = 0; for (let i = 0; i < n; i++) s += f((x - xs[i]) / h); return n ? s / (n * h) : 0; };
+}
+
+/* ---------- colors from CSS tokens ---------- */
+const C = {};
+function readColors() {
+  const cs = getComputedStyle(document.documentElement);
+  ['ink', 'ink-2', 'muted', 'line', 'grid', 'surface', 'surface-2', 'c1', 'c2', 'c3', 'pt', 'band', 'brand', 'heat-0', 'heat-1', 'heat-2', 'heat-3']
+    .forEach(k => { C[k] = cs.getPropertyValue('--' + k).trim(); });
+}
+function rgb(hex) {
+  hex = hex.replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  const n = parseInt(hex, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function mix(a, b, t) { return [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * t)); }
+function heatColor(t) {                       // t in 0..1 -> sequential one-hue ramp
+  const s = [rgb(C['heat-0']), rgb(C['heat-1']), rgb(C['heat-2']), rgb(C['heat-3'])];
+  t = clamp(t, 0, 1) * 3; const i = Math.min(2, Math.floor(t));
+  return mix(s[i], s[i + 1], t - i);
+}
+function withAlpha(color, a) {
+  if (color.startsWith('#')) { const c = rgb(color); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+  return color;
+}
+readColors();
+
+/* ---------- canvas plot ---------- */
+const PLOTS = [];
+class Plot {
+  constructor(el, o) {
+    this.el = el; this.o = Object.assign({ aspect: 0.5, minH: 220, maxH: 460, margin: {}, xr: [0, 1], yr: [0, 1], xTicks: 6, yTicks: 4 }, o);
+    this.m = Object.assign({ l: 46, r: 14, t: 16, b: 36 }, this.o.margin);
+    this.xr = this.o.xr.slice(); this.yr = this.o.yr.slice();
+    this.cv = document.createElement('canvas'); this.cv.setAttribute('role', 'img');
+    if (this.o.label) this.cv.setAttribute('aria-label', this.o.label);
+    el.appendChild(this.cv); this.ctx = this.cv.getContext('2d');
+    if (this.o.cap) { const c = document.createElement('div'); c.className = 'cap'; c.textContent = this.o.cap; el.appendChild(c); }
+    this.tip = document.createElement('div'); this.tip.className = 'tip'; el.appendChild(this.tip);
+    this.w = 0; this.h = 0; this.hx = null; this.pressed = false;
+    this.draw = this.o.draw || (() => {});
+    this.ro = new ResizeObserver(() => this.resize()); this.ro.observe(el);
+    this.bindPointer();
+    PLOTS.push(this);
+    this.resize();
+  }
+  resize() {
+    const w = Math.floor(this.el.clientWidth); if (!w) return;
+    const h = this.o.heightFn ? Math.round(this.o.heightFn(w, this)) : clamp(Math.round(w * this.o.aspect), this.o.minH, this.o.maxH);
+    if (w === this.w && h === this.h) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.w = w; this.h = h; this.dpr = dpr;
+    this.cv.width = Math.round(w * dpr); this.cv.height = Math.round(h * dpr); this.cv.style.height = h + 'px';
+    this.render();
+  }
+  get pw() { return this.w - this.m.l - this.m.r; }
+  get ph() { return this.h - this.m.t - this.m.b; }
+  sx(x) { return this.m.l + (x - this.xr[0]) / (this.xr[1] - this.xr[0]) * this.pw; }
+  sy(y) { return this.h - this.m.b - (y - this.yr[0]) / (this.yr[1] - this.yr[0]) * this.ph; }
+  ix(px) { return this.xr[0] + (px - this.m.l) / this.pw * (this.xr[1] - this.xr[0]); }
+  iy(py) { return this.yr[0] + (this.h - this.m.b - py) / this.ph * (this.yr[1] - this.yr[0]); }
+  render() {
+    if (!this.w) return;
+    const c = this.ctx; c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    c.clearRect(0, 0, this.w, this.h);
+    this.axes(c);
+    c.save(); c.beginPath(); c.rect(this.m.l - 4, this.m.t - 6, this.pw + 8, this.ph + 16); c.clip();
+    this.draw(c, this);
+    if (this.hx !== null && !this.o.noCross) { c.strokeStyle = C.muted; c.lineWidth = 1; c.setLineDash([3, 3]); c.beginPath(); c.moveTo(this.sx(this.hx), this.m.t); c.lineTo(this.sx(this.hx), this.h - this.m.b); c.stroke(); c.setLineDash([]); }
+    c.restore();
+  }
+  axes(c) {
+    const o = this.o; c.font = '11px ' + 'IBM Plex Mono, ui-monospace, Menlo, monospace'; c.lineWidth = 1;
+    const xt = o.xTickList || niceTicks(this.xr[0], this.xr[1], o.xTicks);
+    const yt = o.yTicks === 0 ? [] : (o.yTickList || niceTicks(this.yr[0], this.yr[1], o.yTicks));
+    c.strokeStyle = C.grid; c.fillStyle = C.muted;
+    c.textAlign = 'right'; c.textBaseline = 'middle';
+    yt.forEach(v => {
+      const y = Math.round(this.sy(v)) + 0.5; if (y < this.m.t - 1 || y > this.h - this.m.b + 1) return;
+      c.beginPath(); c.moveTo(this.m.l, y); c.lineTo(this.w - this.m.r, y); c.stroke();
+      if (!o.noYLabels) c.fillText(o.yFmt ? o.yFmt(v) : tickLabel(v), this.m.l - 7, y);
+    });
+    c.textAlign = 'center'; c.textBaseline = 'top';
+    xt.forEach(v => { const x = Math.round(this.sx(v)) + 0.5; c.fillText(o.xFmt ? o.xFmt(v) : tickLabel(v), x, this.h - this.m.b + 8); });
+    c.strokeStyle = C.line; c.beginPath(); c.moveTo(this.m.l, this.h - this.m.b + 0.5); c.lineTo(this.w - this.m.r, this.h - this.m.b + 0.5); c.stroke();
+    if (o.xLabel) { c.textAlign = 'right'; c.fillStyle = C['ink-2']; c.fillText(o.xLabel, this.w - this.m.r, this.h - 13); }
+    if (o.yLabel) { c.textAlign = 'left'; c.textBaseline = 'bottom'; c.fillStyle = C['ink-2']; c.fillText(o.yLabel, this.m.l + 2, this.m.t - 2); }
+  }
+  /* drawing helpers (data coordinates) */
+  line(pts, color, w, dash) {
+    const c = this.ctx; if (!pts.length) return;
+    c.strokeStyle = color; c.lineWidth = w || 2; c.lineJoin = 'round'; c.lineCap = 'round'; c.setLineDash(dash || []);
+    c.beginPath(); pts.forEach((p, i) => { const x = this.sx(p[0]), y = this.sy(p[1]); i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.stroke(); c.setLineDash([]);
+  }
+  fillUnder(pts, color, base) {
+    const c = this.ctx; if (!pts.length) return; const by = this.sy(base || 0);
+    c.fillStyle = color; c.beginPath(); c.moveTo(this.sx(pts[0][0]), by);
+    pts.forEach(p => c.lineTo(this.sx(p[0]), this.sy(p[1]))); c.lineTo(this.sx(pts[pts.length - 1][0]), by); c.closePath(); c.fill();
+  }
+  band(top, bot, color) {
+    const c = this.ctx; c.fillStyle = color; c.beginPath();
+    top.forEach((p, i) => { const x = this.sx(p[0]), y = this.sy(p[1]); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+    for (let i = bot.length - 1; i >= 0; i--) c.lineTo(this.sx(bot[i][0]), this.sy(bot[i][1]));
+    c.closePath(); c.fill();
+  }
+  dot(x, y, r, fill, ring) {
+    const c = this.ctx, px = this.sx(x), py = this.sy(y);
+    c.fillStyle = C.surface; c.beginPath(); c.arc(px, py, r + (ring === undefined ? 2 : ring), 0, 6.2832); c.fill();
+    c.fillStyle = fill; c.beginPath(); c.arc(px, py, r, 0, 6.2832); c.fill();
+  }
+  text(s, x, y, color, align, base, font) {
+    const c = this.ctx; c.fillStyle = color || C['ink-2']; c.textAlign = align || 'left'; c.textBaseline = base || 'middle';
+    if (font) c.font = font; c.fillText(s, x, y);
+  }
+  tipAt(px, py, html) {
+    const t = this.tip; t.textContent = html; t.style.opacity = 1;
+    const tw = t.offsetWidth; let l = px + 12; if (l + tw > this.w - 4) l = px - tw - 12;
+    t.style.left = Math.max(4, l) + 'px'; t.style.top = clamp(py - 34, 4, this.h - 30) + 'px';
+  }
+  hideTip() { this.tip.style.opacity = 0; if (this.hx !== null) { this.hx = null; this.render(); } }
+  bindPointer() {
+    const cv = this.cv, loc = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+    cv.addEventListener('pointerdown', e => {
+      if (!this.o.onDrag) return;
+      const [px, py] = loc(e); this.pressed = true; try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+      this.tip.style.opacity = 0;
+      this.o.onDrag(this.ix(px), this.iy(py), 'down', px, py, e);
+    });
+    cv.addEventListener('pointermove', e => {
+      const [px, py] = loc(e);
+      if (this.pressed) { this.o.onDrag(this.ix(px), this.iy(py), 'move', px, py, e); return; }
+      if (!this.o.onHover) return;
+      const inside = px >= this.m.l && px <= this.w - this.m.r && py >= this.m.t && py <= this.h - this.m.b;
+      if (!inside) { this.hideTip(); return; }
+      const x = this.ix(px), res = this.o.onHover(x, this.iy(py), px, py);
+      this.hx = this.o.noCross ? null : x; this.render();
+      if (res) this.tipAt(px, py, res); else this.tip.style.opacity = 0;
+    });
+    const up = e => { if (!this.pressed) return; this.pressed = false; const [px, py] = loc(e); this.o.onDrag(this.ix(px), this.iy(py), 'up', px, py, e); };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    cv.addEventListener('pointerleave', () => { if (!this.pressed) this.hideTip(); });
+  }
+}
+function redrawAll() { readColors(); PLOTS.forEach(p => p.render()); DEMO_HOOKS.forEach(f => f()); }
+const DEMO_HOOKS = [];
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => redrawAll());
+new MutationObserver(redrawAll).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setTimeout(redrawAll, 30)); } catch (_) {}
+
+/* ---------- control helpers ---------- */
+function slider(id, f, cb, vid) {
+  const el = $('#' + id), out = $('#' + (vid || id + 'v'));
+  const upd = () => { const v = +el.value; if (out) out.textContent = f(v); cb(v); };
+  el.addEventListener('input', upd); upd(); return { el, set(v) { el.value = v; upd(); } };
+}
+function select(id, cb) { const el = $('#' + id); el.addEventListener('change', () => cb(el.value)); return el; }
+function check(id, cb) { const el = $('#' + id); el.addEventListener('change', () => cb(el.checked)); return el; }
+function readout(id, html) { $('#' + id).innerHTML = html; }
+
+/* ---------- datasets ---------- */
+function sample1d(kind, n, seed) {
+  const r = rng(seed), out = [];
+  for (let i = 0; i < n; i++) {
+    if (kind === 'two') out.push(r() < 0.55 ? -1.6 + 0.6 * randn(r) : 1.5 + 0.8 * randn(r));
+    else if (kind === 'one') out.push(0.2 + 0.9 * randn(r));
+    else out.push(-3 + 1.6 * Math.exp(0.55 * randn(r)));     // skewed
+  }
+  return out.map(v => clamp(v, -4.8, 4.8));
+}
+function truth1d(kind) {
+  if (kind === 'two') return x => 0.55 * normPdf(x, -1.6, 0.6) + 0.45 * normPdf(x, 1.5, 0.8);
+  if (kind === 'one') return x => normPdf(x, 0.2, 0.9);
+  return x => { const y = (x + 3) / 1.6; return y > 0 ? Math.exp(-0.5 * (Math.log(y) / 0.55) ** 2) / (y * 0.55 * SQ2PI * 1.6) : 0; };
+}
+const REG = {
+  wavy:  { f: x => 2.2 + 1.6 * Math.sin(0.85 * x) + 0.15 * x, sd: () => 0.35 },
+  step:  { f: x => (x < 5 ? 1.5 : 3.5), sd: () => 0.3 },
+  line:  { f: x => 0.4 * x + 0.8, sd: () => 0.5 },
+  slope: { f: x => 0.45 * x + 0.9 * Math.sin(0.7 * x) + 0.5, sd: () => 0.35 },
+  het:   { f: x => 3 + 1.2 * Math.sin(0.65 * x), sd: x => 0.12 + 0.11 * x },
+  const: { f: x => 3 + 1.2 * Math.sin(0.65 * x), sd: () => 0.45 },
+  mid:   { f: x => 3 + 1.2 * Math.sin(0.65 * x), sd: x => 0.15 + 0.75 * Math.exp(-(((x - 5) / 1.6) ** 2)) }
+};
+function genReg(kind, n, seed) {
+  const r = rng(seed), d = REG[kind], xs = [], ys = [];
+  for (let i = 0; i < n; i++) { const x = 0.15 + 9.7 * r(); xs.push(x); ys.push(d.f(x) + d.sd(x) * randn(r)); }
+  return { xs, ys, f: d.f, sd: d.sd };
+}
+function yRange(ys, pad) {
+  let lo = Math.min.apply(null, ys), hi = Math.max.apply(null, ys), p = (hi - lo) * (pad === undefined ? 0.12 : pad);
+  return [lo - p, hi + p];
+}
+function gridX(a, b, n) { const o = []; for (let i = 0; i <= n; i++) o.push(a + (b - a) * i / n); return o; }
+
+/* ---------- Nadaraya-Watson helpers (topics 6-9) ---------- */
+function nwWeights(xs, x, h, kind) {
+  const w = new Array(xs.length); let s = 0;
+  for (let i = 0; i < xs.length; i++) { w[i] = KERN[kind].f((x - xs[i]) / h); s += w[i]; }
+  if (s < 1e-300) {                     // compact kernel with an empty window: fall back to the nearest point
+    let b = 0; for (let i = 1; i < xs.length; i++) if (Math.abs(xs[i] - x) < Math.abs(xs[b] - x)) b = i;
+    return w.map((_, i) => (i === b ? 1 : 0));
+  }
+  for (let i = 0; i < w.length; i++) w[i] /= s; return w;
+}
+function nwMean(xs, ys, x, h, kind) { const w = nwWeights(xs, x, h, kind); let m = 0; for (let i = 0; i < w.length; i++) m += w[i] * ys[i]; return m; }
+function solveSym(A, b) {               // small Gaussian elimination with partial pivoting
+  const n = b.length, M = A.map((r, i) => r.concat([b[i]]));
+  for (let i = 0; i < n; i++) {
+    let p = i; for (let r = i + 1; r < n; r++) if (Math.abs(M[r][i]) > Math.abs(M[p][i])) p = r;
+    [M[i], M[p]] = [M[p], M[i]];
+    if (Math.abs(M[i][i]) < 1e-12) M[i][i] = 1e-12;
+    for (let r = i + 1; r < n; r++) { const f = M[r][i] / M[i][i]; for (let c = i; c <= n; c++) M[r][c] -= f * M[i][c]; }
+  }
+  const x = new Array(n).fill(0);
+  for (let i = n - 1; i >= 0; i--) { let s = M[i][n]; for (let c = i + 1; c < n; c++) s -= M[i][c] * x[c]; x[i] = s / M[i][i]; }
+  return x;
+}
+function lwr(xs, ys, x0, h, kind, deg) {          // returns {beta, pred, w, deg}
+  const w = xs.map(x => KERN[kind].f((x - x0) / h));
+  const nz = w.filter(v => v > 1e-12).length;
+  deg = Math.min(deg, Math.max(0, nz - 2));          // too few points in the window: use a lower-degree fit
+  const p = deg + 1, A = [], b = new Array(p).fill(0);
+  for (let i = 0; i < p; i++) A.push(new Array(p).fill(0));
+  let sw = sum(w);
+  if (sw < 1e-300) { const nn = nwMean(xs, ys, x0, h, kind); const beta = new Array(p).fill(0); beta[0] = nn; return { beta, pred: nn, w }; }
+  for (let n = 0; n < xs.length; n++) {
+    if (w[n] === 0) continue;
+    const phi = []; for (let k = 0; k < p; k++) phi.push(Math.pow(xs[n] - x0, k));   // centered at x0 so beta[0] is the prediction
+    for (let i = 0; i < p; i++) { b[i] += w[n] * phi[i] * ys[n]; for (let j = 0; j < p; j++) A[i][j] += w[n] * phi[i] * phi[j]; }
+  }
+  for (let i = 0; i < p; i++) A[i][i] += 1e-9 * sw;
+  const beta = solveSym(A, b);
+  return { beta, pred: beta[0], w: w.map(v => v / sw), deg };
+}
+
+/* ---------- level switch, nav highlight ---------- */
+function setLevel(l) {
+  document.body.dataset.level = l;
+  $$('#levelSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.level === l)));
+  try { localStorage.setItem('kde-level', l); } catch (_) {}
+}
+$$('#levelSeg button').forEach(b => b.addEventListener('click', () => setLevel(b.dataset.level)));
+(function () { let l = 'all'; try { const s = localStorage.getItem('kde-level'); if (s) l = s; } catch (_) {} setLevel(l); })();
+(function () {
+  const links = $$('#nav a'), secs = links.map(a => $(a.getAttribute('href')));
+  if (!('IntersectionObserver' in window)) return;
+  const vis = new Map();
+  const io = new IntersectionObserver(es => {
+    es.forEach(e => vis.set(e.target.id, e.isIntersecting ? e.intersectionRatio : 0));
+    let best = null, bv = 0; vis.forEach((v, k) => { if (v > bv) { bv = v; best = k; } });
+    if (best) links.forEach(a => a.setAttribute('aria-current', String(a.getAttribute('href') === '#' + best)));
+  }, { rootMargin: '-90px 0px -45% 0px', threshold: [0, 0.05, 0.2, 0.5] });
+  secs.forEach(s => s && io.observe(s));
+})();
+
+const kv = (k, v) => '<span>' + k + ' <b>' + v + '</b></span>';
+const LINE = 2;
+
+/* =====================================================================
+   1. Kernel density estimation
+   ===================================================================== */
+(function demo1() {
+  let pts = sample1d('two', 40, 11), h = 0.45, bumps = true, curve = [], f = () => 0;
+  let drag = -1, moved = false, startPx = 0;
+  const P = new Plot($('#p1'), {
+    aspect: 0.42, xr: [-5, 5], yr: [0, 1], yTicks: 4, margin: { l: 40 }, yLabel: 'density', label: 'Kernel density estimate built from stacked bumps',
+    draw(c, p) {
+      const n = pts.length;
+      if (!n) { p.text('Click anywhere to add a point', p.sx(0), p.sy(p.yr[1] * 0.5), C.muted, 'center'); }
+      if (bumps && n) {
+        const g = gridX(-5, 5, 220);
+        pts.forEach(x0 => p.line(g.map(x => [x, Kh('gauss', x - x0, h) / n]), withAlpha(C.c1, 0.4), 1.25));
+      }
+      p.fillUnder(curve, withAlpha(C.c1, 0.1), 0);
+      p.line(curve, C.c1, LINE);
+      pts.forEach(x => p.dot(x, 0, 4, C.pt, 2));
+    },
+    onHover: x => 'x = ' + fmt(x, 2) + '   p̂(x) = ' + fmt(f(x), 3),
+    onDrag(x, y, phase, px, py) {
+      if (phase === 'down') {
+        startPx = px; moved = false; drag = -1;
+        let best = 1e9; pts.forEach((v, i) => { const d = Math.abs(P.sx(v) - px); if (d < best && d < 10 && py > P.h - P.m.b - 40) { best = d; drag = i; } });
+        if (drag < 0) { pts.push(clamp(x, -4.9, 4.9)); drag = pts.length - 1; moved = true; }
+      } else if (phase === 'move' && drag >= 0) {
+        if (Math.abs(px - startPx) > 3) moved = true; pts[drag] = clamp(x, -4.9, 4.9);
+      } else if (phase === 'up') {
+        if (drag >= 0 && !moved) pts.splice(drag, 1); drag = -1;
+      }
+      update();
+    }
+  });
+  function update() {
+    f = kde(pts, h, 'gauss'); const g = gridX(-5, 5, 300); curve = g.map(x => [x, f(x)]);
+    let peak = 0, area = 0; curve.forEach((p, i) => { peak = Math.max(peak, p[1]); if (i) area += 0.5 * (p[1] + curve[i - 1][1]) * (g[i] - g[i - 1]); });
+    P.yr = [0, Math.max(peak * 1.15, 0.05)];
+    readout('r1', kv('N', pts.length) + kv('h', fmt(h, 2)) + kv('area under curve', fmt(area, 3)) + kv('peak', fmt(peak, 3)));
+    P.render();
+  }
+  slider('h1', v => fmt(v, 2), v => { h = v; update(); });
+  select('s1', k => { pts = k === 'few' ? [-2, -1.6, -1.2, 1, 1.7, 2.1] : sample1d(k, k === 'one' ? 30 : 40, 11); update(); });
+  check('c1bumps', v => { bumps = v; update(); });
+  $('#b1clear').addEventListener('click', () => { pts = []; update(); });
+  update();
+})();
+
+/* =====================================================================
+   2. Density kernels
+   ===================================================================== */
+(function demo2() {
+  const order = ['gauss', 'box', 'epan', 'tricube'], ids = { gauss: 'k2g', box: 'k2b', epan: 'k2e', tricube: 'k2t' };
+  const col = k => ({ gauss: C.c1, box: C.c2, epan: C.c3, tricube: C['ink-2'] })[k];
+  const cssCol = { gauss: 'var(--c1)', box: 'var(--c2)', epan: 'var(--c3)', tricube: 'var(--ink-2)' };
+  const xs = sample1d('two', 25, 5); let h = 0.7, on = { gauss: true, box: true, epan: true, tricube: true };
+  const uGrid = gridX(-2.5, 2.5, 500);
+  const stats = {};
+  order.forEach(k => {
+    const g = gridX(-8, 8, 8000), dx = 16 / 8000; let a = 0, v = 0;
+    g.forEach(u => { const y = KERN[k].f(u); a += y * dx; v += u * u * y * dx; });
+    stats[k] = { area: a, sd: Math.sqrt(v) };
+  });
+  $('#lg2').innerHTML = order.map(k => '<span><i style="border-color:' + cssCol[k] + '"></i>' + KERN[k].name + '</span>').join('');
+  const Pa = new Plot($('#p2a'), {
+    aspect: 0.8, minH: 240, xr: [-2.5, 2.5], yr: [0, 0.95], yTicks: 4, xTicks: 5, xLabel: 'u', yLabel: 'K(u)', margin: { l: 40 }, label: 'Four density kernels',
+    draw(c, p) { order.forEach(k => { if (on[k]) p.line(uGrid.map(u => [u, KERN[k].f(u)]), col(k), LINE); }); },
+    onHover: (u) => 'u = ' + fmt(u, 2) + '  ' + order.filter(k => on[k]).map(k => KERN[k].name.slice(0, 3) + ' ' + fmt(KERN[k].f(u), 3)).join('  ')
+  });
+  const g2 = gridX(-5, 5, 300);
+  const Pb = new Plot($('#p2b'), {
+    aspect: 0.8, minH: 240, xr: [-5, 5], yr: [0, 0.4], yTicks: 4, xLabel: 'x', yLabel: 'p̂(x)', margin: { l: 40 }, label: 'Density estimates with each kernel',
+    draw(c, p) {
+      order.forEach(k => { if (on[k]) { const f = kde(xs, h, k); p.line(g2.map(x => [x, f(x)]), col(k), LINE); } });
+      xs.forEach(x => p.dot(x, 0, 3.5, C.pt, 2));
+    },
+    onHover: x => 'x = ' + fmt(x, 2) + '  ' + order.filter(k => on[k]).map(k => KERN[k].name.slice(0, 3) + ' ' + fmt(kde(xs, h, k)(x), 3)).join('  ')
+  });
+  function table() {
+    $('#t2tab').innerHTML = '<tr><th>Kernel</th><th>Area under K</th><th>Peak K(0)</th><th>Std. dev. of K</th><th>Std. dev. of K<sub>h</sub> at this h</th></tr>' +
+      order.map(k => '<tr><td>' + KERN[k].name + '</td><td class="num">' + fmt(stats[k].area, 4) + '</td><td class="num">' + fmt(KERN[k].f(0), 3) + '</td><td class="num">' + fmt(stats[k].sd, 3) + '</td><td class="num">' + fmt(stats[k].sd * h, 3) + '</td></tr>').join('');
+  }
+  function update() {
+    let top = 0.05; order.forEach(k => { if (on[k]) { const f = kde(xs, h, k); g2.forEach(x => { top = Math.max(top, f(x)); }); } });
+    Pb.yr = [0, top * 1.15]; table(); Pa.render(); Pb.render();
+  }
+  slider('h2', v => fmt(v, 2), v => { h = v; update(); });
+  order.forEach(k => check(ids[k], v => { on[k] = v; update(); }));
+  DEMO_HOOKS.push(() => update());
+  update();
+})();
+
+/* =====================================================================
+   3. Parzen window
+   ===================================================================== */
+(function demo3() {
+  const xs = sample1d('two', 30, 21); let h = 0.6, x0 = -1.4, kind = 'box', playing = false, raf = 0;
+  const g = gridX(-5, 5, 300);
+  let full = [], f = kde(xs, h, 'box');
+  const P = new Plot($('#p3'), {
+    aspect: 0.42, xr: [-5, 5], yr: [0, 1], yTicks: 4, yLabel: 'p̂(x)', margin: { l: 40 }, label: 'A window sliding along the data',
+    draw(c, p) {
+      const top = p.yr[1];
+      p.line(full, withAlpha(C.c1, 0.28), 1.5, [5, 4]);
+      if (kind === 'box') {
+        c.fillStyle = withAlpha(C.c2, 0.13); c.fillRect(p.sx(x0 - h), p.sy(top), p.sx(x0 + h) - p.sx(x0 - h), p.sy(0) - p.sy(top));
+        c.strokeStyle = C.c2; c.lineWidth = 1.5; c.strokeRect(p.sx(x0 - h) + 0.5, p.sy(top), p.sx(x0 + h) - p.sx(x0 - h), p.sy(0) - p.sy(top));
+      } else {
+        const bell = g.map(x => [x, top * 0.92 * Math.exp(-0.5 * ((x - x0) / h) ** 2)]);
+        p.fillUnder(bell, withAlpha(C.c2, 0.13), 0); p.line(bell, C.c2, 1.5);
+      }
+      const traced = full.filter(q => q[0] <= x0); p.line(traced, C.c1, LINE);
+      xs.forEach(x => {
+        const w = kind === 'box' ? (Math.abs(x - x0) <= h ? 1 : 0) : Math.exp(-0.5 * ((x - x0) / h) ** 2);
+        p.dot(x, 0, 3 + 2.5 * w, w > 0.05 ? C.c2 : C.pt, 2);
+      });
+      p.dot(x0, f(x0), 5, C.c2, 2);
+    },
+    onHover: null,
+    onDrag(x) { x0 = clamp(x, -5, 5); xsl.set(x0); }
+  });
+  function update() {
+    f = kde(xs, h, kind); full = g.map(x => [x, f(x)]);
+    let pk = 0; full.forEach(q => { pk = Math.max(pk, q[1]); }); P.yr = [0, pk * 1.25];
+    let msg;
+    if (kind === 'box') {
+      const n = xs.filter(x => Math.abs(x - x0) <= h).length;
+      msg = kv('points in window', n) + kv('N', xs.length) + kv('p̂(x)', n + ' / (2 · ' + fmt(h, 2) + ' · ' + xs.length + ') = ' + fmt(n / (2 * h * xs.length), 3));
+    } else msg = kv('N', xs.length) + kv('p̂(x)', '(1/N) Σ K_h(x − x_n) = ' + fmt(f(x0), 3));
+    readout('r3', msg); P.render();
+  }
+  slider('h3', v => fmt(v, 2), v => { h = v; update(); });
+  const xsl = slider('x3', v => fmt(v, 2), v => { x0 = v; update(); });
+  select('k3', k => { kind = k; update(); });
+  const btn = $('#b3play');
+  function stop() { playing = false; cancelAnimationFrame(raf); btn.textContent = 'Sweep'; btn.classList.remove('on'); }
+  btn.addEventListener('click', () => {
+    if (playing) { stop(); return; }
+    playing = true; btn.textContent = 'Stop'; btn.classList.add('on');
+    let t0 = performance.now(), from = x0 >= 4.95 ? -5 : x0;
+    const step = t => { if (!playing) return; const k = clamp((t - t0) / 5500, 0, 1); xsl.set(from + (5 - from) * k); if (k < 1) raf = requestAnimationFrame(step); else stop(); };
+    raf = requestAnimationFrame(step);
+  });
+  DEMO_HOOKS.push(() => update());
+  update();
+})();
+
+/* =====================================================================
+   4. Choosing the bandwidth
+   ===================================================================== */
+(function demo4() {
+  let dist = 'bi', N = 80, seed = 101, xs = [], truth = truth1d(dist);
+  let logh = -0.3, cv = [], hCV = 0.3, hRule = 0.3, hMAD = 0.3, sigma = 1, mad = 1;
+  const LG = gridX(-1.7, 0.7, 48), g = gridX(-5, 5, 240);
+  const loo = (h) => {
+    const n = xs.length, t = new Float64Array(n), inv = 1 / (2 * h * h);
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) { const dd = xs[i] - xs[j], e = Math.exp(-dd * dd * inv); t[i] += e; t[j] += e; }
+    let s = 0; for (let i = 0; i < n; i++) s += Math.log(Math.max(t[i] / ((n - 1) * h * SQ2PI), 1e-300)); return s;
+  };
+  function refit() {
+    xs = sample1d(dist, N, seed); truth = truth1d(dist);
+    sigma = stdev(xs); const med = median(xs); mad = 1.4826 * median(xs.map(v => Math.abs(v - med)));
+    const c = Math.pow(4 / (3 * N), 0.2); hRule = c * sigma; hMAD = c * mad;
+    cv = LG.map(l => [l, loo(Math.pow(10, l))]);
+    let b = 0; cv.forEach((p, i) => { if (p[1] > cv[b][1]) b = i; });
+    // refine the maximum on a finer grid around the best coarse value
+    let bl = cv[b][0], bs = cv[b][1];
+    const lo = LG[Math.max(0, b - 1)], hi = LG[Math.min(LG.length - 1, b + 1)];
+    for (let i = 0; i <= 16; i++) { const l = lo + (hi - lo) * i / 16, s = loo(Math.pow(10, l)); if (s > bs) { bs = s; bl = l; } }
+    hCV = Math.pow(10, bl);
+  }
+  let est = () => 0, curve = [], tcurve = [];
+  const Pa = new Plot($('#p4a'), {
+    aspect: 0.8, minH: 250, xr: [-5, 5], yr: [0, 0.5], yTicks: 4, yLabel: 'density', xLabel: 'x', margin: { l: 40 }, label: 'Density estimate against the true density',
+    draw(c, p) {
+      p.fillUnder(curve, withAlpha(C.c1, 0.1), 0); p.line(tcurve, C['ink-2'], 1.5, [6, 4]); p.line(curve, C.c1, LINE);
+      xs.forEach(x => p.dot(x, 0, 2.4, C.pt, 1.5));
+    },
+    onHover: x => 'x = ' + fmt(x, 2) + '  est ' + fmt(est(x), 3) + '  true ' + fmt(truth(x), 3)
+  });
+  const mark = (p, c, h, label, row, color) => {
+    const x = p.sx(Math.log10(h)); c.strokeStyle = color; c.lineWidth = 1; c.setLineDash([3, 3]); c.beginPath(); c.moveTo(x, p.m.t); c.lineTo(x, p.h - p.m.b); c.stroke(); c.setLineDash([]);
+    p.text(label, x + (x > p.w - 70 ? -4 : 4), p.m.t + 8 + row * 14, C['ink-2'], x > p.w - 70 ? 'right' : 'left', 'middle', '11px IBM Plex Mono, monospace');
+  };
+  const Pb = new Plot($('#p4b'), {
+    aspect: 0.8, minH: 250, xr: [-1.7, 0.7], yr: [-100, 0], xTickList: [-1.5, -1, -0.5, 0, 0.5], xFmt: v => String(+Math.pow(10, v).toPrecision(2)), yTicks: 4, xLabel: 'h (log scale)', yLabel: 'leave-one-out log-likelihood', margin: { l: 52 }, label: 'Cross-validation score against bandwidth',
+    draw(c, p) {
+      p.line(cv, C.c1, LINE);
+      mark(p, c, hRule, 'rule', 0, C.muted); mark(p, c, hMAD, 'MAD', 1, C.muted); mark(p, c, hCV, 'CV', 2, C.c3);
+      const cur = loo(Math.pow(10, logh)); p.dot(logh, cur, 5, C.c2, 2);
+      p.dot(Math.log10(hCV), loo(hCV), 4.5, C.c3, 2);
+    },
+    onHover: l => 'h = ' + fmt(Math.pow(10, l), 3) + '   score ' + fmt(loo(Math.pow(10, l)), 1)
+  });
+  function update() {
+    const h = Math.pow(10, logh); est = kde(xs, h, 'gauss');
+    curve = g.map(x => [x, est(x)]); tcurve = g.map(x => [x, truth(x)]);
+    let pk = 0, ise = 0; curve.forEach((q, i) => { pk = Math.max(pk, q[1], tcurve[i][1]); ise += (q[1] - tcurve[i][1]) ** 2 * (10 / 240); });
+    Pa.yr = [0, pk * 1.15];
+    let best = -1e18; cv.forEach(q => { best = Math.max(best, q[1]); });
+    const span = Math.max(12, 0.3 * Math.abs(best)); Pb.yr = [best - span, best + span * 0.12];
+    readout('r4', kv('N', N) + kv('rule of thumb h', fmt(hRule, 3)) + kv('robust (MAD) h', fmt(hMAD, 3)) + kv('CV h', fmt(hCV, 3)) + kv('current h', fmt(h, 3)) + kv('distance from truth (ISE)', fmt(ise, 4)));
+    Pa.render(); Pb.render();
+  }
+  refit();
+  const hs = slider('h4', v => fmt(Math.pow(10, v), 3), v => { logh = v; update(); });
+  let nTimer = 0;
+  slider('n4', v => String(v), v => { N = v; clearTimeout(nTimer); nTimer = setTimeout(() => { refit(); update(); }, 40); });
+  select('dist4', k => { dist = k; refit(); update(); });
+  const setH = h => hs.set(clamp(Math.log10(h), -1.7, 0.7));
+  $('#b4rule').addEventListener('click', () => setH(hRule));
+  $('#b4mad').addEventListener('click', () => setH(hMAD));
+  $('#b4cv').addEventListener('click', () => setH(hCV));
+  $('#b4new').addEventListener('click', () => { seed += 17; refit(); update(); });
+  DEMO_HOOKS.push(() => update());
+  refit(); update();
+})();
+
+/* =====================================================================
+   5. From KDE to KNN classification
+   ===================================================================== */
+(function demo5() {
+  const NAMES = ['A', 'B', 'C'], GLYPH = ['●', '■', '▲'], CSSV = ['var(--c1)', 'var(--c2)', 'var(--c3)'];
+  const XR = [-4.5, 4.5], YR = [-3.2, 3.2];
+  let data = [], seed = 5, q = { x: -0.25, y: 0.3 }, method = 'knn', K = 7, h = 0.6, regions = true;
+  const Nc = [0, 0, 0], heat = document.createElement('canvas');
+  function gen() {
+    const r = rng(seed); data = [];
+    [[-1.6, 0.7, 0.95, 0.85, 40], [1.5, 1.0, 0.9, 0.9, 34], [0.1, -1.6, 1.1, 0.8, 26]].forEach((s, c) => {
+      for (let i = 0; i < s[4]; i++) data.push({ x: clamp(s[0] + s[2] * randn(r), XR[0] + 0.1, XR[1] - 0.1), y: clamp(s[1] + s[3] * randn(r), YR[0] + 0.1, YR[1] - 0.1), c });
+    });
+    Nc[0] = Nc[1] = Nc[2] = 0; data.forEach(p => Nc[p.c]++);
+  }
+  const d2 = new Float64Array(200);
+  function classify(x, y, wantNb) {
+    const n = data.length;
+    if (method === 'knn') {
+      const kk = Math.min(K, n); for (let i = 0; i < n; i++) d2[i] = (data[i].x - x) ** 2 + (data[i].y - y) ** 2;
+      const thr = Float64Array.from(d2.subarray(0, n)).sort()[kk - 1], cnt = [0, 0, 0], nb = []; let used = 0;
+      for (let i = 0; i < n && used < kk; i++) if (d2[i] <= thr) { cnt[data[i].c]++; used++; if (wantNb) nb.push(i); }
+      return { post: cnt.map(v => v / kk), cnt, kk, r: Math.sqrt(thr), nb };
+    }
+    let d0 = 1e18; for (let i = 0; i < n; i++) { d2[i] = (data[i].x - x) ** 2 + (data[i].y - y) ** 2; if (d2[i] < d0) d0 = d2[i]; }
+    const s = [0, 0, 0], inv = 1 / (2 * h * h); let tot = 0;
+    for (let i = 0; i < n; i++) { const k = Math.exp(-(d2[i] - d0) * inv); s[data[i].c] += k; tot += k; }
+    return { post: s.map(v => v / tot) };
+  }
+  const P = new Plot($('#p5'), {
+    heightFn: w => (w - 24) * (6.4 / 9) + 24, margin: { l: 12, r: 12, t: 12, b: 12 }, xr: XR, yr: YR, yTicks: 0, xTickList: [], noCross: true, label: 'Scatter plot of three classes with a movable query point',
+    draw(c, p) {
+      if (!data.length) return;
+      if (regions) { c.imageSmoothingEnabled = false; c.drawImage(heat, p.m.l, p.m.t, p.pw, p.ph); }
+      const res = classify(q.x, q.y, true), unit = p.sx(1) - p.sx(0), qx = p.sx(q.x), qy = p.sy(q.y);
+      c.lineWidth = 1.5; c.strokeStyle = C['ink-2'];
+      if (method === 'knn') {
+        c.fillStyle = withAlpha(C.c2, 0.07); c.setLineDash([5, 4]); c.beginPath(); c.arc(qx, qy, res.r * unit, 0, 6.2832); c.fill(); c.stroke(); c.setLineDash([]);
+        c.strokeStyle = withAlpha(C['ink-2'], 0.4); c.lineWidth = 1;
+        res.nb.forEach(i => { c.beginPath(); c.moveTo(qx, qy); c.lineTo(p.sx(data[i].x), p.sy(data[i].y)); c.stroke(); });
+      } else {
+        c.setLineDash([5, 4]); [1, 2].forEach(m => { c.beginPath(); c.arc(qx, qy, h * m * unit, 0, 6.2832); c.stroke(); }); c.setLineDash([]);
+      }
+      const isNb = new Set(res.nb || []);
+      data.forEach((d, i) => {
+        const x = p.sx(d.x), y = p.sy(d.y), col = [C.c1, C.c2, C.c3][d.c];
+        c.fillStyle = col; c.strokeStyle = C.surface; c.lineWidth = 1.5; c.beginPath();
+        if (d.c === 0) c.arc(x, y, 4.6, 0, 6.2832);
+        else if (d.c === 1) c.rect(x - 4, y - 4, 8, 8);
+        else { c.moveTo(x, y - 5.4); c.lineTo(x + 5, y + 3.8); c.lineTo(x - 5, y + 3.8); c.closePath(); }
+        c.fill(); c.stroke();
+        if (isNb.has(i)) { c.strokeStyle = C.ink; c.lineWidth = 1.6; c.beginPath(); c.arc(x, y, 8.5, 0, 6.2832); c.stroke(); }
+      });
+      c.fillStyle = C.surface; c.beginPath(); c.moveTo(qx, qy - 11); c.lineTo(qx + 11, qy); c.lineTo(qx, qy + 11); c.lineTo(qx - 11, qy); c.closePath(); c.fill();
+      c.fillStyle = C.ink; c.beginPath(); c.moveTo(qx, qy - 8); c.lineTo(qx + 8, qy); c.lineTo(qx, qy + 8); c.lineTo(qx - 8, qy); c.closePath(); c.fill();
+    },
+    onDrag(x, y) { q = { x: clamp(x, XR[0], XR[1]), y: clamp(y, YR[0], YR[1]) }; update(false); }
+  });
+  function buildHeat() {
+    if (!P.pw) return;
+    const cell = 6, nx = Math.ceil(P.pw / cell), ny = Math.ceil(P.ph / cell); heat.width = nx; heat.height = ny;
+    const hc = heat.getContext('2d'), img = hc.createImageData(nx, ny), cols = [rgb(C.c1), rgb(C.c2), rgb(C.c3)];
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const x = XR[0] + (i + 0.5) / nx * (XR[1] - XR[0]), y = YR[1] - (j + 0.5) / ny * (YR[1] - YR[0]), post = classify(x, y).post;
+      let b = 0; if (post[1] > post[b]) b = 1; if (post[2] > post[b]) b = 2;
+      const o = (j * nx + i) * 4, a = 0.07 + 0.3 * clamp((post[b] - 0.34) / 0.66, 0, 1);
+      img.data[o] = cols[b][0]; img.data[o + 1] = cols[b][1]; img.data[o + 2] = cols[b][2]; img.data[o + 3] = Math.round(a * 255);
+    }
+    hc.putImageData(img, 0, 0);
+  }
+  function update(rebuild) {
+    if (rebuild !== false && regions) buildHeat();
+    const res = classify(q.x, q.y); let best = 0; res.post.forEach((v, i) => { if (v > res.post[best]) best = i; });
+    const rows = res.post.map((v, c) => {
+      const txt = method === 'knn' ? 'K<sub>c</sub>/K = ' + res.cnt[c] + '/' + res.kk + ' = ' + fmt(v, 2) : 'p(class | x) = ' + fmt(v, 2);
+      return '<div class="row"><span><span class="glyph" style="color:' + CSSV[c] + '">' + GLYPH[c] + '</span> ' + (c === best ? '<b>Class ' + NAMES[c] + '</b>' : 'Class ' + NAMES[c]) + '</span><div class="bar"><i style="width:' + (v * 100).toFixed(1) + '%;background:' + CSSV[c] + '"></i></div><span>' + txt + '</span></div>';
+    }).join('');
+    const meta = method === 'knn'
+      ? 'circle radius r = ' + fmt(res.r, 2) + ' · area V = πr² = ' + fmt(Math.PI * res.r * res.r, 2) + ' · points per class N = ' + Nc.join(', ')
+      : 'bandwidth h = ' + fmt(h, 2) + ' · points per class N = ' + Nc.join(', ') + ' · each class weighted by its share of the data';
+    readout('r5', '<div class="post">' + rows + '<div class="meta">' + meta + '</div></div>');
+    P.render();
+  }
+  $('#lg5').innerHTML = [0, 1, 2].map(c => '<span><span class="glyph" style="color:' + CSSV[c] + '">' + GLYPH[c] + '</span>Class ' + NAMES[c] + '</span>').join('') + '<span><span class="glyph">◆</span>query point</span><span>circled = the K neighbors that vote</span>';
+  gen();
+  slider('k5', v => String(v), v => { K = v; update(); });
+  slider('h5', v => fmt(v, 2), v => { h = v; update(); });
+  select('m5', m => { method = m; $('#f5k').hidden = m !== 'knn'; $('#f5h').hidden = m === 'knn'; update(); });
+  $('#f5h').hidden = true;
+  check('c5reg', v => { regions = v; update(); });
+  $('#b5new').addEventListener('click', () => { seed += 13; gen(); update(); });
+  DEMO_HOOKS.push(() => update());
+  new ResizeObserver(() => { if (regions) { buildHeat(); P.render(); } }).observe($('#p5'));
+  update();
+})();
+
+/* =====================================================================
+   6. Kernel regression: joint KDE, then slice
+   ===================================================================== */
+(function demo6() {
+  let kind = 'wavy', D = genReg(kind, 60, 31), h = 0.6, x0 = 3.2, joint = true, mu = 0, curve = [];
+  const heat = document.createElement('canvas'), gy = gridX(0, 1, 140);
+  const P = new Plot($('#p6a'), {
+    aspect: 0.7, minH: 280, xr: [0, 10], yr: yRange(D.ys, 0.12), xLabel: 'x', yLabel: 'y', margin: { l: 36 }, label: 'Scatter plot with joint density shading and a movable slice',
+    draw(c, p) {
+      if (joint) { c.imageSmoothingEnabled = true; c.drawImage(heat, p.m.l, p.m.t, p.pw, p.ph); }
+      p.line(curve, C.c1, LINE);
+      c.strokeStyle = C.c2; c.lineWidth = 1.5; c.beginPath(); c.moveTo(p.sx(x0), p.m.t); c.lineTo(p.sx(x0), p.h - p.m.b); c.stroke();
+      D.xs.forEach((x, i) => p.dot(x, D.ys[i], 3.3, C.pt, 1.5));
+      p.dot(x0, mu, 5.5, C.c2, 2);
+    },
+    onDrag(x) { xsl.set(clamp(x, 0, 10)); }
+  });
+  const Q = new Plot($('#p6b'), {
+    aspect: 0.7, minH: 280, xr: [0, 1], yr: P.yr, xTicks: 3, xLabel: 'p̂(y | x₀)', margin: { l: 36 }, label: 'Conditional density of y at the slice position',
+    draw(c, p) {
+      const w = nwWeights(D.xs, x0, h, 'gauss'), ys = gridX(p.yr[0], p.yr[1], 140);
+      const dens = ys.map(y => { let s = 0; for (let i = 0; i < w.length; i++) s += w[i] * Kh('gauss', y - D.ys[i], h); return s; });
+      c.fillStyle = withAlpha(C.c1, 0.12); c.beginPath(); c.moveTo(p.sx(0), p.sy(ys[0]));
+      dens.forEach((d, i) => c.lineTo(p.sx(d), p.sy(ys[i]))); c.lineTo(p.sx(0), p.sy(ys[ys.length - 1])); c.closePath(); c.fill();
+      p.line(dens.map((d, i) => [d, ys[i]]), C.c1, LINE);
+      c.strokeStyle = C.c2; c.lineWidth = 1.5; c.beginPath(); c.moveTo(p.m.l, p.sy(mu)); c.lineTo(p.w - p.m.r, p.sy(mu)); c.stroke();
+      p.text('mean ' + fmt(mu, 2), p.w - p.m.r - 4, p.sy(mu) - 9, C['ink-2'], 'right', 'middle', '11px IBM Plex Mono, monospace');
+    }
+  });
+  function buildHeat() {
+    const nx = 110, ny = 70, hc = heat.getContext('2d'); heat.width = nx; heat.height = ny;
+    const img = hc.createImageData(nx, ny), n = D.xs.length, gx = [], gyy = [];
+    for (let k = 0; k < n; k++) {
+      gx.push(Float64Array.from({ length: nx }, (_, i) => Kh('gauss', 10 * (i + 0.5) / nx - D.xs[k], h)));
+      gyy.push(Float64Array.from({ length: ny }, (_, j) => Kh('gauss', P.yr[1] - (P.yr[1] - P.yr[0]) * (j + 0.5) / ny - D.ys[k], h)));
+    }
+    const F = new Float64Array(nx * ny); let mx = 0;
+    for (let k = 0; k < n; k++) for (let j = 0; j < ny; j++) { const b = gyy[k][j]; if (b < 1e-9) continue; for (let i = 0; i < nx; i++) F[j * nx + i] += gx[k][i] * b; }
+    for (let t = 0; t < F.length; t++) mx = Math.max(mx, F[t]);
+    for (let t = 0; t < F.length; t++) { const col = heatColor(Math.pow(F[t] / (mx || 1), 0.7)); img.data[t * 4] = col[0]; img.data[t * 4 + 1] = col[1]; img.data[t * 4 + 2] = col[2]; img.data[t * 4 + 3] = 255; }
+    hc.putImageData(img, 0, 0);
+  }
+  function update(rebuild) {
+    if (rebuild !== false) buildHeat();
+    curve = gridX(0, 10, 140).map(x => [x, nwMean(D.xs, D.ys, x, h, 'gauss')]);
+    const w = nwWeights(D.xs, x0, h, 'gauss'); mu = 0; w.forEach((wi, i) => { mu += wi * D.ys[i]; });
+    let px = 0; D.xs.forEach(x => { px += Kh('gauss', x0 - x, h); }); px /= D.xs.length;
+    const w2 = nwWeights(D.xs, x0, h, 'gauss'); let top = 0.001;
+    gridX(Q.yr[0], Q.yr[1], 140).forEach(y => { let s = 0; for (let i = 0; i < w2.length; i++) s += w2[i] * Kh('gauss', y - D.ys[i], h); top = Math.max(top, s); });
+    Q.xr = [0, top * 1.15];
+    readout('r6', kv('x₀', fmt(x0, 2)) + kv('p̂(x₀)', fmt(px, 3)) + kv('E[y | x₀] = Σ w<sub>n</sub> y<sub>n</sub>', fmt(mu, 2)));
+    P.render(); Q.render();
+  }
+  slider('h6', v => fmt(v, 2), v => { h = v; update(); });
+  const xsl = slider('x6', v => fmt(v, 2), v => { x0 = v; update(false); });
+  select('s6', k => { kind = k; D = genReg(k, 60, 31); P.yr = yRange(D.ys, 0.12); Q.yr = P.yr; update(); });
+  check('c6joint', v => { joint = v; update(false); });
+  DEMO_HOOKS.push(() => update());
+  update();
+})();
+
+/* =====================================================================
+   7. Nadaraya-Watson estimator for the mean
+   ===================================================================== */
+(function demo7() {
+  let kind = 'wavy', D = genReg(kind, 60, 31), h = 0.7, x0 = 4.1, kern = 'gauss', curve = [], W = [], yhat = 0;
+  const ptColor = t => { const a = rgb(C.pt), b = rgb(C.c2), m = mix(a, b, clamp(t, 0, 1)); return 'rgb(' + m.join(',') + ')'; };
+  const interp = (cv, x) => { const t = clamp((x - cv[0][0]) / (cv[cv.length - 1][0] - cv[0][0]), 0, 1) * (cv.length - 1), i = Math.min(cv.length - 2, Math.floor(t)); return cv[i][1] + (cv[i + 1][1] - cv[i][1]) * (t - i); };
+  const P = new Plot($('#p7a'), {
+    aspect: 0.5, minH: 270, xr: [0, 10], yr: yRange(D.ys, 0.12), xLabel: 'x', yLabel: 'y', margin: { l: 36 }, label: 'Nadaraya-Watson fit with weights shown as dot size',
+    draw(c, p) {
+      if (!W.length) return;
+      const span = p.yr[1] - p.yr[0], base = p.yr[0];
+      const bump = gridX(0, 10, 300).map(x => [x, base + 0.3 * span * Math.min(1, KERN[kern].f((x - x0) / h) / KERN[kern].f(0))]);
+      p.fillUnder(bump, withAlpha(C.c2, 0.12), base); p.line(bump, withAlpha(C.c2, 0.8), 1.25, [5, 3]);
+      p.line(curve, C.c1, LINE);
+      c.strokeStyle = withAlpha(C.c2, 0.6); c.lineWidth = 1; c.beginPath(); c.moveTo(p.sx(x0), p.m.t); c.lineTo(p.sx(x0), p.h - p.m.b); c.stroke();
+      const wmax = Math.max.apply(null, W) || 1;
+      D.xs.forEach((x, i) => { const t = Math.sqrt(W[i] / wmax); p.dot(x, D.ys[i], 2.8 + 6 * t, ptColor(t), 1.5); });
+      p.dot(x0, yhat, 6, C.c2, 2.5);
+    },
+    onHover: x => 'x = ' + fmt(x, 2) + '   f̂(x) = ' + fmt(interp(curve, x), 2),
+    onDrag(x) { xsl.set(clamp(x, 0, 10)); }
+  });
+  const S = new Plot($('#p7b'), {
+    aspect: 0.2, minH: 128, xr: [0, 10], yr: [0, 1], yTicks: 2, xLabel: 'x', yLabel: 'weight w_n(x)', margin: { l: 36, t: 20, b: 36 }, noCross: true, label: 'Weights given to each training point',
+    draw(c, p) {
+      D.xs.forEach((x, i) => { const px = p.sx(x); c.strokeStyle = C.c2; c.lineWidth = 2; c.beginPath(); c.moveTo(px, p.sy(0)); c.lineTo(px, p.sy(W[i])); c.stroke(); });
+      c.strokeStyle = withAlpha(C.c2, 0.6); c.lineWidth = 1; c.beginPath(); c.moveTo(p.sx(x0), p.m.t); c.lineTo(p.sx(x0), p.h - p.m.b); c.stroke();
+    }
+  });
+  function update() {
+    curve = gridX(0, 10, 160).map(x => [x, nwMean(D.xs, D.ys, x, h, kern)]);
+    W = nwWeights(D.xs, x0, h, kern); yhat = 0; W.forEach((w, i) => { yhat += w * D.ys[i]; });
+    const sw = sum(W), neff = 1 / sum(W.map(w => w * w));
+    S.yr = [0, Math.max.apply(null, W) * 1.15 || 1];
+    readout('r7', kv('x', fmt(x0, 2)) + kv('Σ w<sub>n</sub>', fmt(sw, 3)) + kv('f̂(x) = Σ w<sub>n</sub> y<sub>n</sub>', fmt(yhat, 2)) + kv('points that really count (1/Σw²)', fmt(neff, 1)));
+    P.render(); S.render();
+  }
+  const hs = slider('h7', v => fmt(v, 2), v => { h = v; update(); });
+  const xsl = slider('x7', v => fmt(v, 2), v => { x0 = v; update(); });
+  select('k7', k => { kern = k; update(); });
+  select('s7', k => { kind = k; D = genReg(k, 60, 31); P.yr = yRange(D.ys, 0.12); update(); });
+  $('#b7small').addEventListener('click', () => { h = 0.02; $('#h7v').textContent = '0.02 (≈ 0)'; update(); });
+  $('#b7big').addEventListener('click', () => { h = 1000; $('#h7v').textContent = '1000 (≈ ∞)'; update(); });
+  DEMO_HOOKS.push(() => update());
+  update();
+})();
+
+/* =====================================================================
+   8. Estimator for the variance
+   ===================================================================== */
+(function demo8() {
+  let kind = 'het', D = genReg(kind, 90, 41), h = 0.8, sg = 0.1, x0 = 7.2, showTrue = true;
+  let mu = [], top = [], bot = [];
+  const grid = gridX(0, 10, 140);
+  const stat = x => {
+    const w = nwWeights(D.xs, x, h, 'gauss'); let m = 0, m2 = 0;
+    w.forEach((wi, i) => { m += wi * D.ys[i]; m2 += wi * D.ys[i] * D.ys[i]; });
+    const between = Math.max(0, m2 - m * m); return { m, between, v: sg * sg + between, w };
+  };
+  const P = new Plot($('#p8a'), {
+    aspect: 0.7, minH: 280, xr: [0, 10], yr: yRange(D.ys, 0.1), xLabel: 'x', yLabel: 'y', margin: { l: 36 }, label: 'Regression mean with a spread band',
+    draw(c, p) {
+      p.band(top, bot, C.band);
+      if (showTrue) { p.line(grid.map(x => [x, D.f(x) + 2 * D.sd(x)]), C['ink-2'], 1.25, [6, 4]); p.line(grid.map(x => [x, D.f(x) - 2 * D.sd(x)]), C['ink-2'], 1.25, [6, 4]); }
+      p.line(mu, C.c1, LINE);
+      c.strokeStyle = C.c2; c.lineWidth = 1.5; c.beginPath(); c.moveTo(p.sx(x0), p.m.t); c.lineTo(p.sx(x0), p.h - p.m.b); c.stroke();
+      D.xs.forEach((x, i) => p.dot(x, D.ys[i], 2.8, C.pt, 1.2));
+    },
+    onHover: x => { const s = stat(x); return 'x = ' + fmt(x, 2) + '  μ̂ = ' + fmt(s.m, 2) + '  sd = ' + fmt(Math.sqrt(s.v), 2); },
+    onDrag(x) { xsl.set(clamp(x, 0, 10)); }
+  });
+  const Q = new Plot($('#p8b'), {
+    aspect: 0.7, minH: 280, xr: [0, 1], yr: P.yr, xTicks: 3, xLabel: 'p̂(y | x₀)', margin: { l: 36 }, label: 'Predictive distribution of y at the query',
+    draw(c, p) {
+      const s = stat(x0), sd = Math.sqrt(s.v), bw = Math.max(sg, 0.05), ys = gridX(p.yr[0], p.yr[1], 160);
+      const dens = ys.map(y => { let t = 0; for (let i = 0; i < s.w.length; i++) t += s.w[i] * normPdf(y, D.ys[i], bw); return t; });
+      c.fillStyle = C.band; c.fillRect(p.m.l, p.sy(s.m + 2 * sd), p.pw, p.sy(s.m - 2 * sd) - p.sy(s.m + 2 * sd));
+      c.beginPath(); c.moveTo(p.sx(0), p.sy(ys[0])); dens.forEach((d, i) => c.lineTo(p.sx(d), p.sy(ys[i]))); c.lineTo(p.sx(0), p.sy(ys[ys.length - 1])); c.closePath();
+      c.fillStyle = withAlpha(C.c1, 0.12); c.fill(); p.line(dens.map((d, i) => [d, ys[i]]), C.c1, LINE);
+      c.strokeStyle = C.c2; c.lineWidth = 1.5; c.beginPath(); c.moveTo(p.m.l, p.sy(s.m)); c.lineTo(p.w - p.m.r, p.sy(s.m)); c.stroke();
+      p.text('μ̂ ± 2 sd', p.w - p.m.r - 4, p.sy(s.m + 2 * sd) + 10, C['ink-2'], 'right', 'middle', '11px IBM Plex Mono, monospace');
+    }
+  });
+  function update() {
+    const S = grid.map(x => stat(x));
+    mu = grid.map((x, i) => [x, S[i].m]); top = grid.map((x, i) => [x, S[i].m + 2 * Math.sqrt(S[i].v)]); bot = grid.map((x, i) => [x, S[i].m - 2 * Math.sqrt(S[i].v)]);
+    const s = stat(x0); let pk = 0.001; const bw = Math.max(sg, 0.05);
+    gridX(Q.yr[0], Q.yr[1], 160).forEach(y => { let t = 0; for (let i = 0; i < s.w.length; i++) t += s.w[i] * normPdf(y, D.ys[i], bw); pk = Math.max(pk, t); });
+    Q.xr = [0, pk * 1.15];
+    readout('r8', kv('x', fmt(x0, 2)) + kv('μ̂(x)', fmt(s.m, 2)) + kv('V̂(x) = σ² + Σ w(y−μ̂)²', fmt(sg * sg, 3) + ' + ' + fmt(s.between, 3) + ' = ' + fmt(s.v, 3)) + kv('sd', fmt(Math.sqrt(s.v), 2)) + kv('true sd', fmt(D.sd(x0), 2)));
+    P.render(); Q.render();
+  }
+  slider('h8', v => fmt(v, 2), v => { h = v; update(); });
+  slider('sg8', v => fmt(v, 2), v => { sg = v; update(); });
+  const xsl = slider('x8', v => fmt(v, 2), v => { x0 = v; update(); });
+  select('s8', k => { kind = k; D = genReg(k, 90, 41); P.yr = yRange(D.ys, 0.1); Q.yr = P.yr; update(); });
+  check('c8true', v => { showTrue = v; update(); });
+  DEMO_HOOKS.push(() => update());
+  update();
+})();
+
+/* =====================================================================
+   9. Locally weighted regression
+   ===================================================================== */
+(function demo9() {
+  let kind = 'slope', D = genReg(kind, 70, 51), h = 1.3, x0 = 9.1, deg = 1, kern = 'tricube', showNW = true, showLoc = true;
+  let lw = [], nw = [], L = null;
+  const grid = gridX(0, 10, 120);
+  const ptColor = t => { const a = rgb(C.pt), b = rgb(C.c2), m = mix(a, b, clamp(t, 0, 1)); return 'rgb(' + m.join(',') + ')'; };
+  const interp = (cv, x) => { const t = clamp(x / 10, 0, 1) * (cv.length - 1), i = Math.min(cv.length - 2, Math.floor(t)); return cv[i][1] + (cv[i + 1][1] - cv[i][1]) * (t - i); };
+  const P = new Plot($('#p9'), {
+    aspect: 0.5, minH: 280, xr: [0, 10], yr: yRange(D.ys, 0.12), xLabel: 'x', yLabel: 'y', margin: { l: 36 }, label: 'Locally weighted regression compared with Nadaraya-Watson',
+    draw(c, p) {
+      if (!L) return;
+      p.line(grid.map(x => [x, D.f(x)]), C['ink-2'], 1.25, [6, 4]);
+      if (showNW) p.line(nw, C.c3, LINE);
+      p.line(lw, C.c1, LINE);
+      c.strokeStyle = withAlpha(C.c2, 0.55); c.lineWidth = 1; c.beginPath(); c.moveTo(p.sx(x0), p.m.t); c.lineTo(p.sx(x0), p.h - p.m.b); c.stroke();
+      const wmax = Math.max.apply(null, L.w) || 1;
+      D.xs.forEach((x, i) => { const t = Math.sqrt(L.w[i] / wmax); p.dot(x, D.ys[i], 2.6 + 4.5 * t, ptColor(t), 1.3); });
+      if (showLoc) {
+        const span = KERN[kern].support === Infinity ? 2 * h : h, a = Math.max(0, x0 - span), b = Math.min(10, x0 + span);
+        p.line(gridX(a, b, 40).map(x => { let y = 0; L.beta.forEach((bk, k) => { y += bk * Math.pow(x - x0, k); }); return [x, y]; }), C.c2, 3);
+      }
+      p.dot(x0, L.pred, 5.5, C.c2, 2.5);
+    },
+    onHover: x => 'x = ' + fmt(x, 2) + '  LWR ' + fmt(interp(lw, x), 2) + (showNW ? '  NW ' + fmt(interp(nw, x), 2) : '') + '  true ' + fmt(D.f(x), 2),
+    onDrag(x) { xsl.set(clamp(x, 0, 10)); }
+  });
+  function update() {
+    lw = grid.map(x => [x, lwr(D.xs, D.ys, x, h, kern, deg).pred]);
+    nw = grid.map(x => [x, nwMean(D.xs, D.ys, x, h, kern)]);
+    L = lwr(D.xs, D.ys, x0, h, kern, deg);
+    const nwv = nwMean(D.xs, D.ys, x0, h, kern), names = ['β̂₀ (height)', 'β̂₁ (slope)', 'β̂₂ (curvature)'];
+    readout('r9', kv('x*', fmt(x0, 2)) + L.beta.map((b, k) => kv(names[k], fmt(b, 2))).join('') + kv('f̂(x*) local fit', fmt(L.pred, 2)) + kv('NW', fmt(nwv, 2)) + kv('true f(x*)', fmt(D.f(x0), 2)) + (L.deg < deg ? '<span>window holds too few points, used degree <b>' + L.deg + '</b></span>' : ''));
+    P.render();
+  }
+  slider('h9', v => fmt(v, 2), v => { h = v; update(); });
+  const xsl = slider('x9', v => fmt(v, 2), v => { x0 = v; update(); });
+  select('deg9', v => { deg = +v; update(); });
+  select('k9', k => { kern = k; update(); });
+  select('s9', k => { kind = k; D = genReg(k, 70, 51); P.yr = yRange(D.ys, 0.12); update(); });
+  check('c9nw', v => { showNW = v; update(); });
+  check('c9loc', v => { showLoc = v; update(); });
+  DEMO_HOOKS.push(() => update());
+  update();
+})();
+
+})();
+</script>
+</body>
+</html>
